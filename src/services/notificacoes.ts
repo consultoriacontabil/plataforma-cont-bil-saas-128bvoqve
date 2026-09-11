@@ -37,6 +37,7 @@ export const notificacoesService = {
     const unread = await pb.collection('notificacoes').getFullList<NotificacaoRecord>({
       filter,
     })
+    if (unread.length === 0) return []
     return Promise.all(
       unread.map((n) => pb.collection('notificacoes').update(n.id, { lida: true })),
     )
