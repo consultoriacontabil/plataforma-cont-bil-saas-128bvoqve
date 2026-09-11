@@ -1,0 +1,101 @@
+import React from 'react'
+import { Layers, Building2, Landmark, Mail, Info, Clock, Sparkles, ShieldCheck } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+
+export default function Integracoes() {
+  const integrations = [
+    {
+      id: 'bb',
+      title: 'Contador / Banco do Brasil',
+      description:
+        'Sincronização de extratos bancários em formato OFX e conciliação automática de recebimentos PJ.',
+      icon: Landmark,
+      color: 'from-amber-500 to-yellow-600',
+      tag: 'Open Finance',
+    },
+    {
+      id: 'rfb',
+      title: 'Receita Federal do Brasil (e-CAC)',
+      description:
+        'Consulta de pendências fiscais, débitos em aberto, parcelamentos e emissão de Certidão Negativa (CND).',
+      icon: ShieldCheck,
+      color: 'from-blue-600 to-indigo-700',
+      tag: 'Governo Federal',
+    },
+    {
+      id: 'imap',
+      title: 'E-mail Corporativo (IMAP / SMTP)',
+      description:
+        'Captura automática de XMLs de notas fiscais e relatórios enviados por clientes via caixa postal contábil.',
+      icon: Mail,
+      color: 'from-teal-600 to-emerald-700',
+      tag: 'GED Automático',
+    },
+  ]
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">Hub de Integrações</h2>
+        <p className="text-xs text-[#64748B]">
+          Conectores externos para automação contábil, bancária e fiscal
+        </p>
+      </div>
+
+      {/* Info Banner */}
+      <div className="flex items-start gap-3 rounded-2xl border border-teal-200 bg-teal-50/70 p-4 shadow-xs">
+        <Info className="h-5 w-5 text-[#0FA3A3] shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-xs font-bold text-[#0B1F3A]">Aviso Operacional do MVP</p>
+          <p className="text-xs text-[#64748B]">
+            Integrações serão habilitadas em fases futuras. O MVP concentra-se no núcleo operacional
+            (Multi-tenant, GED, Workflows, Fiscal e Rumo Agent nativo).
+          </p>
+        </div>
+      </div>
+
+      {/* Grid of 3 Integration Cards */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {integrations.map((item) => {
+          const Icon = item.icon
+          return (
+            <Card
+              key={item.id}
+              className="rounded-2xl border-[#E2E8F0] shadow-xs flex flex-col justify-between"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr ${item.color} text-white shadow-sm`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-[#64748B]">
+                    {item.tag}
+                  </Badge>
+                </div>
+                <CardTitle className="text-sm font-bold text-[#1A2333] mt-3">
+                  {item.title}
+                </CardTitle>
+                <CardDescription className="text-xs text-[#64748B] line-clamp-3">
+                  {item.description}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Em breve (P1)</span>
+                </div>
+                <Switch disabled checked={false} aria-label={`Ativar ${item.title}`} />
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

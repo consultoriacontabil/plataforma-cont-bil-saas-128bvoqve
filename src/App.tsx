@@ -1,0 +1,72 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
+import Layout from '@/components/Layout'
+
+// Pages
+import Login from '@/pages/Login'
+import SignUp from '@/pages/SignUp'
+import Dashboard from '@/pages/Dashboard'
+import Empresas from '@/pages/Empresas'
+import EmpresaForm from '@/pages/EmpresaForm'
+import EmpresaDetail from '@/pages/EmpresaDetail'
+import Documentos from '@/pages/Documentos'
+import WorkflowPage from '@/pages/Workflow'
+import Fiscal from '@/pages/Fiscal'
+import Integracoes from '@/pages/Integracoes'
+import Usuarios from '@/pages/Usuarios'
+import Auditoria from '@/pages/Auditoria'
+import RumoAgentPage from '@/pages/RumoAgent'
+import Perfil from '@/pages/Perfil'
+import NotFound from '@/pages/NotFound'
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        {/* Public Auth Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+
+        {/* Protected Application Routes wrapped by Layout */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Empresas */}
+          <Route path="/empresas" element={<Empresas />} />
+          <Route path="/empresas/nova" element={<EmpresaForm />} />
+          <Route path="/empresas/:id" element={<EmpresaDetail />} />
+          <Route path="/empresas/:id/editar" element={<EmpresaForm />} />
+
+          {/* Core Modules */}
+          <Route path="/documentos" element={<Documentos />} />
+          <Route path="/workflow" element={<WorkflowPage />} />
+          <Route path="/workflow/:id" element={<WorkflowPage />} />
+          <Route path="/fiscal" element={<Fiscal />} />
+          <Route path="/integracoes" element={<Integracoes />} />
+
+          {/* Gestão */}
+          <Route path="/usuarios" element={<Usuarios />} />
+          <Route path="/usuarios/perfis" element={<Usuarios />} />
+          <Route path="/auditoria" element={<Auditoria />} />
+
+          {/* Rumo Agent (Native IA) */}
+          <Route path="/rumo-agent" element={<RumoAgentPage />} />
+
+          {/* Perfil */}
+          <Route path="/perfil" element={<Perfil />} />
+        </Route>
+
+        {/* Catch-all 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
+  )
+}
