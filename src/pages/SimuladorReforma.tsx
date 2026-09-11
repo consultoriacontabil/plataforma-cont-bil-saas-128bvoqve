@@ -77,6 +77,8 @@ import {
 } from '@/lib/reformaTributaria/calculos'
 import { RelatorioReformaModal } from '@/components/RelatorioReformaModal'
 import { ComparadorCenariosModal } from '@/components/ComparadorCenariosModal'
+import { RankingSetorialTab } from '@/components/RankingSetorialTab'
+import { relatorioSetorialService, RelatorioSetorialCarteira } from '@/services/relatorioSetorial'
 import {
   Tooltip as TooltipUI,
   TooltipContent,
@@ -129,8 +131,14 @@ export default function SimuladorReformaPage() {
     detalhes: string
   } | null>(null)
 
-  // Aba ativa: simulador | historico | parametros
-  const [activeTab, setActiveTab] = useState<'simulador' | 'historico' | 'parametros'>('simulador')
+  // Relatório Setorial da Carteira
+  const [relatorioSetorial, setRelatorioSetorial] = useState<RelatorioSetorialCarteira | null>(null)
+  const [loadingSetorial, setLoadingSetorial] = useState(false)
+
+  // Aba ativa: simulador | ranking_setorial | historico | parametros
+  const [activeTab, setActiveTab] = useState<
+    'simulador' | 'ranking_setorial' | 'historico' | 'parametros'
+  >('simulador')
 
   // Carrega empresas do tenant
   useEffect(() => {
@@ -212,8 +220,28 @@ export default function SimuladorReformaPage() {
     }
   }
 
+  // Carrega diagnóstico setorial da carteira
+  const carregarRelatorioSetorial = async () => {
+    if (!tenant?.id) return
+    setLoadingSetorial(true)
+    try {
+      const rel = await relatorioSetorialService.gerarRankingSetorialCarteira(tenant.id)
+      setRelatorioSetorial(rel)
+    } catch (err) {
+      console.error('Erro ao processar relatório setorial:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar ranking setorial',
+        description: 'Não foi possível compilar os impactos setoriais da carteira.',
+      })
+    } finally {
+      setLoadingSetorial(false)
+    }
+  }
+
   useEffect(() => {
     carregarHistorico()
+    carregarRelatorioSetorial()
   }, [tenant?.id])
 
   // Ao selecionar uma empresa existente, auto-preenche dados
@@ -551,6 +579,15 @@ export default function SimuladorReformaPage() {
           <TabsTrigger value="simulador" className="rounded-lg text-xs font-semibold gap-2">
             <Calculator className="h-3.5 w-3.5" />
             <span>Simulador & Análise de Cenários</span>
+          </TabsTrigger>
+          <TabsTrigger value="ranking_setorial" className="rounded-lg text-xs font-semibold gap-2">
+            <Building2 className="h-3.5 w-3.5 text-[#0FA3A3]" />
+            <span>Ranking Setorial da Carteira</span>
+            {relatorioSetorial && (
+              <Badge className="bg-[#0FA3A3] text-white text-[10px] h-4 px-1 rounded-full font-bold">
+                {relatorioSetorial.totalEmpresasAnalisadas}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="historico" className="rounded-lg text-xs font-semibold gap-2">
             <History className="h-3.5 w-3.5" />
@@ -1288,6 +1325,20 @@ export default function SimuladorReformaPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ABA NOVA: RANKING SETORIAL DA CARTEIRA */}
+        <TabsContent value="ranking_setorial" className="space-y-6">
+          <RankingSetorialTab
+            relatorio={relatorioSetorial}
+            loading={loadingSetorial}
+            onRecarregar={carregarRelatorioSetorial}
+            tenantNome={tenant?.nome}
+            onAbrirSimulacaoEmpresa={(empresaId) => {
+              handleSelecionarEmpresa(empresaId)
+              setActiveTab('simulador')
+            }}
+          />
         </TabsContent>
 
         {/* ABA 2: HISTÓRICO DE CENÁRIOS SALVOS */}
