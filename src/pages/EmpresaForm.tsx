@@ -940,6 +940,7 @@ export default function EmpresaForm() {
             certidoes={certidoesList}
             comunicacoesEcac={comunicacoesEcacList}
             temCertificadoA1={Boolean(certData.tipo === 'a1' && (certData.id || certData.validade))}
+            empresa={{ id, ...formData } as Empresa}
             onRefresh={async () => {
               if (!id) return
               const [cList, eList] = await Promise.all([

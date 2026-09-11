@@ -374,6 +374,7 @@ export default function EmpresaDetail() {
               certidoes={certidoes}
               comunicacoesEcac={ecacComunicacoes}
               temCertificadoA1={Boolean(certificado && certificado.tipo === 'a1')}
+              empresa={empresa}
               onRefresh={async () => {
                 const [certsList, ecacList] = await Promise.all([
                   certidoesService.listByEmpresa(empresa.id),

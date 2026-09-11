@@ -412,6 +412,23 @@ export function EmpresaEcacTab({
                             Nova
                           </Badge>
                         )}
+                        {item.origem_captura === 'automatica_conector' ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-semibold py-0 px-1.5 h-4 flex items-center gap-1"
+                            title="Importado diretamente pelo Conector RFB / DTE"
+                          >
+                            <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
+                            <span>Sincronizado RFB</span>
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] font-normal py-0 px-1.5 h-4"
+                          >
+                            Manual
+                          </Badge>
+                        )}
                         {renderCriticidadeBadge(item.criticidade)}
                       </div>
 
@@ -692,6 +709,23 @@ export function EmpresaEcacTab({
 
           {selecionada && (
             <div className="space-y-4 pt-2 text-xs">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border text-[11px]">
+                <span className="font-semibold text-muted-foreground">Origem de Captura:</span>
+                {selecionada.origem_captura === 'automatica_conector' ? (
+                  <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+                    <ShieldCheck className="h-3 w-3" /> Conector RFB Automático (DTE)
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px]">
+                    Registro Manual Supervisionado
+                  </Badge>
+                )}
+                {selecionada.identificador_rfb && (
+                  <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                    ID RFB: {selecionada.identificador_rfb}
+                  </span>
+                )}
+              </div>{' '}
               {selecionada.data_limite_resposta && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-900 flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
@@ -704,14 +738,12 @@ export function EmpresaEcacTab({
                   </div>
                 </div>
               )}
-
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-[#1A2333]">Teor do Despacho:</span>
                 <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5 text-xs text-slate-800 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-line font-mono text-[11px]">
                   {selecionada.conteudo || 'Sem conteúdo adicional transcrito.'}
                 </div>
               </div>
-
               {selecionada.anexo && (
                 <div className="pt-2 flex items-center justify-between border-t border-slate-100">
                   <div className="flex items-center gap-2">

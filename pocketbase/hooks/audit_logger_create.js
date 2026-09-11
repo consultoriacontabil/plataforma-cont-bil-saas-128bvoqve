@@ -325,4 +325,6 @@ onRecordAfterCreateSuccess(
   'empresa_cadastro_assistido',
   'certidoes',
   'ecac_comunicacoes',
+  'rfb_config',
+  'rfb_sync_logs',
 )

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T21:11:24.349Z",
+  "generatedAt": "2026-09-11T21:19:27.276Z",
   "collections": [
     {
       "name": "users",
@@ -5155,13 +5155,250 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "identificador_rfb",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_ecac_tenant_empresa ON ecac_comunicacoes (tenant_id, empresa)",
         "CREATE INDEX idx_ecac_data ON ecac_comunicacoes (data_comunicacao DESC)",
         "CREATE INDEX idx_ecac_criticidade ON ecac_comunicacoes (criticidade)",
-        "CREATE INDEX idx_ecac_lida ON ecac_comunicacoes (lida)"
+        "CREATE INDEX idx_ecac_lida ON ecac_comunicacoes (lida)",
+        "CREATE INDEX `idx_ecac_identificador_rfb` ON `ecac_comunicacoes` (empresa, identificador_rfb)"
+      ]
+    },
+    {
+      "name": "rfb_config",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ambiente",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["producao", "homologacao"]
+        },
+        {
+          "name": "cnpj_contribuinte",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "certificado_a1",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "certificados_digitais"
+        },
+        {
+          "name": "senha_certificado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contrato_dte_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_ambiente_rfb",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sincronizacao_automatica",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sincronizar_certidoes",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sincronizar_ecac",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_diagnostico_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_sincronizacao_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_conexao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["conectado", "erro_credenciais", "modo_supervisao", "desconectado"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_rfb_config_empresa ON rfb_config (empresa)",
+        "CREATE INDEX idx_rfb_config_tenant ON rfb_config (tenant_id)",
+        "CREATE INDEX idx_rfb_config_ativo ON rfb_config (ativo)"
+      ]
+    },
+    {
+      "name": "rfb_sync_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "origem_acionamento",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["manual", "cron_diario", "teste_credenciais"]
+        },
+        {
+          "name": "sucesso",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modo_operacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["conector_real", "modo_supervisao"]
+        },
+        {
+          "name": "comunicacoes_novas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "certidoes_atualizadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duracao_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "detalhes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_rfb_logs_empresa ON rfb_sync_logs (empresa, created DESC)",
+        "CREATE INDEX idx_rfb_logs_tenant ON rfb_sync_logs (tenant_id)",
+        "CREATE INDEX idx_rfb_logs_created ON rfb_sync_logs (created DESC)"
       ]
     }
   ]

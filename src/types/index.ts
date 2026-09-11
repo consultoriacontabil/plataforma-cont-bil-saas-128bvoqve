@@ -296,6 +296,7 @@ export interface EcacComunicacaoRecord extends RecordModel {
   anexo?: string
   numero_processo?: string
   origem_captura?: OrigemCapturaEcac
+  identificador_rfb?: string
   expand?: {
     empresa?: Empresa
   }
@@ -1355,4 +1356,85 @@ export interface NfseNotaEmitidaRecord extends RecordModel {
     nota_substituta_id?: NfseNotaEmitidaRecord
     nota_substituida_id?: NfseNotaEmitidaRecord
   }
+}
+
+// ==========================================
+// CONECTOR RFB (RECEITA FEDERAL / DTE / E-CAC)
+// ==========================================
+
+export type RfbAmbiente = 'producao' | 'homologacao'
+export type RfbStatusConexao = 'conectado' | 'erro_credenciais' | 'modo_supervisao' | 'desconectado'
+export type RfbOrigemAcionamento = 'manual' | 'cron_diario' | 'teste_credenciais'
+export type RfbModoOperacao = 'conector_real' | 'modo_supervisao'
+
+export interface RfbDiagnosticoItem {
+  item: string
+  status: 'ok' | 'erro' | 'alerta'
+  detalhe: string
+}
+
+export interface RfbDiagnosticoResult {
+  sucesso: boolean
+  ambiente: RfbAmbiente
+  data_verificacao: string
+  mensagem: string
+  itens: RfbDiagnosticoItem[]
+  modo_operacao: RfbModoOperacao
+}
+
+export interface RfbConfigRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  ativo: boolean
+  ambiente: RfbAmbiente
+  cnpj_contribuinte?: string
+  certificado_a1?: string
+  senha_certificado?: string
+  contrato_dte_id?: string
+  token_ambiente_rfb?: string
+  sincronizacao_automatica: boolean
+  sincronizar_certidoes: boolean
+  sincronizar_ecac: boolean
+  ultimo_diagnostico_json?: RfbDiagnosticoResult
+  ultima_sincronizacao_em?: string
+  status_conexao: RfbStatusConexao
+  expand?: {
+    empresa?: Empresa
+    certificado_a1?: CertificadoDigitalRecord
+  }
+}
+
+export interface RfbSyncLogRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  origem_acionamento: RfbOrigemAcionamento
+  sucesso: boolean
+  modo_operacao: RfbModoOperacao
+  comunicacoes_novas: number
+  certidoes_atualizadas: number
+  duracao_ms: number
+  mensagem: string
+  detalhes_json?: Record<string, unknown>
+  executado_por?: string
+  expand?: {
+    empresa?: Empresa
+    executado_por?: User
+  }
+}
+
+export interface RfbSincronizarResult {
+  sucesso: boolean
+  modo_operacao: RfbModoOperacao
+  mensagem: string
+  duracao_ms: number
+  comunicacoes_novas: number
+  certidoes_atualizadas: number
+  erros?: string[]
+  detalhes?: Record<string, unknown>
 }

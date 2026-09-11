@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { EmpresaCertidoesTab } from './EmpresaCertidoesTab'
 import { EmpresaEcacTab } from './EmpresaEcacTab'
+import { EmpresaConectorRfbTab } from './EmpresaConectorRfbTab'
 import { certidoesService } from '@/services/regularidade'
-import type { CertidaoRecord, EcacComunicacaoRecord } from '@/types'
+import type { Empresa, CertidaoRecord, EcacComunicacaoRecord } from '@/types'
 
 interface EmpresaRegularidadeSectionProps {
   empresaId: string
@@ -23,6 +24,7 @@ interface EmpresaRegularidadeSectionProps {
   certidoes: CertidaoRecord[]
   comunicacoesEcac: EcacComunicacaoRecord[]
   temCertificadoA1: boolean
+  empresa?: Empresa
   onRefresh: () => Promise<void>
 }
 
@@ -33,9 +35,10 @@ export function EmpresaRegularidadeSection({
   certidoes,
   comunicacoesEcac,
   temCertificadoA1,
+  empresa,
   onRefresh,
 }: EmpresaRegularidadeSectionProps) {
-  const [subTab, setSubTab] = useState<'certidoes' | 'ecac'>('certidoes')
+  const [subTab, setSubTab] = useState<'certidoes' | 'ecac' | 'conector_rfb'>('certidoes')
 
   // Contadores para os badges das sub-abas
   const certidoesVencendoOuVencidas = certidoes.filter((c) => {
@@ -98,7 +101,10 @@ export function EmpresaRegularidadeSection({
       </div>
 
       <CardContent className="p-4 sm:p-6 space-y-6">
-        <Tabs value={subTab} onValueChange={(val) => setSubTab(val as 'certidoes' | 'ecac')}>
+        <Tabs
+          value={subTab}
+          onValueChange={(val) => setSubTab(val as 'certidoes' | 'ecac' | 'conector_rfb')}
+        >
           <TabsList className="bg-slate-100 p-1 rounded-xl h-10 w-full sm:w-auto justify-start">
             <TabsTrigger
               value="certidoes"
@@ -129,6 +135,14 @@ export function EmpresaRegularidadeSection({
                 </span>
               )}
             </TabsTrigger>
+
+            <TabsTrigger
+              value="conector_rfb"
+              className="rounded-lg text-xs font-semibold gap-2 data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3]"
+            >
+              <ShieldAlert className="h-3.5 w-3.5" />
+              <span>Conector RFB / DTE</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="certidoes" className="pt-4">
@@ -150,6 +164,17 @@ export function EmpresaRegularidadeSection({
               temCertificadoA1={temCertificadoA1}
               onRefresh={onRefresh}
             />
+          </TabsContent>
+
+          <TabsContent value="conector_rfb" className="pt-4">
+            {empresa ? (
+              <EmpresaConectorRfbTab empresa={empresa} onSyncCompleted={onRefresh} />
+            ) : (
+              <EmpresaConectorRfbTab
+                empresa={{ id: empresaId } as Empresa}
+                onSyncCompleted={onRefresh}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

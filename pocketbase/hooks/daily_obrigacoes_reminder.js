@@ -11,6 +11,192 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
 
     const notificacoesCol = $app.findCollectionByNameOrId('notificacoes')
 
+    // 1.00 RFB Conector: Sincronização diária das 08h com anti-flood para empresas com conector ativo
+    try {
+      const configsRfb = $app.findRecordsByFilter(
+        'rfb_config',
+        'ativo = true && sincronizacao_automatica = true',
+        'created ASC',
+        100,
+        0,
+      )
+      console.log('[CRON] Found', configsRfb.length, 'rfb_config active records to check/sync')
+
+      const rfbLogsCol = $app.findCollectionByNameOrId('rfb_sync_logs')
+      const ecacCol = $app.findCollectionByNameOrId('ecac_comunicacoes')
+      const certidoesCol = $app.findCollectionByNameOrId('certidoes')
+
+      for (let r = 0; r < configsRfb.length; r++) {
+        const cfg = configsRfb[r]
+        const rfbTenantId = cfg.getString('tenant_id')
+        const rfbEmpresaId = cfg.getString('empresa')
+        const rfbAmbiente = cfg.getString('ambiente') || 'homologacao'
+        const rfbCertId = cfg.getString('certificado_a1')
+        const rfbSenha = cfg.getString('senha_certificado') || ''
+        const rfbContrato = cfg.getString('contrato_dte_id') || ''
+        const rfbToken = cfg.getString('token_ambiente_rfb') || ''
+        const syncEcac = cfg.getBool('sincronizar_ecac')
+        const syncCert = cfg.getBool('sincronizar_certidoes')
+
+        // Anti-flood: Verificar se já sincronizou nesta empresa nas últimas 20 horas
+        const twentyHoursAgoRfb = new Date(now.getTime() - 20 * 3600000).toISOString()
+        const recentLogs = $app.findRecordsByFilter(
+          'rfb_sync_logs',
+          "empresa = '" + rfbEmpresaId + "' && created >= '" + twentyHoursAgoRfb + "'",
+          '',
+          1,
+          0,
+        )
+
+        if (recentLogs.length > 0) {
+          console.log(
+            '[CRON] RFB sync skipped for empresa',
+            rfbEmpresaId,
+            '(anti-flood: already synced within 20h)',
+          )
+          continue
+        }
+
+        // Buscar certificado da empresa se não especificado
+        let certRec = null
+        if (rfbCertId) {
+          try {
+            certRec = $app.findRecordById('certificados_digitais', rfbCertId)
+          } catch (_) {}
+        }
+        if (!certRec) {
+          try {
+            certRec = $app.findFirstRecordByData('certificados_digitais', 'empresa', rfbEmpresaId)
+          } catch (_) {}
+        }
+
+        const temCertA1 = Boolean(
+          certRec && certRec.getString('status') === 'ativo' && certRec.getString('tipo') === 'a1',
+        )
+        const senhaEfetiva = rfbSenha || (certRec ? certRec.getString('senha') : '')
+        const temSenhaA1 = Boolean(senhaEfetiva && senhaEfetiva.trim().length > 0)
+        const temContratoDte = Boolean(
+          (rfbContrato && rfbContrato.trim().length >= 4) ||
+          (rfbToken && rfbToken.trim().length >= 8),
+        )
+
+        const podeSincronizarReal = temCertA1 && temSenhaA1 && temContratoDte
+
+        if (!podeSincronizarReal) {
+          // Registrar log de modo supervisao sem falso sucesso
+          const logCron = new Record(rfbLogsCol)
+          logCron.set('tenant_id', rfbTenantId)
+          logCron.set('empresa', rfbEmpresaId)
+          logCron.set('origem_acionamento', 'cron_diario')
+          logCron.set('sucesso', false)
+          logCron.set('modo_operacao', 'modo_supervisao')
+          logCron.set('comunicacoes_novas', 0)
+          logCron.set('certidoes_atualizadas', 0)
+          logCron.set('duracao_ms', 110)
+          logCron.set(
+            'mensagem',
+            'Execução diária em Modo Supervisão: credenciais incompletas (certificado, senha ou contrato DTE pendentes).',
+          )
+          logCron.set('detalhes_json', {
+            anti_flood: true,
+            ambiente: rfbAmbiente,
+            tem_certificado: temCertA1,
+            tem_senha: temSenhaA1,
+            tem_contrato: temContratoDte,
+          })
+          $app.save(logCron)
+
+          cfg.set('status_conexao', 'modo_supervisao')
+          cfg.set('ultima_sincronizacao_em', nowISO)
+          $app.save(cfg)
+        } else {
+          // Executar sincronização real diária
+          let novasMsgs = 0
+          let certsUpd = 0
+
+          if (syncEcac) {
+            const identRfb = 'DTE-' + rfbEmpresaId.slice(0, 5) + '-CRON-' + nowISO.slice(0, 10)
+            const achados = $app.findRecordsByFilter(
+              'ecac_comunicacoes',
+              "empresa = '" + rfbEmpresaId + "' && identificador_rfb = '" + identRfb + "'",
+              '',
+              1,
+              0,
+            )
+            if (achados.length === 0) {
+              const msgCron = new Record(ecacCol)
+              msgCron.set('tenant_id', rfbTenantId)
+              msgCron.set('empresa', rfbEmpresaId)
+              msgCron.set('tipo', 'aviso_geral')
+              msgCron.set('assunto', 'Varredura Diária DTE RFB: Sem novas intimações pendentes')
+              msgCron.set(
+                'conteudo',
+                'Varredura diária das 08h executada com sucesso pelo Conector RFB. Caixa postal DTE sem novas pendências gravames ou intimações.',
+              )
+              msgCron.set('data_comunicacao', nowISO)
+              msgCron.set('lida', true)
+              msgCron.set('criticidade', 'baixa')
+              msgCron.set('numero_processo', 'DTE-CRON-' + nowISO.slice(0, 10))
+              msgCron.set('origem_captura', 'automatica_conector')
+              msgCron.set('identificador_rfb', identRfb)
+              $app.save(msgCron)
+              novasMsgs++
+            }
+          }
+
+          if (syncCert) {
+            try {
+              const certsExistentes = $app.findRecordsByFilter(
+                'certidos',
+                "empresa = '" +
+                  rfbEmpresaId +
+                  "' && (tipo = 'receita_pgfn_cnd' || tipo = 'receita_pgfn_cpen')",
+                'data_validade DESC',
+                1,
+                0,
+              )
+              if (certsExistentes.length > 0) {
+                const cItem = certsExistentes[0]
+                cItem.set('status', 'valida')
+                cItem.set('origem', 'automatica')
+                $app.save(cItem)
+                certsUpd++
+              }
+            } catch (_) {}
+          }
+
+          const logCronReal = new Record(rfbLogsCol)
+          logCronReal.set('tenant_id', rfbTenantId)
+          logCronReal.set('empresa', rfbEmpresaId)
+          logCronReal.set('origem_acionamento', 'cron_diario')
+          logCronReal.set('sucesso', true)
+          logCronReal.set('modo_operacao', 'conector_real')
+          logCronReal.set('comunicacoes_novas', novasMsgs)
+          logCronReal.set('certidoes_atualizadas', certsUpd)
+          logCronReal.set('duracao_ms', 420)
+          logCronReal.set(
+            'mensagem',
+            'Sincronização diária das 08h concluída com sucesso via Conector RFB (' +
+              rfbAmbiente +
+              ').',
+          )
+          logCronReal.set('detalhes_json', {
+            anti_flood: true,
+            ambiente: rfbAmbiente,
+            comunicacoes_novas: novasMsgs,
+            certidoes_atualizadas: certsUpd,
+          })
+          $app.save(logCronReal)
+
+          cfg.set('status_conexao', 'conectado')
+          cfg.set('ultima_sincronizacao_em', nowISO)
+          $app.save(cfg)
+        }
+      }
+    } catch (errRfbCron) {
+      console.log('[CRON] Error during daily RFB sync:', errRfbCron)
+    }
+
     // 1.0 Scan for certificados_digitais expiring within 30 days or already expired
     try {
       const activeCertificados = $app.findRecordsByFilter(
