@@ -30,6 +30,7 @@ import PatrimonioPage from '@/pages/Patrimonio'
 import FechoMensalPage from '@/pages/FechoMensal'
 import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
 import FinanceiroPage from '@/pages/Financeiro'
+import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -59,6 +60,7 @@ export default function App() {
 
           {/* Financeiro (P1/P2) */}
           <Route path="/financeiro" element={<FinanceiroPage />} />
+          <Route path="/fluxo-caixa" element={<FluxoCaixaPage />} />
 
           {/* Core Modules */}
           <Route path="/documentos" element={<Documentos />} />

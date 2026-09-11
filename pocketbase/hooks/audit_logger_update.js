@@ -155,6 +155,14 @@ onRecordAfterUpdateSuccess(
           record.getString('descricao') +
           ' alterado para status ' +
           record.getString('status')
+      } else if (collectionName === 'integracoes_bancarias') {
+        acao = 'Atualização de integração bancária'
+        detalhes =
+          'Integração bancária atualizada para status ' +
+          record.getString('status') +
+          ' (modo ' +
+          record.getString('modo') +
+          ')'
       }
 
       log.set('acao', acao)
@@ -184,4 +192,5 @@ onRecordAfterUpdateSuccess(
   'contas_financeiras',
   'contas_bancarias',
   'extratos_bancarios',
+  'integracoes_bancarias',
 )

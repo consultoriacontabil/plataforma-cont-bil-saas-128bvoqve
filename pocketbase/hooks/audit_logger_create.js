@@ -187,6 +187,21 @@ onRecordAfterCreateSuccess(
           ' (R$ ' +
           record.getFloat('valor').toFixed(2) +
           ')'
+      } else if (collectionName === 'integracoes_bancarias') {
+        acao = 'Integração bancária configurada'
+        detalhes =
+          'Configuração de integração bancária (' +
+          record.getString('modo') +
+          ' / ' +
+          record.getString('frequencia') +
+          ')'
+      } else if (collectionName === 'integracoes_logs') {
+        acao = 'Execução de integração bancária'
+        detalhes =
+          'Log de importação bancária (' +
+          record.getString('status') +
+          '): ' +
+          record.getString('mensagem')
       }
 
       log.set('acao', acao)
@@ -216,4 +231,6 @@ onRecordAfterCreateSuccess(
   'contas_financeiras',
   'contas_bancarias',
   'extratos_bancarios',
+  'integracoes_bancarias',
+  'integracoes_logs',
 )

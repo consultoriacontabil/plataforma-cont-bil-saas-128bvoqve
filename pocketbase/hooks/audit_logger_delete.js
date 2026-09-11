@@ -43,4 +43,6 @@ onRecordAfterDeleteSuccess(
   'contas_financeiras',
   'contas_bancarias',
   'extratos_bancarios',
+  'integracoes_bancarias',
+  'integracoes_logs',
 )

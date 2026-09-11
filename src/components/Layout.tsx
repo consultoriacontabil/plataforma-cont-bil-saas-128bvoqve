@@ -29,6 +29,7 @@ import {
   PieChart,
   Boxes,
   Wallet,
+  TrendingUp,
   Plus,
 } from 'lucide-react'
 import {
@@ -135,6 +136,7 @@ export default function Layout() {
     if (path.startsWith('/empresas/')) return 'Detalhes da Empresa'
     if (path.startsWith('/empresas')) return 'Empresas'
     if (path.startsWith('/documentos')) return 'Documentos & GED'
+    if (path.startsWith('/fluxo-caixa')) return 'Fluxo de Caixa & DFC'
     if (path.startsWith('/financeiro')) return 'Financeiro & Conciliação'
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
@@ -266,7 +268,10 @@ export default function Layout() {
     },
     {
       group: 'FINANCEIRO',
-      items: [{ label: 'Contas & Conciliação', to: '/financeiro', icon: Wallet }],
+      items: [
+        { label: 'Contas & Conciliação', to: '/financeiro', icon: Wallet },
+        { label: 'Fluxo de Caixa & DFC', to: '/fluxo-caixa', icon: TrendingUp },
+      ],
     },
     {
       group: 'CONTÁBIL',

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T15:21:14.447Z",
+  "generatedAt": "2026-09-11T16:03:36.675Z",
   "collections": [
     {
       "name": "users",
@@ -2546,6 +2546,226 @@
         "CREATE INDEX idx_extratos_tenant_conta ON extratos_bancarios (tenant_id, conta_bancaria)",
         "CREATE INDEX idx_extratos_emp_status ON extratos_bancarios (empresa, status)",
         "CREATE INDEX idx_extratos_data ON extratos_bancarios (data DESC)"
+      ]
+    },
+    {
+      "name": "integracoes_bancarias",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "conta_bancaria",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contas_bancarias"
+        },
+        {
+          "name": "modo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["manual", "automatico"]
+        },
+        {
+          "name": "frequencia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["diaria", "semanal"]
+        },
+        {
+          "name": "fonte_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["email", "pasta_sftp", "webhook_simulado", "arquivo_agendado"]
+        },
+        {
+          "name": "fonte_identificador",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "pausado", "erro"]
+        },
+        {
+          "name": "ultima_execucao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proxima_execucao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_importados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_conciliados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_integracoes_tenant_emp ON integracoes_bancarias (tenant_id, empresa)",
+        "CREATE INDEX idx_integracoes_conta ON integracoes_bancarias (conta_bancaria)",
+        "CREATE INDEX idx_integracoes_status_modo ON integracoes_bancarias (status, modo)",
+        "CREATE INDEX idx_integracoes_created ON integracoes_bancarias (created DESC)"
+      ]
+    },
+    {
+      "name": "integracoes_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "integracao",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "integracoes_bancarias"
+        },
+        {
+          "name": "conta_bancaria",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contas_bancarias"
+        },
+        {
+          "name": "data_execucao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["sucesso", "aviso", "falha"]
+        },
+        {
+          "name": "linhas_lidas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linhas_importadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linhas_duplicadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linhas_conciliadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_intlogs_tenant_int ON integracoes_logs (tenant_id, integracao)",
+        "CREATE INDEX idx_intlogs_conta ON integracoes_logs (conta_bancaria)",
+        "CREATE INDEX idx_intlogs_data ON integracoes_logs (data_execucao DESC)"
       ]
     }
   ]

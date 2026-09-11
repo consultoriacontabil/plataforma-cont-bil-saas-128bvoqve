@@ -586,3 +586,93 @@ export interface ExtratoBancarioRecord extends RecordModel {
     conciliado_por?: User
   }
 }
+
+// === Integrações Bancárias & Importação Automática ===
+export type IntegracaoModo = 'manual' | 'automatico'
+export type IntegracaoFrequencia = 'diaria' | 'semanal'
+export type IntegracaoFonteTipo = 'email' | 'pasta_sftp' | 'webhook_simulado' | 'arquivo_agendado'
+export type IntegracaoStatus = 'ativo' | 'pausado' | 'erro'
+export type IntegracaoLogStatus = 'sucesso' | 'aviso' | 'falha'
+
+export interface IntegracaoBancariaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  conta_bancaria: string
+  modo: IntegracaoModo
+  frequencia: IntegracaoFrequencia
+  fonte_tipo: IntegracaoFonteTipo
+  fonte_identificador: string
+  status: IntegracaoStatus
+  ultima_execucao?: string
+  proxima_execucao?: string
+  total_importados?: number
+  total_conciliados?: number
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    conta_bancaria?: ContaBancariaRecord
+  }
+}
+
+export interface IntegracaoLogRecord extends RecordModel {
+  tenant_id: string
+  integracao: string
+  conta_bancaria: string
+  data_execucao: string
+  status: IntegracaoLogStatus
+  linhas_lidas?: number
+  linhas_importadas?: number
+  linhas_duplicadas?: number
+  linhas_conciliadas?: number
+  mensagem: string
+  detalhes_json?: Record<string, unknown>
+  expand?: {
+    integracao?: IntegracaoBancariaRecord
+    conta_bancaria?: ContaBancariaRecord
+  }
+}
+
+// === Fluxo de Caixa e DFC ===
+export interface FluxoCaixaItemProjecao {
+  id: string
+  origem: 'realizado' | 'previsto'
+  tipo: 'entrada' | 'saida'
+  data: string
+  descricao: string
+  pessoa: string
+  documento?: string
+  valor: number
+  status: string
+  empresaNome?: string
+  contaBancariaNome?: string
+  categoriaNome?: string
+}
+
+export interface FluxoCaixaCompetenciaResumo {
+  periodoRotulo: string
+  dataInicio: string
+  dataFim: string
+  saldoInicial: number
+  entradasRealizadas: number
+  entradasPrevistas: number
+  totalEntradas: number
+  saidasRealizadas: number
+  saidasPrevistas: number
+  totalSaidas: number
+  resultadoPeriodo: number
+  saldoFinal: number
+  isNegativo: boolean
+  itens: FluxoCaixaItemProjecao[]
+}
+
+export interface DFCFluxoResultado {
+  saldoInicialGeral: number
+  saldoFinalProjetado: number
+  totalEntradasRealizadas: number
+  totalEntradasPrevistas: number
+  totalSaidasRealizadas: number
+  totalSaidasPrevistas: number
+  resultadoLiquidoOperacional: number
+  competencias: FluxoCaixaCompetenciaResumo[]
+  itensDetalhados: FluxoCaixaItemProjecao[]
+}
