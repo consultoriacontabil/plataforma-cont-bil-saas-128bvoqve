@@ -45,14 +45,41 @@ export default function Integracoes() {
         </p>
       </div>
 
+      {/* Banner de Destaque da Extensão do WhatsApp */}
+      <div className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0FA3A3] text-white">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#1A2333]">
+                Extensão Google Chrome para WhatsApp Web
+              </h3>
+              <Badge className="bg-[#0FA3A3] text-white text-[10px]">DISPONÍVEL</Badge>
+            </div>
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Envio assistivo de recibos e guias, mensagens rápidas com templates e captura de
+              contatos em modo seguro anti-ban.
+            </p>
+          </div>
+        </div>
+        <a
+          href="/extensao"
+          className="inline-flex items-center justify-center rounded-lg bg-[#0FA3A3] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0d8c8c] transition-colors shrink-0"
+        >
+          Instalar Extensão
+        </a>
+      </div>
+
       {/* Info Banner */}
       <div className="flex items-start gap-3 rounded-2xl border border-teal-200 bg-teal-50/70 p-4 shadow-xs">
         <Info className="h-5 w-5 text-[#0FA3A3] shrink-0 mt-0.5" />
         <div className="space-y-0.5">
-          <p className="text-xs font-bold text-[#0B1F3A]">Aviso Operacional do MVP</p>
+          <p className="text-xs font-bold text-[#0B1F3A]">Aviso Operacional</p>
           <p className="text-xs text-[#64748B]">
-            Integrações serão habilitadas em fases futuras. O MVP concentra-se no núcleo operacional
-            (Multi-tenant, GED, Workflows, Fiscal e Rumo Agent nativo).
+            Integrações bancárias automáticas serão habilitadas em fases futuras. A extensão Chrome
+            para WhatsApp Web já se encontra totalmente operacional em modo assistivo.
           </p>
         </div>
       </div>

@@ -11,4 +11,27 @@ export const auditService = {
       expand: 'usuario_id',
     })
   },
+
+  async log(
+    tenantId: string,
+    usuarioId: string,
+    acao: string,
+    entidadeTipo: string,
+    entidadeId: string,
+    detalhes: string,
+  ) {
+    try {
+      return await pb.collection('audit_log').create({
+        tenant_id: tenantId,
+        usuario_id: usuarioId && usuarioId !== 'system' ? usuarioId : null,
+        acao,
+        entidade_tipo: entidadeTipo,
+        entidade_id: entidadeId,
+        detalhes,
+      })
+    } catch (err) {
+      console.warn('Erro ao registrar log de auditoria:', err)
+      return null
+    }
+  },
 }

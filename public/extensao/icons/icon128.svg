@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="rumoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0FA3A3"/>
+      <stop offset="100%" stop-color="#0B1F3A"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#rumoGrad)"/>
+  <circle cx="64" cy="64" r="44" fill="none" stroke="#FFFFFF" stroke-width="6" opacity="0.25"/>
+  <path d="M42 92V36h24c13.25 0 22 7.75 22 19 0 9.25-5.5 16-14.5 18.25L88 92H72L58 74H56v18H42zm14-30h10c5.5 0 8.5-3.25 8.5-7s-3-7-8.5-7H56v14z" fill="#FFFFFF"/>
+</svg>

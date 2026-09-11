@@ -35,6 +35,7 @@ import { ImpostosRetidosPage } from '@/pages/ImpostosRetidos'
 import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
+import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -92,6 +93,7 @@ export default function App() {
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/integracoes" element={<Integracoes />} />
+          <Route path="/extensao" element={<ExtensaoWhatsAppPage />} />
 
           {/* Gestão */}
           <Route path="/portal-acessos" element={<PortalAcessosPage />} />

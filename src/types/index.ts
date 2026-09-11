@@ -878,3 +878,37 @@ export interface ContratoHonorarioRecord extends RecordModel {
     criado_por?: User
   }
 }
+
+// WhatsApp Web Assistant Types
+export type StatusCapturaLead = 'capturado' | 'empresa_criada' | 'empresa_vinculada' | 'descartado'
+
+export interface WhatsAppLeadContatoRecord extends RecordModel {
+  tenant_id: string
+  empresa_associada?: string
+  nome_contato: string
+  telefone: string
+  origem_chat_jid?: string
+  status_captura: StatusCapturaLead
+  observacoes?: string
+  dados_extras?: Record<string, unknown>
+  capturado_por?: string
+  expand?: {
+    empresa_associada?: Empresa
+    capturado_por?: User
+  }
+}
+
+export type WhatsAppTemplateCategoria =
+  | 'cobranca'
+  | 'boas_vindas'
+  | 'obrigacao_prazo'
+  | 'documentos'
+  | 'geral'
+
+export interface WhatsAppTemplateRecord extends RecordModel {
+  tenant_id: string
+  titulo: string
+  categoria: WhatsAppTemplateCategoria
+  conteudo: string
+  ativo: boolean
+}

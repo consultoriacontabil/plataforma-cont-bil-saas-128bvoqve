@@ -155,6 +155,7 @@ export default function Layout() {
     if (path.startsWith('/contratos')) return 'Contratos & Propostas de Honorários'
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
+    if (path.startsWith('/extensao')) return 'Extensão WhatsApp Web'
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
     if (path.startsWith('/auditoria')) return 'Trilha de Auditoria'
@@ -296,8 +297,9 @@ export default function Layout() {
       items: [{ label: 'Contratos & Propostas', to: '/contratos', icon: FileCheck }],
     },
     {
-      group: 'GESTÃO',
+      group: 'GESTÃO & INTEGRAÇÕES',
       items: [
+        { label: 'Extensão WhatsApp', to: '/extensao', icon: Sparkles, badge: 'NOVO' },
         { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
         { label: 'Relatórios', to: '/relatorios', icon: Layers },
         { label: 'Usuários & Perfis', to: '/usuarios', icon: Users },
@@ -379,11 +381,17 @@ export default function Layout() {
                       <Icon className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105" />
                       {!collapsed && <span>{item.label}</span>}
                     </div>
-                    {!collapsed && item.badge && (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
-                        {item.badge}
-                      </span>
-                    )}
+                    {!collapsed &&
+                      item.badge &&
+                      (typeof item.badge === 'string' ? (
+                        <span className="flex items-center px-1.5 py-0.5 rounded bg-[#0FA3A3] text-[9px] font-bold uppercase text-white shadow-xs">
+                          {item.badge}
+                        </span>
+                      ) : (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
+                          {item.badge}
+                        </span>
+                      ))}
                   </NavLink>
                 )
               })}
@@ -473,11 +481,16 @@ export default function Layout() {
                           <Icon className="h-5 w-5" />
                           <span>{item.label}</span>
                         </div>
-                        {item.badge && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
-                            {item.badge}
-                          </span>
-                        )}
+                        {item.badge &&
+                          (typeof item.badge === 'string' ? (
+                            <span className="flex items-center px-1.5 py-0.5 rounded bg-[#0FA3A3] text-[9px] font-bold uppercase text-white shadow-xs">
+                              {item.badge}
+                            </span>
+                          ) : (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
+                              {item.badge}
+                            </span>
+                          ))}
                       </NavLink>
                     )
                   })}

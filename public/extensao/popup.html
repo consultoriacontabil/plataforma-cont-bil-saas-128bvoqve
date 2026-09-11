@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Rumo Contábil - Conexão</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        width: 360px;
+        padding: 16px;
+        background-color: #0b1f3a;
+        color: #f8fafc;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #1e293b;
+      }
+      .logo-badge {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #0fa3a3, #123b6d);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #fff;
+        font-size: 18px;
+      }
+      .header-text h1 {
+        font-size: 15px;
+        font-weight: 700;
+        color: #fff;
+      }
+      .header-text p {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .notice {
+        background-color: #0f172a;
+        border: 1px solid #1e293b;
+        border-left: 3px solid #0fa3a3;
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #cbd5e1;
+        margin-bottom: 16px;
+      }
+      .notice strong {
+        color: #38bdf8;
+      }
+      .form-group {
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      input {
+        width: 100%;
+        padding: 8px 10px;
+        background-color: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      input:focus {
+        border-color: #0fa3a3;
+      }
+      .btn {
+        width: 100%;
+        padding: 9px;
+        border-radius: 6px;
+        border: none;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s;
+      }
+      .btn-primary {
+        background-color: #0fa3a3;
+        color: #fff;
+        margin-top: 4px;
+      }
+      .btn-primary:hover {
+        background-color: #0d8c8c;
+      }
+      .btn-secondary {
+        background-color: transparent;
+        border: 1px solid #334155;
+        color: #94a3b8;
+        margin-top: 8px;
+      }
+      .btn-secondary:hover {
+        background-color: #1e293b;
+        color: #fff;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        text-align: center;
+        display: none;
+      }
+      .status.success {
+        display: block;
+        background-color: rgba(34, 197, 94, 0.15);
+        border: 1px solid #22c55e;
+        color: #86efac;
+      }
+      .status.error {
+        display: block;
+        background-color: rgba(239, 68, 68, 0.15);
+        border: 1px solid #ef4444;
+        color: #fca5a5;
+      }
+      .footer {
+        margin-top: 16px;
+        padding-top: 10px;
+        border-top: 1px solid #1e293b;
+        font-size: 10px;
+        color: #64748b;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="logo-badge">R</div>
+      <div class="header-text">
+        <h1>Rumo Contábil</h1>
+        <p>Assistente WhatsApp Web</p>
+      </div>
+    </div>
+
+    <div class="notice">
+      <strong>Modo Assistivo Seguro:</strong> Esta extensão não realiza disparos em massa nem simula
+      envios automáticos. Ela apenas pré-preenche mensagens e documentos na tela para conferência e
+      envio manual.
+    </div>
+
+    <div class="form-group">
+      <label for="platformUrl">URL da Plataforma Rumo</label>
+      <input type="text" id="platformUrl" placeholder="https://seu-app.com" />
+    </div>
+
+    <div class="form-group">
+      <label for="authToken">Token de Conexão (Copie em /extensao)</label>
+      <input type="password" id="authToken" placeholder="Cole o token da sua sessão" />
+    </div>
+
+    <button id="saveBtn" class="btn btn-primary">Salvar Conexão</button>
+    <button id="testBtn" class="btn btn-secondary">Testar Comunicação</button>
+
+    <div id="statusMsg" class="status"></div>
+
+    <div class="footer">Rumo Consultoria Contábil &bull; Modo 100% Assistivo</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
