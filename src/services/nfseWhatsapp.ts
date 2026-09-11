@@ -26,6 +26,13 @@ export interface SalvarConfigInput {
   govbr_client_secret?: string
   govbr_api_url?: string
   provedor_municipio_ibge?: string
+  betha_usuario?: string
+  betha_senha_token?: string
+  betha_api_url?: string
+  ginfes_usuario?: string
+  ginfes_senha?: string
+  ginfes_api_url?: string
+  provedores_empresas_json?: Record<string, any>
   msg_saudacao?: string
   msg_recebimento?: string
   msg_aprovacao?: string
@@ -310,10 +317,42 @@ export const nfseWhatsappService = {
       ).toFixed(2),
     )
 
-    // 5. SELEÇÃO DO ADAPTER FISCAL
-    // Se o tenant tiver credenciais configuradas para o Gov.br, tentará emitir via Gov.br
-    const provedorId = config?.provedor_fiscal || 'governacional'
-    const adapter = FiscalAdapterFactory.getAdapter(provedorId)
+    // 5. SELEÇÃO DO ADAPTER FISCAL (por empresa ou global do tenant)
+    const empConfig = config?.provedores_empresas_json?.[empresa.id]
+    const adapter = FiscalAdapterFactory.resolveAdapterForEmpresa(empresa.id, config)
+
+    // Resolver ambiente, credenciais e endpoint específicos da empresa ou globais
+    const ambienteEmissao = (empConfig?.ambiente || config?.provedor_ambiente || 'producao') as
+      | 'producao'
+      | 'homologacao'
+    const municipioIbge =
+      empConfig?.municipioIbge ||
+      config?.provedor_municipio_ibge ||
+      (empresa.uf === 'PR' ? '4106902' : '3550308')
+
+    // Resolver credenciais conforme o adapter escolhido
+    let apiUrl = empConfig?.apiUrl
+    let clientId = empConfig?.clientId || config?.govbr_client_id
+    let clientSecret = empConfig?.clientSecret || config?.govbr_client_secret
+    let usuario = empConfig?.usuario
+    let senhaToken = empConfig?.senhaToken
+    let senha = empConfig?.senha
+
+    if (adapter.id === 'governacional') {
+      apiUrl = apiUrl || config?.govbr_api_url || 'https://nfse.receita.fazenda.gov.br/portalnfse'
+    } else if (adapter.id === 'betha') {
+      apiUrl =
+        apiUrl ||
+        config?.betha_api_url ||
+        'https://e-gov.betha.com.br/e-nota-contribuinte-ws/nfseWS'
+      usuario = usuario || config?.betha_usuario
+      senhaToken = senhaToken || config?.betha_senha_token
+    } else if (adapter.id === 'ginfes') {
+      apiUrl =
+        apiUrl || config?.ginfes_api_url || 'https://homologacao.ginfes.com.br/ServiceGinfesImpl'
+      usuario = usuario || config?.ginfes_usuario
+      senha = senha || config?.ginfes_senha
+    }
 
     const payloadAdapter = {
       numero: proximoNumero,
@@ -325,13 +364,13 @@ export const nfseWhatsappService = {
         razaoSocial: empresa.razao_social,
         nomeFantasia: empresa.nome_fantasia || empresa.razao_social,
         inscricaoMunicipal: empresa.inscricao_municipal || 'ISENTO',
-        logradouro: empresa.logradouro || 'Avenida Paulista',
+        logradouro: empresa.logradouro || 'Avenida Central',
         numero: empresa.numero || '100',
         bairro: empresa.bairro || 'Centro',
         cidade: empresa.cidade || 'São Paulo',
         uf: empresa.uf || 'SP',
-        cep: empresa.cep || '01310-100',
-        codigoIbge: config?.provedor_municipio_ibge || '3550308',
+        cep: empresa.cep || '01000-000',
+        codigoIbge: municipioIbge,
         telefone: empresa.telefone || '',
         email: empresa.email || '',
       },
@@ -354,13 +393,16 @@ export const nfseWhatsappService = {
         valorIr,
         valorCsll,
       },
-      ambiente: (config?.provedor_ambiente || 'producao') as 'producao' | 'homologacao',
+      ambiente: ambienteEmissao,
       certificado: certificadoRecord,
       credenciais: {
-        clientId: config?.govbr_client_id,
-        clientSecret: config?.govbr_client_secret,
-        apiUrl: config?.govbr_api_url,
-        municipioIbge: config?.provedor_municipio_ibge,
+        clientId,
+        clientSecret,
+        apiUrl,
+        municipioIbge,
+        usuario,
+        senhaToken,
+        senha,
       },
     }
 
@@ -498,7 +540,12 @@ export const nfseWhatsappService = {
       valor_liquido: valorLiquido,
       iss_retido: !!input.iss_retido,
       status: 'emitida',
-      modo_emissao: resultadoEmissao.modo === 'governacional_real' ? 'nacional_gov' : 'simulacao',
+      modo_emissao:
+        resultadoEmissao.modo === 'governacional_real'
+          ? 'nacional_gov'
+          : resultadoEmissao.modo === 'betha_real' || resultadoEmissao.modo === 'ginfes_real'
+            ? 'prefeitura_ws'
+            : 'simulacao',
       provedor_usado: adapter.id,
       url_consulta_nfse: resultadoEmissao.urlConsulta,
       protocolo_autorizacao: resultadoEmissao.protocoloAutorizacao,
@@ -657,6 +704,9 @@ export const nfseWhatsappService = {
     apiUrl?: string
     clientId?: string
     clientSecret?: string
+    usuario?: string
+    senhaToken?: string
+    senha?: string
     municipioIbge?: string
     empresaId?: string
   }): Promise<{ sucesso: boolean; mensagem: string; statusCode?: number; detalhe?: string }> {
@@ -665,6 +715,9 @@ export const nfseWhatsappService = {
       apiUrl: params.apiUrl,
       clientId: params.clientId,
       clientSecret: params.clientSecret,
+      usuario: params.usuario,
+      senhaToken: params.senhaToken,
+      senha: params.senha,
       municipioIbge: params.municipioIbge,
       empresaId: params.empresaId,
       tenantId: params.tenantId,

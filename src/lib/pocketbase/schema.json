@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T20:41:09.310Z",
+  "generatedAt": "2026-09-11T20:50:18.158Z",
   "collections": [
     {
       "name": "users",
@@ -4362,6 +4362,48 @@
         },
         {
           "name": "ultimo_teste_evolution",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "betha_usuario",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "betha_senha_token",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "betha_api_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ginfes_usuario",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ginfes_senha",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ginfes_api_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "provedores_empresas_json",
           "type": "json",
           "required": false,
           "system": false

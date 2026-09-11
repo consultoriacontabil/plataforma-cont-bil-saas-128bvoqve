@@ -1130,6 +1130,18 @@ export type StatusNfseNota = 'emitida' | 'cancelada' | 'substituida'
 export type ProvedorFiscalTipo = 'governacional' | 'betha' | 'ginfes'
 export type ProvedorAmbiente = 'producao' | 'homologacao'
 
+export interface ProvedorEmpresaConfig {
+  provedor: ProvedorFiscalTipo
+  ambiente?: ProvedorAmbiente
+  municipioIbge?: string
+  apiUrl?: string
+  clientId?: string
+  clientSecret?: string
+  usuario?: string
+  senhaToken?: string
+  senha?: string
+}
+
 export interface NfseConfigRecord extends RecordModel {
   tenant_id: string
   empresa_padrao?: string
@@ -1145,6 +1157,16 @@ export interface NfseConfigRecord extends RecordModel {
   govbr_client_secret?: string
   govbr_api_url?: string
   provedor_municipio_ibge?: string
+  // Betha Sistemas
+  betha_usuario?: string
+  betha_senha_token?: string
+  betha_api_url?: string
+  // Ginfes
+  ginfes_usuario?: string
+  ginfes_senha?: string
+  ginfes_api_url?: string
+  // Configurações por Empresa
+  provedores_empresas_json?: Record<string, ProvedorEmpresaConfig>
   ultimo_teste_provedor?: {
     sucesso: boolean
     data: string

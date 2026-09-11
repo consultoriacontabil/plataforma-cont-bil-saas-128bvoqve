@@ -49,6 +49,11 @@ export interface NfseEmissaoPayload {
     clientSecret?: string
     apiUrl?: string
     municipioIbge?: string
+    // Credenciais Betha
+    usuario?: string
+    senhaToken?: string
+    // Credenciais Ginfes
+    senha?: string
   }
 }
 
@@ -89,6 +94,9 @@ export interface NfseFiscalAdapter {
     apiUrl?: string
     clientId?: string
     clientSecret?: string
+    usuario?: string
+    senhaToken?: string
+    senha?: string
     municipioIbge?: string
     empresaId?: string
     tenantId?: string

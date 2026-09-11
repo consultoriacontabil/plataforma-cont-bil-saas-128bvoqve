@@ -25,6 +25,26 @@ export class FiscalAdapterFactory {
     return adapter
   }
 
+  /**
+   * Resolve o adapter adequado a partir da empresa e da configuração do tenant
+   * 1. Verifica se há configuração específica da empresa em config.provedores_empresas_json[empresaId]
+   * 2. Caso contrário, utiliza o provedor padrão configurado no tenant (config.provedor_fiscal)
+   * 3. Fallback final: 'governacional'
+   */
+  public static resolveAdapterForEmpresa(
+    empresaId?: string,
+    config?: {
+      provedor_fiscal?: string
+      provedores_empresas_json?: Record<string, { provedor?: string }>
+    } | null,
+  ): NfseFiscalAdapter {
+    if (empresaId && config?.provedores_empresas_json?.[empresaId]?.provedor) {
+      const provEmpresa = config.provedores_empresas_json[empresaId].provedor
+      return this.getAdapter(provEmpresa)
+    }
+    return this.getAdapter(config?.provedor_fiscal)
+  }
+
   public static listAdapters(): {
     id: string
     nome: string

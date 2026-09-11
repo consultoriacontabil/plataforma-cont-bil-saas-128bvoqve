@@ -208,7 +208,8 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
           </div>
           <DialogDescription className="text-xs text-[#64748B]">
             Etapa 5 do Framework: Valide os dados extraídos pelo Motor Cognitivo IA, ajuste se
-            necessário e acione a transmissão para o Emissor Nacional (Gov.br) ou Simulação.
+            necessário e acione a transmissão para o Provedor Fiscal Ativo (Gov.br / Betha / Ginfes)
+            ou Simulação.
           </DialogDescription>
         </DialogHeader>
 
@@ -491,8 +492,8 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
             </Badge>
             <span className="hidden sm:inline">
               {isProducaoGov
-                ? 'Emissão protocolada no Emissor Nacional com arquivamento no GED.'
-                : 'Emissão segura com geração de XML/PDF e número sequencial.'}
+                ? 'Emissão transmitida ao Provedor Fiscal com arquivamento no GED.'
+                : 'Validação ABRASF local e simulação segura com geração de XML/PDF.'}
             </span>
           </div>
 

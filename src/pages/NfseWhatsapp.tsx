@@ -196,26 +196,20 @@ export default function NfseWhatsappPage() {
                 : 'bg-amber-50 text-amber-700 border-amber-200'
             }`}
             title={
-              config?.modo_operacao === 'producao' &&
-              config?.govbr_client_id &&
-              config?.govbr_client_secret
-                ? 'Emissão conectada diretamente ao Emissor Nacional de NFS-e (Gov.br / Receita Federal).'
-                : 'A plataforma opera em Modo Simulação Controlada, gerando XMLs nacionais válidos e DANFSE com número sequencial.'
+              config?.modo_operacao === 'producao'
+                ? 'Emissão conectada aos Provedores Fiscais Ativos (Gov.br / Betha / Ginfes).'
+                : 'A plataforma opera em Modo Simulação Controlada, com validação ABRASF local, gerando XMLs válidos e DANFSE com número sequencial.'
             }
           >
             <Radio
               className={`h-3 w-3 ${
-                config?.modo_operacao === 'producao' &&
-                config?.govbr_client_id &&
-                config?.govbr_client_secret
+                config?.modo_operacao === 'producao'
                   ? 'text-emerald-600 animate-pulse'
                   : 'text-amber-500 animate-pulse'
               }`}
             />
-            {config?.modo_operacao === 'producao' &&
-            config?.govbr_client_id &&
-            config?.govbr_client_secret
-              ? 'PRODUÇÃO — Gov.br'
+            {config?.modo_operacao === 'producao'
+              ? `PRODUÇÃO — ${(config?.provedor_fiscal || 'govbr').toUpperCase()}`
               : 'Modo Simulação Controlada'}
           </Badge>
 
@@ -289,7 +283,7 @@ export default function NfseWhatsappPage() {
               Engine Fiscal
             </div>
             <p className="text-[10px] text-[#475569] mt-1 leading-tight">
-              Emissão da NFS-e (gov.br / prefeitura em simulação).
+              Emissão da NFS-e (Gov.br / Betha / Ginfes).
             </p>
           </div>
 

@@ -215,7 +215,7 @@ export class GovBrFiscalAdapter implements NfseFiscalAdapter {
   <infDPS Id="DPS${p.numero}">
     <tpAmb>${p.ambiente === 'producao' ? 1 : 2}</tpAmb>
     <dhEmi>${p.dataEmissao}</dhEmi>
-    <verAplic>RumoContabil_v0.0.24</verAplic>
+    <verAplic>RumoContabil_v0.0.25</verAplic>
     <serie>${p.serie || '1'}</serie>
     <nDPS>${p.numero}</nDPS>
     <dCompet>${p.competencia}-01</dCompet>
