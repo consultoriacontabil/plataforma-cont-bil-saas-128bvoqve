@@ -30,6 +30,7 @@ import PreLancamentoPage from '@/pages/PreLancamento'
 import PatrimonioPage from '@/pages/Patrimonio'
 import FechoMensalPage from '@/pages/FechoMensal'
 import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
+import { ContratosPage } from '@/pages/Contratos'
 import { ImpostosRetidosPage } from '@/pages/ImpostosRetidos'
 import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/patrimonio" element={<PatrimonioPage />} />
           <Route path="/fecho-mensal" element={<FechoMensalPage />} />
           <Route path="/relatorios-contabeis" element={<RelatoriosContabeisPage />} />
+          <Route path="/contratos" element={<ContratosPage />} />
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/integracoes" element={<Integracoes />} />

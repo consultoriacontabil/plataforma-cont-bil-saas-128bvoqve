@@ -38,6 +38,8 @@ export default function VerificarAssinaturaPage() {
   const [resultado, setResultado] = useState<{
     assinatura: AssinaturaDemonstrativoRecord
     demonstrativo: DemonstrativoRecord | null
+    contrato: unknown | null
+    tipoDocumento: 'demonstrativo' | 'contrato_honorarios'
     integridadeOk: boolean
     hashAtualCalculado: string
   } | null>(null)
@@ -269,27 +271,38 @@ export default function VerificarAssinaturaPage() {
                 <CardHeader className="p-5 pb-3 border-b border-[#E2E8F0] bg-slate-50/50">
                   <CardTitle className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-2">
                     <FileText className="h-4 w-4 text-[#0FA3A3]" />
-                    <span>Demonstrativo Contábil</span>
+                    <span>
+                      {resultado.tipoDocumento === 'contrato_honorarios'
+                        ? 'Contrato / Proposta de Honorários'
+                        : 'Demonstrativo Contábil'}
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-5 space-y-3 text-xs">
                   <div>
                     <span className="text-[#64748B] block text-[11px]">Tipo de Documento</span>
                     <span className="font-bold text-[#1A2333] text-sm">
-                      {resultado.demonstrativo?.tipo === 'dre'
-                        ? 'DRE — Demonstração do Resultado do Exercício'
-                        : resultado.demonstrativo?.tipo === 'balanco'
-                          ? 'Balanço Patrimonial Estruturado'
-                          : 'Demonstrativo Contábil Oficial'}
+                      {resultado.tipoDocumento === 'contrato_honorarios'
+                        ? 'Contrato de Prestação de Serviços Contábeis'
+                        : resultado.demonstrativo?.tipo === 'dre'
+                          ? 'DRE — Demonstração do Resultado do Exercício'
+                          : resultado.demonstrativo?.tipo === 'balanco'
+                            ? 'Balanço Patrimonial Estruturado'
+                            : 'Demonstrativo Contábil Oficial'}
                     </span>
                   </div>
 
                   <div>
                     <span className="text-[#64748B] block text-[11px]">
-                      Competência de Apuração
+                      {resultado.tipoDocumento === 'contrato_honorarios'
+                        ? 'Título do Contrato'
+                        : 'Competência de Apuração'}
                     </span>
-                    <span className="font-mono font-bold text-[#1A2333]">
-                      {resultado.assinatura.competencia}
+                    <span className="font-semibold text-[#1A2333]">
+                      {resultado.tipoDocumento === 'contrato_honorarios'
+                        ? (resultado.contrato as { titulo?: string })?.titulo ||
+                          'Contrato de Honorários'
+                        : resultado.assinatura.competencia}
                     </span>
                   </div>
 
@@ -298,11 +311,25 @@ export default function VerificarAssinaturaPage() {
                     <span className="font-semibold text-[#1A2333]">
                       {resultado.demonstrativo?.expand?.empresa?.razao_social ||
                         resultado.demonstrativo?.expand?.empresa?.nome_fantasia ||
+                        resultado.assinatura.expand?.empresa?.razao_social ||
+                        resultado.assinatura.expand?.empresa?.nome_fantasia ||
+                        (
+                          resultado.contrato as {
+                            expand?: { empresa?: { razao_social?: string; nome_fantasia?: string } }
+                          }
+                        )?.expand?.empresa?.razao_social ||
                         'Empresa Registrada'}
                     </span>
-                    {resultado.demonstrativo?.expand?.empresa?.cnpj && (
+                    {(resultado.demonstrativo?.expand?.empresa?.cnpj ||
+                      resultado.assinatura.expand?.empresa?.cnpj ||
+                      (resultado.contrato as { expand?: { empresa?: { cnpj?: string } } })?.expand
+                        ?.empresa?.cnpj) && (
                       <span className="block text-[11px] font-mono text-[#64748B]">
-                        CNPJ: {resultado.demonstrativo.expand.empresa.cnpj}
+                        CNPJ:{' '}
+                        {resultado.demonstrativo?.expand?.empresa?.cnpj ||
+                          resultado.assinatura.expand?.empresa?.cnpj ||
+                          (resultado.contrato as { expand?: { empresa?: { cnpj?: string } } })
+                            ?.expand?.empresa?.cnpj}
                       </span>
                     )}
                   </div>
@@ -391,7 +418,7 @@ export default function VerificarAssinaturaPage() {
                   <span>Integridade Criptográfica (Hash SHA-256)</span>
                 </CardTitle>
                 <CardDescription className="text-xs text-[#64748B]">
-                  Resumo criptográfico gerado a partir do conteúdo imutável do demonstrativo
+                  Resumo criptográfico gerado a partir do conteúdo imutável do documento
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-5 space-y-4 text-xs">

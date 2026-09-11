@@ -18,21 +18,26 @@ export async function calculateSha256(data: unknown): Promise<string> {
 
 export interface SolicitarAssinaturaInput {
   tenantId: string
-  demonstrativoId: string
-  empresaId: string
-  competencia: string
+  demonstrativoId?: string
+  contratoId?: string
+  tipoDocumento?: 'demonstrativo' | 'contrato_honorarios'
+  empresaId?: string
+  competencia?: string
   tipoAssinatura: TipoAssinaturaDemonstrativo
   tipoCertificado?: TipoCertificadoIcp
   assinante: string
   cargoCpf: string
   emailAssinante?: string
-  dadosDemonstrativo: Record<string, unknown>
+  dadosDocumento?: Record<string, unknown>
+  dadosDemonstrativo?: Record<string, unknown>
 }
 
 export interface AssinarInput {
   assinaturaId: string
-  demonstrativoId: string
-  dadosAtuaisDemonstrativo: Record<string, unknown>
+  demonstrativoId?: string
+  contratoId?: string
+  dadosAtuais?: Record<string, unknown>
+  dadosAtuaisDemonstrativo?: Record<string, unknown>
   ipAssinatura?: string
   observacoes?: string
 }
@@ -47,10 +52,19 @@ export const assinaturasService = {
     })
   },
 
+  // Listar assinaturas por contrato
+  async listByContrato(contratoId: string): Promise<AssinaturaDemonstrativoRecord[]> {
+    return pb.collection('assinaturas_demonstrativos').getFullList<AssinaturaDemonstrativoRecord>({
+      filter: `contrato = "${contratoId}"`,
+      sort: '-created',
+      expand: 'contrato,empresa',
+    })
+  },
+
   // Listar assinaturas por tenant ou empresa
   async list(
     tenantId: string,
-    filters?: { empresaId?: string; competencia?: string },
+    filters?: { empresaId?: string; competencia?: string; tipoDocumento?: string },
   ): Promise<AssinaturaDemonstrativoRecord[]> {
     const parts = [`tenant_id = "${tenantId}"`]
     if (filters?.empresaId && filters.empresaId !== 'todas') {
@@ -59,11 +73,14 @@ export const assinaturasService = {
     if (filters?.competencia && filters.competencia !== 'todas') {
       parts.push(`competencia = "${filters.competencia}"`)
     }
+    if (filters?.tipoDocumento) {
+      parts.push(`tipo_documento = "${filters.tipoDocumento}"`)
+    }
 
     return pb.collection('assinaturas_demonstrativos').getFullList<AssinaturaDemonstrativoRecord>({
       filter: parts.join(' && '),
       sort: '-created',
-      expand: 'demonstrativo,empresa',
+      expand: 'demonstrativo,contrato,empresa',
     })
   },
 
@@ -71,6 +88,8 @@ export const assinaturasService = {
   async getByToken(token: string): Promise<{
     assinatura: AssinaturaDemonstrativoRecord
     demonstrativo: DemonstrativoRecord | null
+    contrato: unknown | null
+    tipoDocumento: 'demonstrativo' | 'contrato_honorarios'
     integridadeOk: boolean
     hashAtualCalculado: string
   }> {
@@ -79,7 +98,7 @@ export const assinaturasService = {
       .collection('assinaturas_demonstrativos')
       .getFullList<AssinaturaDemonstrativoRecord>({
         filter: `token_verificacao = "${cleanToken}"`,
-        expand: 'demonstrativo,empresa',
+        expand: 'demonstrativo,contrato,empresa',
       })
 
     if (!records || records.length === 0) {
@@ -88,11 +107,22 @@ export const assinaturasService = {
 
     const assinatura = records[0]
     let demonstrativo: DemonstrativoRecord | null = null
+    let contrato: unknown | null = null
     let hashAtualCalculado = ''
     let integridadeOk = false
+    const isContrato = assinatura.tipo_documento === 'contrato_honorarios' || !!assinatura.contrato
 
     try {
-      if (assinatura.demonstrativo) {
+      if (isContrato && assinatura.contrato) {
+        contrato = await pb.collection('contratos_honorarios').getOne(assinatura.contrato, {
+          expand: 'empresa,criado_por',
+        })
+        const contratoObj = contrato as { dados_congelados?: unknown }
+        if (contratoObj && contratoObj.dados_congelados) {
+          hashAtualCalculado = await calculateSha256(contratoObj.dados_congelados)
+          integridadeOk = hashAtualCalculado === assinatura.hash_conteudo
+        }
+      } else if (assinatura.demonstrativo) {
         demonstrativo = await pb
           .collection('demonstrativos')
           .getOne<DemonstrativoRecord>(assinatura.demonstrativo, {
@@ -104,53 +134,73 @@ export const assinaturasService = {
         }
       }
     } catch (e) {
-      console.warn('Não foi possível obter demonstrativo vinculado para verificação completa:', e)
+      console.warn('Não foi possível obter documento vinculado para verificação completa:', e)
     }
 
     return {
       assinatura,
       demonstrativo,
+      contrato,
+      tipoDocumento: isContrato ? 'contrato_honorarios' : 'demonstrativo',
       integridadeOk,
       hashAtualCalculado,
     }
   },
 
-  // Solicitar nova assinatura para um demonstrativo congelado
+  // Solicitar nova assinatura para um demonstrativo ou contrato congelado
   async solicitarAssinatura(
     input: SolicitarAssinaturaInput,
   ): Promise<AssinaturaDemonstrativoRecord> {
-    const hashConteudo = await calculateSha256(input.dadosDemonstrativo)
+    const dados = (input.dadosDocumento || input.dadosDemonstrativo || {}) as Record<
+      string,
+      unknown
+    >
+    const hashConteudo = await calculateSha256(dados)
     const randomToken = Math.random().toString(36).substring(2, 10).toUpperCase()
-    const tokenVerificacao = `RUMO-${input.competencia.replace('/', '')}-${randomToken}`
+    const compTag = (input.competencia || 'CTR').replace('/', '')
+    const tokenVerificacao = `RUMO-${input.contratoId ? 'CTR-' : ''}${compTag}-${randomToken}`
 
-    return pb.collection('assinaturas_demonstrativos').create<AssinaturaDemonstrativoRecord>(
-      {
-        tenant_id: input.tenantId,
-        demonstrativo: input.demonstrativoId,
-        empresa: input.empresaId,
-        competencia: input.competencia,
-        tipo_assinatura: input.tipoAssinatura,
-        tipo_certificado: input.tipoCertificado || 'nenhum',
-        assinante: input.assinante,
-        cargo_cpf: input.cargoCpf,
-        email_assinante: input.emailAssinante || '',
-        hash_conteudo: hashConteudo,
-        hash_documentacao: `DOC-SHA256-${hashConteudo.slice(0, 16)}`,
-        status: 'solicitada',
-        token_verificacao: tokenVerificacao,
-        data_solicitacao: new Date().toISOString(),
-        provedor: input.tipoAssinatura === 'icp_brasil' ? 'd4sign' : 'interno',
-        payload_provedor: {
-          solicitadoPor: 'Rumo Contabilidade Digital',
-          hashRegistrado: hashConteudo,
-          avisoLegal:
-            input.tipoAssinatura === 'icp_brasil'
-              ? 'Aguardando envio ao provedor ICP-Brasil com certificado digital qualificado A1/A3.'
-              : 'Assinatura eletrônica declarada com registro de integridade SHA-256 e IP.',
-        },
+    const payload: Record<string, unknown> = {
+      tenant_id: input.tenantId,
+      competencia: input.competencia || '09/2026',
+      tipo_assinatura: input.tipoAssinatura,
+      tipo_certificado: input.tipoCertificado || 'nenhum',
+      assinante: input.assinante,
+      cargo_cpf: input.cargoCpf,
+      email_assinante: input.emailAssinante || '',
+      hash_conteudo: hashConteudo,
+      hash_documentacao: `DOC-SHA256-${hashConteudo.slice(0, 16)}`,
+      status: 'solicitada',
+      token_verificacao: tokenVerificacao,
+      data_solicitacao: new Date().toISOString(),
+      provedor: input.tipoAssinatura === 'icp_brasil' ? 'd4sign' : 'interno',
+      payload_provedor: {
+        solicitadoPor: 'Rumo Contabilidade Digital',
+        hashRegistrado: hashConteudo,
+        avisoLegal:
+          input.tipoAssinatura === 'icp_brasil'
+            ? 'Aguardando envio ao provedor ICP-Brasil com certificado digital qualificado A1/A3.'
+            : 'Assinatura eletrônica declarada com registro de integridade SHA-256 e IP.',
       },
-      { expand: 'demonstrativo,empresa' },
-    )
+    }
+
+    if (input.empresaId) {
+      payload.empresa = input.empresaId
+    }
+
+    if (input.contratoId) {
+      payload.contrato = input.contratoId
+      payload.tipo_documento = 'contrato_honorarios'
+    } else if (input.demonstrativoId) {
+      payload.demonstrativo = input.demonstrativoId
+      payload.tipo_documento = 'demonstrativo'
+    }
+
+    return pb
+      .collection('assinaturas_demonstrativos')
+      .create<AssinaturaDemonstrativoRecord>(payload, {
+        expand: 'demonstrativo,contrato,empresa',
+      })
   },
 
   // Executar a assinatura pelo usuário/assinante
@@ -161,10 +211,14 @@ export const assinaturasService = {
       .getOne<AssinaturaDemonstrativoRecord>(input.assinaturaId)
 
     // 2. Validação prévia de integridade no client (além da validação obrigatória no servidor)
-    const hashAtual = await calculateSha256(input.dadosAtuaisDemonstrativo)
+    const dados = (input.dadosAtuais || input.dadosAtuaisDemonstrativo || {}) as Record<
+      string,
+      unknown
+    >
+    const hashAtual = await calculateSha256(dados)
     if (hashAtual !== assinatura.hash_conteudo) {
       throw new Error(
-        'Demonstrativo alterado após a solicitação de assinatura! O hash de conteúdo diverge do registrado originalmente. Solicite uma nova assinatura.',
+        'Documento alterado após a solicitação de assinatura! O hash de conteúdo diverge do registrado originalmente. Solicite uma nova assinatura.',
       )
     }
 
@@ -185,7 +239,7 @@ export const assinaturasService = {
             input.observacoes || 'Concordância explícita com os termos e integridade contábil.',
         },
       },
-      { expand: 'demonstrativo,empresa' },
+      { expand: 'demonstrativo,contrato,empresa' },
     )
   },
 

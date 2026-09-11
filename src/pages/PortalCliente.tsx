@@ -17,19 +17,27 @@ import {
   FileSpreadsheet,
   LayoutDashboard,
   Lock,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
 import { notificacoesService } from '@/services/notificacoes'
 import { demonstrativosService } from '@/services/demonstrativos'
 import { DemonstrativoModalView } from '@/components/DemonstrativoModalView'
+import { contratosService } from '@/services/contratos'
+import { assinaturasService } from '@/services/assinaturas'
+import { ContratoModalView } from '@/components/ContratoModalView'
+import { AssinarContratoModal } from '@/components/AssinarContratoModal'
+import { RecusarContratoModal } from '@/components/RecusarContratoModal'
 import type {
   Empresa,
   Documento,
+  DocumentoTipo,
   ObrigacaoRecord,
   NotificacaoRecord,
-  DocumentoTipo,
   DemonstrativoRecord,
+  ContratoHonorarioRecord,
+  AssinaturaDemonstrativoRecord,
 } from '@/types'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Button } from '@/components/ui/button'
@@ -86,6 +94,16 @@ export default function PortalClientePage() {
   const [reprovandoModalOpen, setReprovandoModalOpen] = useState(false)
   const [motivoReprovacao, setMotivoReprovacao] = useState('')
 
+  // Módulo Contratos & Propostas de Honorários
+  const [contratos, setContratos] = useState<ContratoHonorarioRecord[]>([])
+  const [assinaturasContratos, setAssinaturasContratos] = useState<AssinaturaDemonstrativoRecord[]>(
+    [],
+  )
+  const [selectedContrato, setSelectedContrato] = useState<ContratoHonorarioRecord | null>(null)
+  const [modalContratoOpen, setModalContratoOpen] = useState(false)
+  const [modalAssinarContratoOpen, setModalAssinarContratoOpen] = useState(false)
+  const [modalRecusarContratoOpen, setModalRecusarContratoOpen] = useState(false)
+
   // Upload GED State
   const [uploadTipo, setUploadTipo] = useState<DocumentoTipo>('fatura')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -104,19 +122,24 @@ export default function PortalClientePage() {
       const activeEmpId = selectedEmpresaId || emps[0]?.id
       if (activeEmpId) {
         setSelectedEmpresaId(activeEmpId)
-        const [docs, obs, notifs, fechosRes, demsRes] = await Promise.all([
-          portalService.getClienteDocumentos(tenant.id, activeEmpId),
-          portalService.getClienteObrigacoes(tenant.id, activeEmpId),
-          notificacoesService.list(tenant.id, user.id),
-          pb
-            .collection('fechamento_competencia')
-            .getFullList<{ competencia: string; status: string }>({
-              filter: `tenant_id = "${tenant.id}" && empresa = "${activeEmpId}"`,
-              sort: '-competencia',
-            })
-            .catch(() => []),
-          demonstrativosService.list(tenant.id, { empresaId: activeEmpId }).catch(() => []),
-        ])
+        const [docs, obs, notifs, fechosRes, demsRes, contratosRes, assinaturasRes] =
+          await Promise.all([
+            portalService.getClienteDocumentos(tenant.id, activeEmpId),
+            portalService.getClienteObrigacoes(tenant.id, activeEmpId),
+            notificacoesService.list(tenant.id, user.id),
+            pb
+              .collection('fechamento_competencia')
+              .getFullList<{ competencia: string; status: string }>({
+                filter: `tenant_id = "${tenant.id}" && empresa = "${activeEmpId}"`,
+                sort: '-competencia',
+              })
+              .catch(() => []),
+            demonstrativosService.list(tenant.id, { empresaId: activeEmpId }).catch(() => []),
+            contratosService.list(tenant.id, { empresaId: activeEmpId }).catch(() => []),
+            assinaturasService
+              .list(tenant.id, { empresaId: activeEmpId, tipoDocumento: 'contrato_honorarios' })
+              .catch(() => []),
+          ])
         setDocumentos(docs)
         setObrigacoes(obs)
         setNotificacoes(notifs)
@@ -126,6 +149,9 @@ export default function PortalClientePage() {
             status: f.status,
           })),
         )
+        // Cliente só visualiza contratos/propostas que não sejam rascunho interno do escritório
+        setContratos(contratosRes.filter((c) => c.status !== 'rascunho'))
+        setAssinaturasContratos(assinaturasRes)
         // Cliente só visualiza demonstrativos da própria empresa (enviado, aprovado ou reprovado)
         setDemonstrativos(demsRes.filter((d) => d.status !== 'rascunho'))
         setUnreadNotifs(notifs.filter((n) => !n.lida).length)
@@ -487,6 +513,15 @@ export default function PortalClientePage() {
               {demonstrativos.filter((d) => d.status === 'enviado').length > 0 && (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
                   {demonstrativos.filter((d) => d.status === 'enviado').length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="contratos" className="gap-2 text-xs font-semibold rounded-lg">
+              <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Contratos & Propostas ({contratos.length})</span>
+              {contratos.filter((c) => c.status === 'enviado').length > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
+                  {contratos.filter((c) => c.status === 'enviado').length}
                 </span>
               )}
             </TabsTrigger>
@@ -919,6 +954,160 @@ export default function PortalClientePage() {
             </div>
           </TabsContent>
 
+          {/* ================= ABA CONTRATOS & PROPOSTAS DE HONORÁRIOS ================= */}
+          <TabsContent value="contratos" className="space-y-6 mt-4">
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-[#0FA3A3]" />
+                    <span>Contratos & Propostas de Honorários Contábeis</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#64748B]">
+                    Consulte os termos contratados, propostas comerciais, baixe o PDF formal com CRC
+                    e realize a assinatura eletrônica com validade jurídica (Lei 14.063/2020).
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {contratos.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-[#94A3B8]">
+                    Nenhum contrato ou proposta de honorários disponível para esta empresa no
+                    momento.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#E2E8F0]">
+                    {contratos.map((ctr) => {
+                      const isEnviado = ctr.status === 'enviado'
+                      const isAssinado = ctr.status === 'assinado'
+                      const isRecusado = ctr.status === 'recusado'
+                      const assCtr = assinaturasContratos.find((a) => a.contrato === ctr.id)
+
+                      return (
+                        <div
+                          key={ctr.id}
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-4 hover:bg-slate-50/50 transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={cn(
+                                'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                                isAssinado
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : isRecusado
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : 'bg-blue-100 text-blue-700',
+                              )}
+                            >
+                              <FileText className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-sm text-[#1A2333]">
+                                  {ctr.titulo}
+                                </span>
+                                <Badge
+                                  className={cn(
+                                    'text-[10px] font-bold px-2 py-0.5 uppercase',
+                                    ctr.tipo === 'proposta'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-indigo-100 text-indigo-800',
+                                  )}
+                                >
+                                  {ctr.tipo}
+                                </Badge>
+                                <Badge
+                                  className={cn(
+                                    'text-[10px] font-bold px-2 py-0.5 uppercase',
+                                    isAssinado && 'bg-emerald-600 text-white',
+                                    isRecusado && 'bg-rose-600 text-white',
+                                    isEnviado && 'bg-blue-600 text-white animate-pulse',
+                                  )}
+                                >
+                                  {isAssinado
+                                    ? 'Assinado Digitalmente'
+                                    : isRecusado
+                                      ? 'Recusado'
+                                      : 'Aguardando Assinatura'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-[#64748B] mt-1">
+                                Valor Mensal:{' '}
+                                <strong className="text-[#0FA3A3] font-bold">
+                                  R${' '}
+                                  {ctr.valor_mensal.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                  })}
+                                </strong>
+                                {' • '}Vencimento todo dia {ctr.dia_vencimento}
+                                {' • '}Vigência de {ctr.prazo_contrato} meses
+                              </p>
+
+                              {isRecusado && ctr.observacoes_recusa && (
+                                <p className="text-xs text-rose-600 mt-1 italic">
+                                  Motivo da Recusa: "{ctr.observacoes_recusa}"
+                                </p>
+                              )}
+
+                              {isAssinado && assCtr && (
+                                <p className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1 font-mono">
+                                  <ShieldCheck className="h-3.5 w-3.5 inline text-emerald-600" />
+                                  Autenticado: {assCtr.token_verificacao} (Hash:{' '}
+                                  {assCtr.hash_conteudo.slice(0, 16)}...)
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedContrato(ctr)
+                                setModalContratoOpen(true)
+                              }}
+                              className="rounded-xl text-xs font-semibold h-9 border-[#E2E8F0] gap-1.5"
+                            >
+                              <Download className="h-4 w-4 text-[#0FA3A3]" />
+                              <span>Visualizar / Baixar PDF</span>
+                            </Button>
+
+                            {isEnviado && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedContrato(ctr)
+                                    setModalRecusarContratoOpen(true)
+                                  }}
+                                  className="rounded-xl text-xs font-semibold h-9 text-rose-600 border-rose-200 hover:bg-rose-50"
+                                >
+                                  Recusar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedContrato(ctr)
+                                    setModalAssinarContratoOpen(true)
+                                  }}
+                                  className="rounded-xl text-xs font-semibold h-9 bg-[#16A34A] hover:bg-[#15803D] text-white shadow-xs"
+                                >
+                                  Revisar & Assinar
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* ================= ABA DEMONSTRATIVOS CONTÁBEIS (MÓDULO 1) ================= */}
           <TabsContent value="demonstrativos" className="space-y-6 mt-4">
             <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
@@ -1050,6 +1239,55 @@ export default function PortalClientePage() {
         onAprovar={handleAprovarDemonstrativo}
         onReprovar={handleAbrirReprovacao}
         approving={approvingDem}
+      />
+
+      {/* Modais de Contratos & Propostas de Honorários */}
+      <ContratoModalView
+        open={modalContratoOpen}
+        onOpenChange={setModalContratoOpen}
+        contrato={selectedContrato}
+        empresa={activeEmpresa}
+        assinatura={
+          selectedContrato
+            ? assinaturasContratos.find((a) => a.contrato === selectedContrato.id) || null
+            : null
+        }
+        tenantNome={tenant?.nome || 'Rumo Consultoria Contábil'}
+        tenantCnpj={tenant?.cnpj || '12.345.678/0001-90'}
+        canSign={selectedContrato?.status === 'enviado'}
+        canReject={selectedContrato?.status === 'enviado'}
+        onAssinar={() => {
+          setModalContratoOpen(false)
+          setModalAssinarContratoOpen(true)
+        }}
+        onRecusar={() => {
+          setModalContratoOpen(false)
+          setModalRecusarContratoOpen(true)
+        }}
+      />
+
+      <AssinarContratoModal
+        open={modalAssinarContratoOpen}
+        onOpenChange={setModalAssinarContratoOpen}
+        contrato={selectedContrato}
+        empresa={activeEmpresa || null}
+        assinaturaExistente={
+          selectedContrato
+            ? assinaturasContratos.find((a) => a.contrato === selectedContrato.id) || null
+            : null
+        }
+        tenantNome={tenant?.nome || 'Rumo Consultoria Contábil'}
+        tenantCnpj={tenant?.cnpj || '12.345.678/0001-90'}
+        userEmail={user?.email || ''}
+        userName={user?.name || ''}
+        onSuccess={loadPortalData}
+      />
+
+      <RecusarContratoModal
+        open={modalRecusarContratoOpen}
+        onOpenChange={setModalRecusarContratoOpen}
+        contrato={selectedContrato}
+        onSuccess={loadPortalData}
       />
 
       {/* Modal para Reprovação com Observação Obrigatória */}

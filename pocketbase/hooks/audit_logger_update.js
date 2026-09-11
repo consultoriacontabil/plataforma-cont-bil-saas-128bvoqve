@@ -18,14 +18,23 @@ onRecordAfterUpdateSuccess(
       log.set('entidade_id', record.id)
 
       let userId = ''
-      if (record.has('usuario_upload_id') && record.getString('usuario_upload_id')) {
+      try {
         userId = record.getString('usuario_upload_id')
-      } else if (record.has('criado_por_id') && record.getString('criado_por_id')) {
-        userId = record.getString('criado_por_id')
-      } else if (record.has('criado_por') && record.getString('criado_por')) {
-        userId = record.getString('criado_por')
-      } else if (record.has('user_id') && record.getString('user_id')) {
-        userId = record.getString('user_id')
+      } catch (_) {}
+      if (!userId) {
+        try {
+          userId = record.getString('criado_por_id')
+        } catch (_) {}
+      }
+      if (!userId) {
+        try {
+          userId = record.getString('criado_por')
+        } catch (_) {}
+      }
+      if (!userId) {
+        try {
+          userId = record.getString('user_id')
+        } catch (_) {}
       }
       if (userId) {
         log.set('usuario_id', userId)
@@ -190,13 +199,26 @@ onRecordAfterUpdateSuccess(
           record.getFloat('valor_sugerido').toFixed(2) +
           ')'
       } else if (collectionName === 'assinaturas_demonstrativos') {
-        acao = 'Atualização de assinatura de demonstrativo'
+        const tipoDoc =
+          record.getString('tipo_documento') === 'contrato_honorarios'
+            ? 'contrato de honorários'
+            : 'demonstrativo'
+        acao = 'Atualização de assinatura digital'
         detalhes =
-          'Assinatura de ' +
+          'Assinatura (' +
+          tipoDoc +
+          ') de ' +
           record.getString('assinante') +
-          ' (' +
-          record.getString('competencia') +
-          ') alterada para status: ' +
+          ' alterada para status: ' +
+          record.getString('status')
+      } else if (collectionName === 'contratos_honorarios') {
+        acao = 'Atualização de ' + record.getString('tipo')
+        detalhes =
+          'Registro de ' +
+          record.getString('tipo') +
+          ' "' +
+          record.getString('titulo') +
+          '" atualizado para status: ' +
           record.getString('status')
       }
 
@@ -232,4 +254,5 @@ onRecordAfterUpdateSuccess(
   'impostos_retidos',
   'pre_lancamentos',
   'assinaturas_demonstrativos',
+  'contratos_honorarios',
 )

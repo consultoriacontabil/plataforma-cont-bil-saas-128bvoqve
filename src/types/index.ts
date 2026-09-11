@@ -789,11 +789,14 @@ export type TipoAssinaturaDemonstrativo = 'eletronica_declarada' | 'icp_brasil'
 export type TipoCertificadoIcp = 'nenhum' | 'a1' | 'a3'
 export type AssinaturaDemonstrativoStatus = 'solicitada' | 'assinada' | 'expirada' | 'cancelada'
 export type AssinaturaProvedor = 'interno' | 'd4sign' | 'clicksign' | 'outro'
+export type TipoDocumentoAssinatura = 'demonstrativo' | 'contrato_honorarios'
 
 export interface AssinaturaDemonstrativoRecord extends RecordModel {
   tenant_id: string
-  demonstrativo: string
-  empresa: string
+  demonstrativo?: string
+  contrato?: string
+  tipo_documento?: TipoDocumentoAssinatura
+  empresa?: string
   competencia: string
   tipo_assinatura: TipoAssinaturaDemonstrativo
   tipo_certificado?: TipoCertificadoIcp
@@ -818,6 +821,60 @@ export interface AssinaturaDemonstrativoRecord extends RecordModel {
   payload_provedor?: Record<string, unknown>
   expand?: {
     demonstrativo?: DemonstrativoRecord
+    contrato?: ContratoHonorarioRecord
     empresa?: Empresa
+  }
+}
+
+// === Módulo Contratos & Propostas de Honorários ===
+export type TipoContratoHonorario = 'proposta' | 'contrato'
+export type StatusContratoHonorario = 'rascunho' | 'enviado' | 'assinado' | 'recusado' | 'cancelado'
+
+export interface ClausulaContrato {
+  titulo: string
+  texto: string
+}
+
+export interface DadosCongeladosContrato {
+  titulo: string
+  tipo: TipoContratoHonorario
+  empresa?: {
+    id?: string
+    razao_social?: string
+    nome_fantasia?: string
+    cnpj?: string
+  }
+  escritorio: {
+    nome: string
+    cnpj: string
+    crc: string
+  }
+  modelo_mensalidade: string
+  valor_mensal: number
+  dia_vencimento: number
+  prazo_contrato: number
+  data_inicio?: string
+  clausulas: ClausulaContrato[]
+  gerado_em: string
+}
+
+export interface ContratoHonorarioRecord extends RecordModel {
+  tenant_id: string
+  empresa?: string
+  titulo: string
+  tipo: TipoContratoHonorario
+  modelo_mensalidade: string
+  valor_mensal: number
+  dia_vencimento: number
+  prazo_contrato: number
+  data_inicio?: string
+  clausulas: ClausulaContrato[]
+  status: StatusContratoHonorario
+  dados_congelados?: DadosCongeladosContrato | Record<string, unknown>
+  observacoes_recusa?: string
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    criado_por?: User
   }
 }

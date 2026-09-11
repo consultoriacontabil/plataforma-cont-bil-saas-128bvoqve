@@ -32,6 +32,7 @@ import {
   TrendingUp,
   Plus,
   Receipt,
+  FileCheck,
 } from 'lucide-react'
 import {
   Dialog,
@@ -151,6 +152,7 @@ export default function Layout() {
     if (path.startsWith('/patrimonio')) return 'Patrimônio & Gestão de Ativos'
     if (path.startsWith('/fecho-mensal')) return 'Fecho Mensal & Checklist'
     if (path.startsWith('/relatorios-contabeis')) return 'DRE & Balanço Patrimonial'
+    if (path.startsWith('/contratos')) return 'Contratos & Propostas de Honorários'
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/integracoes')) return 'Integrações'
@@ -288,6 +290,10 @@ export default function Layout() {
         { label: 'Patrimônio (Ativos)', to: '/patrimonio', icon: Boxes },
         { label: 'Mapeamento Fecho', to: '/contabil/mapeamento', icon: Compass },
       ],
+    },
+    {
+      group: 'COMERCIAL & CONTRATOS',
+      items: [{ label: 'Contratos & Propostas', to: '/contratos', icon: FileCheck }],
     },
     {
       group: 'GESTÃO',

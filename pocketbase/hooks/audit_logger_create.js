@@ -19,26 +19,23 @@ onRecordAfterCreateSuccess(
 
       let userId = ''
       try {
-        if (record.getString('usuario_upload_id')) {
-          userId = record.getString('usuario_upload_id')
-        }
+        userId = record.getString('usuario_upload_id')
       } catch (_) {}
-      try {
-        if (!userId && record.getString('criado_por_id')) {
+      if (!userId) {
+        try {
           userId = record.getString('criado_por_id')
-        }
-      } catch (_) {}
-      try {
-        if (!userId && record.getString('criado_por')) {
+        } catch (_) {}
+      }
+      if (!userId) {
+        try {
           userId = record.getString('criado_por')
-        }
-      } catch (_) {}
-      try {
-        if (!userId && record.getString('user_id')) {
+        } catch (_) {}
+      }
+      if (!userId) {
+        try {
           userId = record.getString('user_id')
-        }
-      } catch (_) {}
-
+        } catch (_) {}
+      }
       if (userId) {
         log.set('usuario_id', userId)
       }
@@ -231,16 +228,30 @@ onRecordAfterCreateSuccess(
           ' comp. ' +
           record.getString('competencia')
       } else if (collectionName === 'assinaturas_demonstrativos') {
-        acao = 'Solicitação de assinatura de demonstrativo'
+        const tipoDoc =
+          record.getString('tipo_documento') === 'contrato_honorarios'
+            ? 'contrato de honorários'
+            : 'demonstrativo'
+        acao = 'Solicitação de assinatura digital'
         detalhes =
-          'Solicitada assinatura (' +
+          'Solicitada assinatura de ' +
+          tipoDoc +
+          ' (' +
           record.getString('tipo_assinatura') +
           ') para ' +
           record.getString('assinante') +
-          ' (' +
-          record.getString('competencia') +
-          ') - Token: ' +
+          ' - Token: ' +
           record.getString('token_verificacao')
+      } else if (collectionName === 'contratos_honorarios') {
+        acao = 'Criação de ' + record.getString('tipo')
+        detalhes =
+          'Criado ' +
+          record.getString('tipo') +
+          ': "' +
+          record.getString('titulo') +
+          '" (valor mensal: R$ ' +
+          record.getFloat('valor_mensal').toFixed(2) +
+          ')'
       }
 
       log.set('acao', acao)
@@ -276,4 +287,5 @@ onRecordAfterCreateSuccess(
   'impostos_retidos',
   'pre_lancamentos',
   'assinaturas_demonstrativos',
+  'contratos_honorarios',
 )
