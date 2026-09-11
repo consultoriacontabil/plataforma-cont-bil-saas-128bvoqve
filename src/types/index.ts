@@ -378,3 +378,133 @@ export interface MapeamentoContabil extends RecordModel {
     conta_credito?: ContaContabil
   }
 }
+
+// === Módulo Patrimônio (P2) ===
+export type AtivoCategoria =
+  | 'maquinas_equipamentos'
+  | 'veiculos'
+  | 'moveis_utensilios'
+  | 'computadores_ti'
+  | 'instalacoes_imoveis'
+  | 'outros'
+
+export type AtivoStatus = 'ativo' | 'depreciado' | 'baixado'
+
+export interface AtivoPatrimonial extends RecordModel {
+  tenant_id: string
+  empresa: string
+  descricao: string
+  categoria: AtivoCategoria
+  numero_nf?: string
+  fornecedor?: string
+  data_aquisicao: string
+  valor_aquisicao: number
+  valor_residual: number
+  taxa_depreciacao_anual: number
+  vida_util_meses?: number
+  conta_ativo: string
+  conta_depreciacao_acumulada?: string
+  conta_despesa_depreciacao?: string
+  status: AtivoStatus
+  depreciacao_acumulada_calculada?: number
+  ultima_competencia_depreciada?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    conta_ativo?: ContaContabil
+    conta_depreciacao_acumulada?: ContaContabil
+    conta_despesa_depreciacao?: ContaContabil
+  }
+}
+
+export type TipoBaixaAtivo = 'venda' | 'obsolescencia' | 'sucata' | 'perda'
+
+export interface BaixaAtivoRecord extends RecordModel {
+  tenant_id: string
+  ativo: string
+  empresa: string
+  tipo_baixa: TipoBaixaAtivo
+  data_baixa: string
+  valor_venda?: number
+  valor_contabil_residual?: number
+  ganho_perda?: number
+  lote_contabil_id?: string
+  motivo?: string
+  usuario_id?: string
+  expand?: {
+    ativo?: AtivoPatrimonial
+    empresa?: Empresa
+    usuario_id?: User
+  }
+}
+
+// === Módulo Fecho Mensal ===
+export type FechamentoStatus = 'aberto' | 'em_andamento' | 'fechado'
+
+export interface FechamentoCompetenciaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  competencia: string
+  status: FechamentoStatus
+  data_fechamento?: string
+  fechado_por?: string
+  observacoes?: string
+  reaberto_em?: string
+  reaberto_por?: string
+  motivo_reabertura?: string
+  expand?: {
+    empresa?: Empresa
+    fechado_por?: User
+    reaberto_por?: User
+  }
+}
+
+export interface FechamentoChecklistItemRecord extends RecordModel {
+  tenant_id: string
+  fechamento: string
+  empresa: string
+  competencia: string
+  codigo_item: string
+  titulo: string
+  descricao?: string
+  ordem: number
+  obrigatorio: boolean
+  concluido: boolean
+  concluido_em?: string
+  responsavel?: string
+  status_automatico?: string
+  detalhe_automatico?: string
+  expand?: {
+    fechamento?: FechamentoCompetenciaRecord
+    empresa?: Empresa
+    responsavel?: User
+  }
+}
+
+// === Relatórios Contábeis (DRE e Balanço) ===
+export interface DRELinha {
+  id: string
+  codigo: string
+  descricao: string
+  nivel: number
+  tipo: 'grupo' | 'conta' | 'totalizador' | 'resultado'
+  valor: number
+  destaque?: boolean
+  negativo?: boolean
+}
+
+export interface BalancoGrupo {
+  titulo: string
+  tipo: 'ativo' | 'passivo' | 'patrimonio'
+  total: number
+  subgrupos: {
+    nome: string
+    codigo: string
+    saldo: number
+    contas: {
+      codigo: string
+      nome: string
+      saldo: number
+    }[]
+  }[]
+}

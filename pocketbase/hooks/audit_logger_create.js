@@ -136,6 +136,30 @@ onRecordAfterCreateSuccess(
       } else if (collectionName === 'mapeamento_contabil') {
         acao = 'Mapeamento contábil configurado'
         detalhes = 'Mapeou ' + record.getString('origem') + ' / ' + record.getString('chave')
+      } else if (collectionName === 'ativos') {
+        acao = 'Ativo imobilizado cadastrado'
+        detalhes =
+          'Cadastrou ativo ' +
+          record.getString('descricao') +
+          ' (Valor: R$ ' +
+          record.getFloat('valor_aquisicao').toFixed(2) +
+          ')'
+      } else if (collectionName === 'baixas_ativos') {
+        acao = 'Baixa de ativo patrimonial'
+        detalhes =
+          'Registrou baixa do tipo ' +
+          record.getString('tipo_baixa') +
+          ' (Valor venda: R$ ' +
+          record.getFloat('valor_venda').toFixed(2) +
+          ')'
+      } else if (collectionName === 'fechamento_competencia') {
+        acao = 'Fechamento de competência iniciado'
+        detalhes =
+          'Iniciou fechamento da competência ' +
+          record.getString('competencia') +
+          ' (Status: ' +
+          record.getString('status') +
+          ')'
       }
 
       log.set('acao', acao)
@@ -159,4 +183,7 @@ onRecordAfterCreateSuccess(
   'eventos_dp',
   'portal_acessos',
   'mapeamento_contabil',
+  'ativos',
+  'baixas_ativos',
+  'fechamento_competencia',
 )

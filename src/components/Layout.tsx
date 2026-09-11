@@ -25,6 +25,9 @@ import {
   X,
   BookOpen,
   FileSpreadsheet,
+  CheckSquare,
+  PieChart,
+  Boxes,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -120,6 +123,9 @@ export default function Layout() {
     if (path.startsWith('/contabil/lancamentos')) return 'Lançamentos Contábeis'
     if (path.startsWith('/contabil/balancete')) return 'Balancete de Verificação'
     if (path.startsWith('/contabil/mapeamento')) return 'Mapeamento Contábil Automático'
+    if (path.startsWith('/patrimonio')) return 'Patrimônio & Gestão de Ativos'
+    if (path.startsWith('/fecho-mensal')) return 'Fecho Mensal & Checklist'
+    if (path.startsWith('/relatorios-contabeis')) return 'DRE & Balanço Patrimonial'
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/integracoes')) return 'Integrações'
@@ -241,8 +247,11 @@ export default function Layout() {
     {
       group: 'CONTÁBIL',
       items: [
+        { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
         { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
         { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
+        { label: 'DRE & Balanço', to: '/relatorios-contabeis', icon: PieChart },
+        { label: 'Patrimônio (Ativos)', to: '/patrimonio', icon: Boxes },
         { label: 'Mapeamento Fecho', to: '/contabil/mapeamento', icon: Compass },
       ],
     },

@@ -123,6 +123,21 @@ onRecordAfterUpdateSuccess(
       } else if (collectionName === 'mapeamento_contabil') {
         acao = 'Atualização de mapeamento contábil'
         detalhes = 'Alterou regra de ' + record.getString('chave')
+      } else if (collectionName === 'ativos') {
+        acao = 'Atualização de bem patrimonial'
+        detalhes =
+          'Atualizou dados do bem ' +
+          record.getString('descricao') +
+          ' (status: ' +
+          record.getString('status') +
+          ')'
+      } else if (collectionName === 'fechamento_competencia') {
+        acao = 'Atualização de fechamento mensal'
+        detalhes =
+          'Competência ' +
+          record.getString('competencia') +
+          ' alterada para status: ' +
+          record.getString('status')
       }
 
       log.set('acao', acao)
@@ -146,4 +161,7 @@ onRecordAfterUpdateSuccess(
   'eventos_dp',
   'portal_acessos',
   'mapeamento_contabil',
+  'ativos',
+  'baixas_ativos',
+  'fechamento_competencia',
 )

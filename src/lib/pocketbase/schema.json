@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T14:54:36.474Z",
+  "generatedAt": "2026-09-11T15:08:13.972Z",
   "collections": [
     {
       "name": "users",
@@ -1732,6 +1732,480 @@
         "CREATE INDEX idx_eventos_dp_func ON eventos_dp (funcionario)",
         "CREATE INDEX idx_eventos_dp_tenant_emp ON eventos_dp (tenant_id, empresa)",
         "CREATE INDEX idx_eventos_dp_data ON eventos_dp (data_evento DESC)"
+      ]
+    },
+    {
+      "name": "ativos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "categoria",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "maquinas_equipamentos",
+            "veiculos",
+            "moveis_utensilios",
+            "computadores_ti",
+            "instalacoes_imoveis",
+            "outros"
+          ]
+        },
+        {
+          "name": "numero_nf",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fornecedor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_aquisicao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_aquisicao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_residual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "taxa_depreciacao_anual",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vida_util_meses",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conta_ativo",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "conta_depreciacao_acumulada",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "conta_despesa_depreciacao",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "depreciado", "baixado"]
+        },
+        {
+          "name": "depreciacao_acumulada_calculada",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_competencia_depreciada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ativos_tenant_empresa ON ativos (tenant_id, empresa)",
+        "CREATE INDEX idx_ativos_categoria ON ativos (categoria)",
+        "CREATE INDEX idx_ativos_status ON ativos (status)",
+        "CREATE INDEX idx_ativos_created ON ativos (created DESC)"
+      ]
+    },
+    {
+      "name": "baixas_ativos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "ativo",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "ativos"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo_baixa",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["venda", "obsolescencia", "sucata", "perda"]
+        },
+        {
+          "name": "data_baixa",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_venda",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_contabil_residual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ganho_perda",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lote_contabil_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "usuario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_baixas_tenant_ativo ON baixas_ativos (tenant_id, ativo)",
+        "CREATE INDEX idx_baixas_empresa ON baixas_ativos (empresa)",
+        "CREATE INDEX idx_baixas_data ON baixas_ativos (data_baixa DESC)"
+      ]
+    },
+    {
+      "name": "fechamento_competencia",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aberto", "em_andamento", "fechado"]
+        },
+        {
+          "name": "data_fechamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fechado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reaberto_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reaberto_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "motivo_reabertura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_fechamento_tenant_emp_comp ON fechamento_competencia (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_fechamento_status ON fechamento_competencia (status)",
+        "CREATE INDEX idx_fechamento_comp ON fechamento_competencia (competencia)"
+      ]
+    },
+    {
+      "name": "fechamento_checklist_itens",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "fechamento",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "fechamento_competencia"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "codigo_item",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ordem",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "obrigatorio",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluido",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluido_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "status_automatico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhe_automatico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_chk_itens_fechamento ON fechamento_checklist_itens (fechamento)",
+        "CREATE INDEX idx_chk_itens_emp_comp ON fechamento_checklist_itens (tenant_id, empresa, competencia)"
       ]
     }
   ]

@@ -283,6 +283,32 @@ export default function RumoAgentPage() {
           '• Existem 2 documentos com status "Pendente": Fatura Fornecedor Grãos MG (Café & Grãos) e Comprovante ISS Retido 04/2025 (Clínica Bem Viver).\n' +
           '• O limite por arquivo é de até 25MB em formatos PDF, JPG, PNG, DOCX ou XLSX.\n\n' +
           '[Ver fonte: Módulo Documentos/GED]'
+      } else if (
+        lower.includes('patrimonio') ||
+        lower.includes('ativo') ||
+        lower.includes('deprecia') ||
+        lower.includes('imobilizado')
+      ) {
+        fallbackReply =
+          'Consultando a base de Patrimônio e Ativos do escritório:\n\n' +
+          '• Total de Bens Cadastrados: 5 ativos em operação (Servidores Cloud Dell, Mac Studios M2, Mobiliário Herman Miller, Máquinas de Café e Furgão de Distribuição Renault).\n' +
+          '• Método de Depreciação: Linear com cálculo mensal por competência e partidas dobradas nas contas 4.2.4 (Despesa) e 1.2.1.09 (Depreciação Acumulada).\n' +
+          '• Competência 08/2026: Depreciação já processada com sucesso.\n' +
+          '• Competência 09/2026: Pronta para processamento na tela de Patrimônio.\n\n' +
+          '[Ver fonte: Módulo Patrimônio (P2)]'
+      } else if (
+        lower.includes('fecho') ||
+        lower.includes('fechamento') ||
+        lower.includes('checklist') ||
+        lower.includes('dre') ||
+        lower.includes('balanco')
+      ) {
+        fallbackReply =
+          'Consultando o módulo de Fecho Mensal e Demonstrações Contábeis:\n\n' +
+          '• Competência 08/2026: Fechada e aprovada oficialmente pela controladoria para Inovatech Soluções Digitais.\n' +
+          '• Competência 09/2026: Em andamento (checklist com conciliação bancária, folha e obrigações fiscais).\n' +
+          '• Relatórios Regulatórios: DRE e Balanço Patrimonial estruturados estão disponíveis para visualização e exportação CSV em conformidade com as NBC TG / CFC.\n\n' +
+          '[Ver fonte: Módulo Fecho Mensal & Relatórios]'
       } else if (lower.includes('abertura') || lower.includes('workflow')) {
         fallbackReply =
           'Para o processo de abertura de empresa, os procedimentos recomendados são:\n\n' +

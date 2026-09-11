@@ -37,4 +37,7 @@ onRecordAfterDeleteSuccess(
   'eventos_dp',
   'portal_acessos',
   'mapeamento_contabil',
+  'ativos',
+  'baixas_ativos',
+  'fechamento_competencia',
 )

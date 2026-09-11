@@ -26,6 +26,9 @@ import DepartamentoPessoal from '@/pages/DepartamentoPessoal'
 import PortalClientePage from '@/pages/PortalCliente'
 import PortalAcessosPage from '@/pages/PortalAcessos'
 import MapeamentoContabilPage from '@/pages/MapeamentoContabil'
+import PatrimonioPage from '@/pages/Patrimonio'
+import FechoMensalPage from '@/pages/FechoMensal'
+import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -67,6 +70,11 @@ export default function App() {
           <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />
           <Route path="/contabil/balancete" element={<Balancete />} />
           <Route path="/contabil/mapeamento" element={<MapeamentoContabilPage />} />
+
+          {/* Novos Módulos: Patrimônio, Fecho Mensal e Relatórios Contábeis */}
+          <Route path="/patrimonio" element={<PatrimonioPage />} />
+          <Route path="/fecho-mensal" element={<FechoMensalPage />} />
+          <Route path="/relatorios-contabeis" element={<RelatoriosContabeisPage />} />
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/integracoes" element={<Integracoes />} />
