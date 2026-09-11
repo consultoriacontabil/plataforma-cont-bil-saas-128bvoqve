@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T19:59:24.146Z",
+  "generatedAt": "2026-09-11T20:27:43.374Z",
   "collections": [
     {
       "name": "users",
@@ -4196,6 +4196,556 @@
         "CREATE INDEX idx_param_reforma_tenant_ativo ON parametros_reforma (tenant_id, ativo)",
         "CREATE INDEX idx_param_reforma_tenant_versao ON parametros_reforma (tenant_id, versao)",
         "CREATE INDEX idx_param_reforma_created ON parametros_reforma (created DESC)"
+      ]
+    },
+    {
+      "name": "nfse_config",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa_padrao",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "webhook_token",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "evolution_api_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evolution_api_key",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evolution_instance",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modo_operacao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["simulacao", "producao"]
+        },
+        {
+          "name": "auto_aprovar_alta_confianca",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "msg_saudacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "msg_recebimento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "msg_aprovacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "msg_rejeicao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "msg_nota_emitida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telefone_suporte",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_nfse_cfg_tenant ON nfse_config (tenant_id)",
+        "CREATE INDEX idx_nfse_cfg_token ON nfse_config (webhook_token)"
+      ]
+    },
+    {
+      "name": "nfse_solicitacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "contato_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "contato_telefone",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origem_chat_jid",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mensagem_original",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mensagem_id_externo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["em_analise", "aprovada", "emitida", "rejeitada", "cancelada"]
+        },
+        {
+          "name": "score_confianca",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tomador_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tomador_documento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tomador_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tomador_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descricao_servico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_servico",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_servico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_extraidos_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alertas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_rejeicao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "data_revisao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resposta_enviada_whatsapp",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "historico_mensagens_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_nfse_sol_tenant_status ON nfse_solicitacoes (tenant_id, status)",
+        "CREATE INDEX idx_nfse_sol_empresa ON nfse_solicitacoes (tenant_id, empresa)",
+        "CREATE INDEX idx_nfse_sol_telefone ON nfse_solicitacoes (contato_telefone)",
+        "CREATE INDEX idx_nfse_sol_created ON nfse_solicitacoes (created DESC)"
+      ]
+    },
+    {
+      "name": "nfse_notas_emitidas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "solicitacao",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "nfse_solicitacoes"
+        },
+        {
+          "name": "numero_nota",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "serie",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_verificacao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "chave_acesso",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_emissao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tomador_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tomador_documento",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tomador_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "discriminacao_servicos",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "codigo_servico_municipal",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_servicos",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_deducoes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_pis",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_cofins",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_ir",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_csll",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_iss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_iss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_liquido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "iss_retido",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["emitida", "cancelada", "substituida"]
+        },
+        {
+          "name": "modo_emissao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["simulacao", "nacional_gov", "prefeitura_ws"]
+        },
+        {
+          "name": "certificado_usado",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "certificados_digitais"
+        },
+        {
+          "name": "xml_conteudo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pdf_html_conteudo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "titulo_financeiro",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_financeiras"
+        },
+        {
+          "name": "whatsapp_destinatario",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "whatsapp_enviado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "emitido_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "motivo_cancelamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_nfse_num_emp ON nfse_notas_emitidas (tenant_id, empresa, numero_nota)",
+        "CREATE INDEX idx_nfse_verif ON nfse_notas_emitidas (codigo_verificacao)",
+        "CREATE INDEX idx_nfse_status_comp ON nfse_notas_emitidas (tenant_id, status, competencia)",
+        "CREATE INDEX idx_nfse_created ON nfse_notas_emitidas (created DESC)"
       ]
     }
   ]

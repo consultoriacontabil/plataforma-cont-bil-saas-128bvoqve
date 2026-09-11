@@ -45,8 +45,8 @@ export default function Integracoes() {
         </p>
       </div>
 
-      {/* Banner de Destaque da Extensão do WhatsApp */}
-      <div className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Banner Novo Módulo: Emissão Inteligente de NFS-e via WhatsApp */}
+      <div className="rounded-2xl border border-[#0FA3A3] bg-gradient-to-r from-[#0FA3A3]/15 via-teal-500/5 to-transparent p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0FA3A3] text-white">
             <Sparkles className="h-5 w-5" />
@@ -54,9 +54,36 @@ export default function Integracoes() {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-[#1A2333]">
+                Emissão Inteligente de NFS-e via WhatsApp (Framework Integrado)
+              </h3>
+              <Badge className="bg-[#0FA3A3] text-white text-[10px]">ATIVO NOVO</Badge>
+            </div>
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Recepção via Webhook Evolution API, extração com Motor Cognitivo IA, Painel de
+              Supervisão contábil e emissão com XML/DANFSE.
+            </p>
+          </div>
+        </div>
+        <a
+          href="/nfse-whatsapp"
+          className="inline-flex items-center justify-center rounded-lg bg-[#0FA3A3] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0d8c8c] transition-colors shrink-0 shadow-sm"
+        >
+          Acessar Painel de Supervisão
+        </a>
+      </div>
+
+      {/* Banner de Destaque da Extensão do WhatsApp */}
+      <div className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#123B6D] text-white">
+            <Layers className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#1A2333]">
                 Extensão Google Chrome para WhatsApp Web
               </h3>
-              <Badge className="bg-[#0FA3A3] text-white text-[10px]">DISPONÍVEL</Badge>
+              <Badge className="bg-[#123B6D] text-white text-[10px]">DISPONÍVEL</Badge>
             </div>
             <p className="text-xs text-[#64748B] mt-0.5">
               Envio assistivo de recibos e guias, mensagens rápidas com templates e captura de
@@ -66,7 +93,7 @@ export default function Integracoes() {
         </div>
         <a
           href="/extensao"
-          className="inline-flex items-center justify-center rounded-lg bg-[#0FA3A3] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0d8c8c] transition-colors shrink-0"
+          className="inline-flex items-center justify-center rounded-lg bg-[#123B6D] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0e2f57] transition-colors shrink-0"
         >
           Instalar Extensão
         </a>

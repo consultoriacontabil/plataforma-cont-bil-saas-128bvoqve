@@ -1114,3 +1114,123 @@ export interface ParametrosReformaRecord extends RecordModel {
     atualizado_por?: User
   }
 }
+
+// === Módulo Emissão Inteligente de NFS-e via WhatsApp ===
+export type StatusNfseSolicitacao =
+  | 'em_analise'
+  | 'aprovada'
+  | 'emitida'
+  | 'rejeitada'
+  | 'cancelada'
+export type ModoOperacaoNfse = 'simulacao' | 'producao'
+export type ModoEmissaoNfse = 'simulacao' | 'nacional_gov' | 'prefeitura_ws'
+export type StatusNfseNota = 'emitida' | 'cancelada' | 'substituida'
+
+export interface NfseConfigRecord extends RecordModel {
+  tenant_id: string
+  empresa_padrao?: string
+  webhook_token: string
+  evolution_api_url?: string
+  evolution_api_key?: string
+  evolution_instance?: string
+  modo_operacao: ModoOperacaoNfse
+  auto_aprovar_alta_confianca: boolean
+  msg_saudacao?: string
+  msg_recebimento?: string
+  msg_aprovacao?: string
+  msg_rejeicao?: string
+  msg_nota_emitida?: string
+  telefone_suporte?: string
+  ativo: boolean
+  expand?: {
+    empresa_padrao?: Empresa
+  }
+}
+
+export interface NfseAlertaItem {
+  campo?: string
+  tipo: 'erro_validacao' | 'campo_ausente' | 'inconsistencia' | 'atencao'
+  mensagem: string
+  severidade: 'bloqueante' | 'atencao' | 'informativo'
+}
+
+export interface NfseMensagemHistorico {
+  origem: 'cliente' | 'bot' | 'escritorio_bot'
+  texto: string
+  data: string
+}
+
+export interface NfseSolicitacaoRecord extends RecordModel {
+  tenant_id: string
+  empresa?: string
+  contato_nome: string
+  contato_telefone: string
+  origem_chat_jid?: string
+  mensagem_original: string
+  mensagem_id_externo?: string
+  status: StatusNfseSolicitacao
+  score_confianca: number
+  tomador_nome?: string
+  tomador_documento?: string
+  tomador_email?: string
+  tomador_endereco?: string
+  descricao_servico?: string
+  valor_servico?: number
+  codigo_servico?: string
+  dados_extraidos_json?: Record<string, unknown>
+  alertas_json?: NfseAlertaItem[]
+  motivo_rejeicao?: string
+  revisado_por?: string
+  data_revisao?: string
+  resposta_enviada_whatsapp: boolean
+  historico_mensagens_json?: NfseMensagemHistorico[]
+  expand?: {
+    empresa?: Empresa
+    revisado_por?: User
+  }
+}
+
+export interface NfseNotaEmitidaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  solicitacao?: string
+  numero_nota: number
+  serie?: string
+  codigo_verificacao: string
+  chave_acesso?: string
+  data_emissao: string
+  competencia: string
+  tomador_nome: string
+  tomador_documento: string
+  tomador_email?: string
+  discriminacao_servicos: string
+  codigo_servico_municipal?: string
+  valor_servicos: number
+  valor_deducoes?: number
+  valor_pis?: number
+  valor_cofins?: number
+  valor_inss?: number
+  valor_ir?: number
+  valor_csll?: number
+  valor_iss?: number
+  aliquota_iss?: number
+  valor_liquido: number
+  iss_retido: boolean
+  status: StatusNfseNota
+  modo_emissao: ModoEmissaoNfse
+  certificado_usado?: string
+  xml_conteudo?: string
+  pdf_html_conteudo?: string
+  titulo_financeiro?: string
+  whatsapp_destinatario?: string
+  whatsapp_enviado_em?: string
+  emitido_por?: string
+  motivo_cancelamento?: string
+  expand?: {
+    empresa?: Empresa
+    solicitacao?: NfseSolicitacaoRecord
+    certificado_usado?: CertificadoDigitalRecord
+    titulo_financeiro?: ContaFinanceiraRecord
+    emitido_por?: User
+  }
+}

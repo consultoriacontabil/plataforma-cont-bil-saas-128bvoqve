@@ -37,6 +37,7 @@ import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
 import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
 import SimuladorReformaPage from '@/pages/SimuladorReforma'
+import NfseWhatsappPage from '@/pages/NfseWhatsapp'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/workflow/:id" element={<WorkflowPage />} />
           <Route path="/obrigacoes" element={<Obrigacoes />} />
           <Route path="/fiscal" element={<Fiscal />} />
+          <Route path="/nfse-whatsapp" element={<NfseWhatsappPage />} />
           <Route path="/simulador-reforma" element={<SimuladorReformaPage />} />
 
           {/* Módulo Departamento Pessoal (P1) */}

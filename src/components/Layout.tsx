@@ -33,6 +33,7 @@ import {
   Plus,
   Receipt,
   FileCheck,
+  MessageSquare,
 } from 'lucide-react'
 import {
   Dialog,
@@ -143,6 +144,7 @@ export default function Layout() {
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/simulador-reforma')) return 'Simulador da Reforma Tributária (IBS/CBS)'
+    if (path.startsWith('/nfse-whatsapp')) return 'Emissão Inteligente de NFS-e via WhatsApp'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
     if (path.startsWith('/departamento-pessoal')) return 'Departamento Pessoal (DP)'
     if (path.startsWith('/impostos-retidos')) return 'Gestão de Impostos Retidos'
@@ -282,6 +284,12 @@ export default function Layout() {
           )[],
         },
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
+        {
+          label: 'NFS-e WhatsApp',
+          to: '/nfse-whatsapp',
+          icon: MessageSquare,
+          badge: 'IA',
+        },
         { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
         { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
       ],

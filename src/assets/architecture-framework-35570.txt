@@ -1,0 +1,14 @@
+Architecture Framework: Emissão Inteligente de NFS-e via WhatsApp
+┌─────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
+│  WhatsApp App   │ ──1──>│   Webhook / Bot Engine  │ ──2──>│   Motor Cognitivo IA   │
+│ (Cliente/User)  │ <──8──│  (Evolution API/Baileys)│ <──3──│ (LLM + System Prompts) │
+└─────────────────┘       └────────────────────────┘       └────────────────────────┘
+                                      │                                 │
+                                      4                                 │ (Dados Estruturados)
+                                      ▼                                 ▼
+                          ┌────────────────────────┐       ┌────────────────────────┐
+                          │ Painel de Supervisão   │       │   API Engine Fiscal    │
+                          │  (Web/Dashboard)       │ ──5──>│  (Prefeitura/Gov.br)   │
+                          └────────────────────────┘       └────────────────────────┘
+                                      ▲                                 │
+                                      │──────────────6 (XML/PDF)────────┘
