@@ -7,6 +7,7 @@ export interface User extends RecordModel {
   name: string
   email: string
   avatar?: string
+  email_notificacoes_prazo?: boolean
 }
 
 export interface Tenant extends RecordModel {
@@ -174,4 +175,55 @@ export interface AgentMessageRecord extends RecordModel {
   user_id: string
   role: 'user' | 'agent'
   conteudo: string
+}
+
+export type ObrigacaoTipo =
+  | 'DAS'
+  | 'SPED'
+  | 'GFIP'
+  | 'DIRF'
+  | 'EFD'
+  | 'DARF'
+  | 'FGTS'
+  | 'INSS'
+  | 'DCTF'
+  | 'DMED'
+  | 'GIA'
+  | 'OUTROS'
+
+export type ObrigacaoStatus = 'pendente' | 'em_andamento' | 'entregue' | 'atrasada' | 'cancelada'
+
+export interface ObrigacaoRecord extends RecordModel {
+  tenant_id: string
+  empresa_id: string
+  tipo: ObrigacaoTipo
+  competencia: string
+  vencimento: string
+  status: ObrigacaoStatus
+  responsavel_id?: string
+  valor?: number
+  observacoes?: string
+  anexo?: string
+  data_entrega?: string
+  expand?: {
+    empresa_id?: Empresa
+    responsavel_id?: User
+  }
+}
+
+export type NotificacaoTipo =
+  | 'prazo_proximo'
+  | 'atrasada'
+  | 'workflow_status'
+  | 'documento_rejeitado'
+  | 'sistema'
+
+export interface NotificacaoRecord extends RecordModel {
+  tenant_id: string
+  usuario_destino_id?: string
+  titulo: string
+  mensagem: string
+  tipo: NotificacaoTipo
+  link?: string
+  lida: boolean
 }

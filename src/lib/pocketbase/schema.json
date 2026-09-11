@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:50:15.597Z",
+  "generatedAt": "2026-09-11T13:56:38.430Z",
   "collections": [
     {
       "name": "users",
@@ -37,6 +37,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "email_notificacoes_prazo",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -895,6 +901,205 @@
       "indexes": [
         "CREATE INDEX idx_agent_msg_conv ON agent_messages (conversation_id)",
         "CREATE INDEX idx_agent_msg_created ON agent_messages (created ASC)"
+      ]
+    },
+    {
+      "name": "obrigacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "DAS",
+            "SPED",
+            "GFIP",
+            "DIRF",
+            "EFD",
+            "DARF",
+            "FGTS",
+            "INSS",
+            "DCTF",
+            "DMED",
+            "GIA",
+            "OUTROS"
+          ]
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pendente", "em_andamento", "entregue", "atrasada", "cancelada"]
+        },
+        {
+          "name": "responsavel_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "anexo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_entrega",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_obrigacoes_tenant_vencimento ON obrigacoes (tenant_id, vencimento ASC)",
+        "CREATE INDEX idx_obrigacoes_empresa_status ON obrigacoes (empresa_id, status)",
+        "CREATE INDEX idx_obrigacoes_responsavel ON obrigacoes (responsavel_id)",
+        "CREATE INDEX idx_obrigacoes_created ON obrigacoes (created DESC)"
+      ]
+    },
+    {
+      "name": "notificacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
+        "view": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
+        "delete": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "usuario_destino_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "prazo_proximo",
+            "atrasada",
+            "workflow_status",
+            "documento_rejeitado",
+            "sistema"
+          ]
+        },
+        {
+          "name": "link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_notificacoes_tenant_user_lida ON notificacoes (tenant_id, usuario_destino_id, lida)",
+        "CREATE INDEX idx_notificacoes_created ON notificacoes (created DESC)"
       ]
     }
   ]

@@ -18,6 +18,8 @@ import Usuarios from '@/pages/Usuarios'
 import Auditoria from '@/pages/Auditoria'
 import RumoAgentPage from '@/pages/RumoAgent'
 import Perfil from '@/pages/Perfil'
+import Obrigacoes from '@/pages/Obrigacoes'
+import Relatorios from '@/pages/Relatorios'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -49,7 +51,9 @@ export default function App() {
           <Route path="/documentos" element={<Documentos />} />
           <Route path="/workflow" element={<WorkflowPage />} />
           <Route path="/workflow/:id" element={<WorkflowPage />} />
+          <Route path="/obrigacoes" element={<Obrigacoes />} />
           <Route path="/fiscal" element={<Fiscal />} />
+          <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/integracoes" element={<Integracoes />} />
 
           {/* Gestão */}

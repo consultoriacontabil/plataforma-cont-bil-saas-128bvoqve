@@ -29,4 +29,5 @@ onRecordAfterDeleteSuccess(
   'workflows',
   'fiscal',
   'tenant_members',
+  'obrigacoes',
 )

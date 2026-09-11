@@ -21,12 +21,15 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock,
+  AlertTriangle,
   X,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
-import type { Empresa, Documento } from '@/types'
+import { notificacoesService } from '@/services/notificacoes'
+import { obrigacoesService } from '@/services/obrigacoes'
+import type { Empresa, Documento, NotificacaoRecord } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +58,14 @@ export default function Layout() {
   const [searchResultsOpen, setSearchResultsOpen] = useState(false)
   const [matchingEmpresas, setMatchingEmpresas] = useState<Empresa[]>([])
   const [matchingDocumentos, setMatchingDocumentos] = useState<Documento[]>([])
+
+  // Realtime Notifications State
+  const [notificacoes, setNotificacoes] = useState<NotificacaoRecord[]>([])
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false)
+
+  // Badge count for Obrigacoes (atrasadas + vencendo em <= 7 dias)
+  const [obrigacoesBadgeCount, setObrigacoesBadgeCount] = useState<number>(0)
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -101,13 +112,105 @@ export default function Layout() {
     if (path.startsWith('/empresas')) return 'Empresas'
     if (path.startsWith('/documentos')) return 'Documentos & GED'
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
+    if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
+    if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
     if (path.startsWith('/auditoria')) return 'Trilha de Auditoria'
     if (path.startsWith('/rumo-agent')) return 'Rumo Agent (IA)'
     if (path.startsWith('/perfil')) return 'Minha Conta'
     return 'Rumo Contábil'
+  }
+
+  // Load and subscribe to notifications
+  useEffect(() => {
+    if (!tenant?.id || !user?.id) return
+
+    const fetchNotifs = async () => {
+      try {
+        const list = await notificacoesService.list(tenant.id, user.id)
+        setNotificacoes(list)
+        const unread = list.filter((n) => !n.lida).length
+        setUnreadCount(unread)
+      } catch (err) {
+        console.error('Erro ao carregar notificações:', err)
+      }
+    }
+
+    const fetchObrigacoesAlerts = async () => {
+      try {
+        const obs = await obrigacoesService.list(
+          tenant.id,
+          "status = 'pendente' || status = 'em_andamento' || status = 'atrasada'",
+        )
+        const now = Date.now()
+        let count = 0
+        obs.forEach((ob) => {
+          if (ob.status === 'atrasada') {
+            count++
+          } else {
+            const diffDays = Math.ceil(
+              (new Date(ob.vencimento).getTime() - now) / (1000 * 60 * 60 * 24),
+            )
+            if (diffDays <= 7) count++
+          }
+        })
+        setObrigacoesBadgeCount(count)
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    fetchNotifs()
+    fetchObrigacoesAlerts()
+
+    // Realtime subscription for notificacoes
+    pb.collection('notificacoes')
+      .subscribe('*', () => {
+        fetchNotifs()
+      })
+      .catch(() => {})
+
+    pb.collection('obrigacoes')
+      .subscribe('*', () => {
+        fetchObrigacoesAlerts()
+      })
+      .catch(() => {})
+
+    return () => {
+      pb.collection('notificacoes')
+        .unsubscribe('*')
+        .catch(() => {})
+      pb.collection('obrigacoes')
+        .unsubscribe('*')
+        .catch(() => {})
+    }
+  }, [tenant?.id, user?.id])
+
+  const handleMarkAsRead = async (id: string, link?: string) => {
+    try {
+      await notificacoesService.markAsRead(id)
+      setNotificacoes((prev) => prev.map((n) => (n.id === id ? { ...n, lida: true } : n)))
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+      if (link) {
+        setNotifDropdownOpen(false)
+        navigate(link)
+      }
+    } catch {
+      /* intentionally ignored */
+    }
+  }
+
+  const handleMarkAllAsRead = async () => {
+    if (!tenant?.id || !user?.id) return
+    try {
+      await notificacoesService.markAllAsRead(tenant.id, user.id)
+      setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })))
+      setUnreadCount(0)
+    } catch {
+      /* intentionally ignored */
+    }
   }
 
   const navGroups = [
@@ -118,15 +221,22 @@ export default function Layout() {
         { label: 'Empresas', to: '/empresas', icon: Building2 },
         { label: 'Documentos', to: '/documentos', icon: FileText },
         { label: 'Workflow', to: '/workflow', icon: GitPullRequest },
+        {
+          label: 'Obrigações',
+          to: '/obrigacoes',
+          icon: Clock,
+          badge: obrigacoesBadgeCount > 0 ? obrigacoesBadgeCount : undefined,
+        },
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
-        { label: 'Integrações', to: '/integracoes', icon: Layers },
       ],
     },
     {
       group: 'GESTÃO',
       items: [
+        { label: 'Relatórios', to: '/relatorios', icon: Layers },
         { label: 'Usuários & Perfis', to: '/usuarios', icon: Users },
         { label: 'Auditoria', to: '/auditoria', icon: ShieldCheck },
+        { label: 'Integrações', to: '/integracoes', icon: Compass },
       ],
     },
   ]
@@ -190,7 +300,7 @@ export default function Layout() {
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                        'group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                         isActive
                           ? 'border-l-4 border-[#0FA3A3] bg-[#123B6D] text-white font-semibold'
                           : 'text-[#94A3B8] hover:bg-[#123B6D]/50 hover:text-white',
@@ -199,8 +309,15 @@ export default function Layout() {
                     }
                     title={collapsed ? item.label : undefined}
                   >
-                    <Icon className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105" />
-                    {!collapsed && <span>{item.label}</span>}
+                    <div className="flex items-center gap-3">
+                      <Icon className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105" />
+                      {!collapsed && <span>{item.label}</span>}
+                    </div>
+                    {!collapsed && item.badge && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
+                        {item.badge}
+                      </span>
+                    )}
                   </NavLink>
                 )
               })}
@@ -279,15 +396,22 @@ export default function Layout() {
                         to={item.to}
                         className={({ isActive }) =>
                           cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
+                            'flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium',
                             isActive
                               ? 'bg-[#123B6D] text-white font-semibold'
                               : 'text-[#94A3B8] hover:bg-[#123B6D]/50 hover:text-white',
                           )
                         }
                       >
-                        <Icon className="h-5 w-5" />
-                        <span>{item.label}</span>
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-5 w-5" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
+                            {item.badge}
+                          </span>
+                        )}
                       </NavLink>
                     )
                   })}
@@ -491,8 +615,8 @@ export default function Layout() {
               </div>
             )}
 
-            {/* Notification Bell */}
-            <DropdownMenu>
+            {/* Notification Bell with Live Feed */}
+            <DropdownMenu open={notifDropdownOpen} onOpenChange={setNotifDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -501,39 +625,106 @@ export default function Layout() {
                   aria-label="Notificações"
                 >
                   <Bell className="h-5 w-5" />
-                  <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0FA3A3] opacity-75"></span>
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#0FA3A3]"></span>
-                  </span>
+                  {unreadCount > 0 && (
+                    <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#EF4444] text-[9px] font-bold text-white shadow-xs">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel className="flex items-center justify-between text-xs">
-                  <span>Notificações</span>
-                  <Badge variant="secondary" className="text-[10px]">
-                    2 novas
-                  </Badge>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="space-y-2 p-2 text-xs">
-                  <div className="flex items-start gap-2 rounded-lg p-2 hover:bg-slate-50">
-                    <Clock className="h-4 w-4 text-[#F59E0B] shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-[#1A2333]">Obrigação DCTF pendente</p>
-                      <p className="text-[11px] text-[#64748B]">
-                        Inovatech possui DCTF com vencimento próximo.
-                      </p>
-                    </div>
+              <DropdownMenuContent
+                align="end"
+                className="w-80 sm:w-96 rounded-2xl p-0 shadow-xl border-[#E2E8F0]"
+              >
+                <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3 bg-slate-50/60 rounded-t-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#1A2333]">
+                      Central de Notificações
+                    </span>
+                    {unreadCount > 0 && (
+                      <Badge className="bg-[#0FA3A3] text-white text-[10px] px-1.5 py-0">
+                        {unreadCount} nova{unreadCount > 1 ? 's' : ''}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex items-start gap-2 rounded-lg p-2 hover:bg-slate-50">
-                    <CheckCircle2 className="h-4 w-4 text-[#22C55E] shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-[#1A2333]">Documento processado</p>
-                      <p className="text-[11px] text-[#64748B]">
-                        Contrato Social averbado com sucesso.
-                      </p>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      className="text-[11px] font-semibold text-[#0FA3A3] hover:underline"
+                    >
+                      Marcar todas como lidas
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 p-1">
+                  {notificacoes.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-[#94A3B8]">
+                      Nenhuma notificação no momento.
                     </div>
-                  </div>
+                  ) : (
+                    notificacoes.map((notif) => {
+                      const isUnread = !notif.lida
+                      const isOverdue = notif.tipo === 'atrasada'
+                      const isWarning = notif.tipo === 'prazo_proximo'
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleMarkAsRead(notif.id, notif.link)}
+                          className={cn(
+                            'flex items-start gap-3 p-3 transition-colors rounded-xl cursor-pointer',
+                            isUnread ? 'bg-sky-50/50 hover:bg-sky-50' : 'hover:bg-slate-50',
+                          )}
+                        >
+                          <div className="shrink-0 mt-0.5">
+                            {isOverdue ? (
+                              <div className="h-7 w-7 rounded-lg bg-red-100 text-[#DC2626] flex items-center justify-center">
+                                <AlertTriangle className="h-4 w-4" />
+                              </div>
+                            ) : isWarning ? (
+                              <div className="h-7 w-7 rounded-lg bg-amber-100 text-[#D97706] flex items-center justify-center">
+                                <Clock className="h-4 w-4" />
+                              </div>
+                            ) : (
+                              <div className="h-7 w-7 rounded-lg bg-teal-100 text-[#0FA3A3] flex items-center justify-center">
+                                <CheckCircle2 className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <p
+                                className={cn(
+                                  'text-xs truncate',
+                                  isUnread
+                                    ? 'font-bold text-[#1A2333]'
+                                    : 'font-medium text-[#64748B]',
+                                )}
+                              >
+                                {notif.titulo}
+                              </p>
+                              {isUnread && (
+                                <span className="h-2 w-2 rounded-full bg-[#0FA3A3] shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#64748B] line-clamp-2 mt-0.5">
+                              {notif.mensagem}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+                <div className="border-t border-[#E2E8F0] p-2 bg-slate-50 text-center rounded-b-2xl">
+                  <NavLink
+                    to="/obrigacoes"
+                    onClick={() => setNotifDropdownOpen(false)}
+                    className="text-[11px] font-semibold text-[#0FA3A3] hover:underline"
+                  >
+                    Ver calendário de obrigações →
+                  </NavLink>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>

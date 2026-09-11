@@ -14,6 +14,7 @@ import { usersService } from '@/services/users'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +30,12 @@ export default function Perfil() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
+
+  // Notification email preference
+  const [emailNotifPrazo, setEmailNotifPrazo] = useState<boolean>(
+    user?.email_notificacoes_prazo !== false,
+  )
+  const [savingPref, setSavingPref] = useState(false)
 
   // Password data
   const [oldPassword, setOldPassword] = useState('')
@@ -69,6 +76,31 @@ export default function Perfil() {
       })
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const handleToggleEmailNotif = async (checked: boolean) => {
+    if (!user) return
+    setEmailNotifPrazo(checked)
+    setSavingPref(true)
+    try {
+      await pb.collection('users').update(user.id, {
+        email_notificacoes_prazo: checked,
+      })
+      await refreshAuth()
+      toast({
+        title: 'Preferência atualizada',
+        description: checked
+          ? 'Você receberá e-mails de lembretes e prazos de obrigações/workflows.'
+          : 'Lembretes por e-mail desativados.',
+      })
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar preferência',
+      })
+    } finally {
+      setSavingPref(false)
     }
   }
 
@@ -223,8 +255,49 @@ export default function Perfil() {
           </CardContent>
         </Card>
 
-        {/* Card 2: Alterar Senha */}
+        {/* Card 2: Preferências & Notificações */}
         <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-sm font-bold text-[#1A2333]">
+              Notificações e E-mails
+            </CardTitle>
+            <CardDescription className="text-xs text-[#64748B]">
+              Configure como e quando deseja ser alertado sobre prazos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <div className="space-y-0.5 pr-2">
+                <Label
+                  htmlFor="email-notif-switch"
+                  className="text-xs font-semibold text-[#1A2333] cursor-pointer"
+                >
+                  Receber e-mails de prazos
+                </Label>
+                <p className="text-[11px] text-[#64748B]">
+                  Envio diário automático de obrigações a vencer (≤ 7 dias) e workflows atribuídos
+                </p>
+              </div>
+              <Switch
+                id="email-notif-switch"
+                checked={emailNotifPrazo}
+                onCheckedChange={handleToggleEmailNotif}
+                disabled={savingPref}
+              />
+            </div>
+
+            <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 text-xs text-[#0FA3A3]">
+              <p className="font-semibold">Lembretes Automáticos</p>
+              <p className="text-[11px] text-[#64748B] mt-0.5">
+                O job agendado diário roda às 08h00 e gera notificações no sino da plataforma e
+                e-mails transacionais para os responsáveis pelas guias fiscais.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Alterar Senha */}
+        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs md:col-span-2">
           <CardHeader className="pb-3 border-b border-slate-100">
             <CardTitle className="text-sm font-bold text-[#1A2333]">Alterar Senha</CardTitle>
             <CardDescription className="text-xs text-[#64748B]">

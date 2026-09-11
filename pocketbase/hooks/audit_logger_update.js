@@ -71,6 +71,15 @@ onRecordAfterUpdateSuccess(
           ' (status: ' +
           record.getString('status') +
           ')'
+      } else if (collectionName === 'obrigacoes') {
+        acao = 'Atualização de obrigação'
+        detalhes =
+          'Atualizou obrigação ' +
+          record.getString('tipo') +
+          ' (' +
+          record.getString('competencia') +
+          ') para status ' +
+          record.getString('status')
       }
 
       log.set('acao', acao)
@@ -86,4 +95,5 @@ onRecordAfterUpdateSuccess(
   'workflows',
   'fiscal',
   'tenant_members',
+  'obrigacoes',
 )

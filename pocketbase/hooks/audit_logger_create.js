@@ -66,6 +66,14 @@ onRecordAfterCreateSuccess(
       } else if (collectionName === 'tenant_members') {
         acao = 'Membro vinculado'
         detalhes = 'Novo membro associado com perfil ' + record.getString('perfil')
+      } else if (collectionName === 'obrigacoes') {
+        acao = 'Nova obrigação fiscal'
+        detalhes =
+          'Cadastrou obrigação ' +
+          record.getString('tipo') +
+          ' (competência ' +
+          record.getString('competencia') +
+          ')'
       }
 
       log.set('acao', acao)
@@ -81,4 +89,5 @@ onRecordAfterCreateSuccess(
   'workflows',
   'fiscal',
   'tenant_members',
+  'obrigacoes',
 )
