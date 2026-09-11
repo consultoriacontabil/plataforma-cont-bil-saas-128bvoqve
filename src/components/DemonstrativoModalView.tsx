@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import {
   FileText,
   Printer,
@@ -9,8 +9,12 @@ import {
   AlertCircle,
   FileCheck,
   Download,
+  ShieldCheck,
+  ExternalLink,
+  Fingerprint,
 } from 'lucide-react'
-import type { DemonstrativoRecord, Empresa } from '@/types'
+import type { DemonstrativoRecord, Empresa, AssinaturaDemonstrativoRecord } from '@/types'
+import { assinaturasService } from '@/services/assinaturas'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -47,8 +51,22 @@ export function DemonstrativoModalView({
   approving = false,
 }: DemonstrativoModalViewProps) {
   const printRef = useRef<HTMLDivElement>(null)
+  const [assinaturas, setAssinaturas] = useState<AssinaturaDemonstrativoRecord[]>([])
+
+  useEffect(() => {
+    if (demonstrativo?.id && open) {
+      assinaturasService
+        .listByDemonstrativo(demonstrativo.id)
+        .then((res) => setAssinaturas(res))
+        .catch(() => setAssinaturas([]))
+    } else {
+      setAssinaturas([])
+    }
+  }, [demonstrativo?.id, open])
 
   if (!demonstrativo) return null
+
+  const assinaturaConcluida = assinaturas.find((a) => a.status === 'assinada')
 
   const dados = demonstrativo.dados || {}
   const isDre = demonstrativo.tipo === 'dre'
@@ -445,10 +463,60 @@ export function DemonstrativoModalView({
               com as Normas Brasileiras de Contabilidade (NBC) e a legislação vigente.
             </p>
 
-            {demonstrativo.status === 'aprovado' && (
+            {/* Selo Formal de Assinatura Digital quando houver assinatura concluída */}
+            {assinaturaConcluida ? (
+              <div className="p-4 rounded-2xl bg-emerald-50/80 border-2 border-emerald-500 text-emerald-950 text-xs space-y-2 print:border-emerald-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                    <span className="font-extrabold text-sm text-emerald-950">
+                      DOCUMENTO ASSINADO DIGITALMENTE
+                    </span>
+                  </div>
+                  <Badge className="bg-emerald-600 text-white font-bold text-[10px] uppercase">
+                    {assinaturaConcluida.tipo_assinatura === 'icp_brasil'
+                      ? 'ICP-Brasil Qualificada'
+                      : 'Eletrônica Declarada'}
+                  </Badge>
+                </div>
+
+                <div className="text-[11px] text-emerald-900 space-y-0.5">
+                  <p>
+                    <b>Assinado em:</b>{' '}
+                    {assinaturaConcluida.data_assinatura
+                      ? formatDatePtBr(assinaturaConcluida.data_assinatura)
+                      : 'Data registrada'}{' '}
+                    por <b>{assinaturaConcluida.assinante}</b> ({assinaturaConcluida.cargo_cpf})
+                  </p>
+                  <p className="font-mono text-[10px] text-emerald-800 break-all">
+                    <b>Hash SHA-256:</b> {assinaturaConcluida.hash_conteudo}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                  <span className="text-emerald-800">
+                    Código de Validação Pública:{' '}
+                    <b className="font-mono text-emerald-950 text-xs">
+                      {assinaturaConcluida.token_verificacao}
+                    </b>
+                  </span>
+                  <a
+                    href={`/verificar-assinatura?token=${encodeURIComponent(
+                      assinaturaConcluida.token_verificacao,
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 underline"
+                  >
+                    <span>Verificar autenticidade em /verificar-assinatura</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            ) : demonstrativo.status === 'aprovado' ? (
               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs flex items-center justify-between">
                 <div>
-                  <p className="font-bold">✓ Assinado e Aprovado Digitalmente pelo Cliente</p>
+                  <p className="font-bold">✓ Assinado e Aprovado pelo Cliente</p>
                   <p className="text-[11px] text-emerald-800">
                     Aprovado em:{' '}
                     {demonstrativo.data_aprovacao
@@ -460,7 +528,7 @@ export function DemonstrativoModalView({
                   Válido para Órgãos Fiscais
                 </Badge>
               </div>
-            )}
+            ) : null}
 
             {demonstrativo.status === 'reprovado' && (
               <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 text-xs">
@@ -471,17 +539,21 @@ export function DemonstrativoModalView({
               </div>
             )}
 
-            {/* Linhas de Assinatura */}
-            <div className="grid grid-cols-2 gap-8 pt-10 text-center text-xs">
+            {/* Linhas de Assinatura ou Confirmação de Assinatura Digital */}
+            <div className="grid grid-cols-2 gap-8 pt-8 text-center text-xs">
               <div className="space-y-1">
                 <div className="border-t border-slate-800 w-3/4 mx-auto" />
                 <p className="font-bold text-[#1A2333]">
-                  {empresa?.razao_social ||
-                    empresa?.nome_fantasia ||
-                    'Representante Legal da Empresa'}
+                  {assinaturaConcluida
+                    ? assinaturaConcluida.assinante
+                    : empresa?.razao_social ||
+                      empresa?.nome_fantasia ||
+                      'Representante Legal da Empresa'}
                 </p>
                 <p className="text-[10px] text-[#64748B]">
-                  Assinatura do Responsável Legal / Titular
+                  {assinaturaConcluida
+                    ? `${assinaturaConcluida.cargo_cpf} • Assinatura Eletrônica Registrada`
+                    : 'Assinatura do Responsável Legal / Titular'}
                 </p>
               </div>
 
@@ -492,6 +564,26 @@ export function DemonstrativoModalView({
                   CRC/SP 2SP034821/O • Rumo Consultoria Contábil
                 </p>
               </div>
+            </div>
+
+            {/* Rodapé com Link Público de Autenticidade */}
+            <div className="pt-4 border-t border-slate-200 text-center text-[10px] text-[#64748B] flex flex-wrap items-center justify-between gap-2">
+              <span>Documento emitido pelo sistema contábil Rumo SaaS • Padrão CPC / CFC</span>
+              <a
+                href={
+                  assinaturaConcluida
+                    ? `/verificar-assinatura?token=${encodeURIComponent(
+                        assinaturaConcluida.token_verificacao,
+                      )}`
+                    : '/verificar-assinatura'
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#0FA3A3] hover:underline font-semibold flex items-center gap-1"
+              >
+                <span>Verificar autenticidade deste documento</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
           </div>
         </div>

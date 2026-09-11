@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:51:24.279Z",
+  "generatedAt": "2026-09-11T17:10:25.595Z",
   "collections": [
     {
       "name": "users",
@@ -3106,6 +3106,160 @@
         "CREATE INDEX idx_pre_lanc_confianca ON pre_lancamentos (confianca)",
         "CREATE INDEX idx_pre_lanc_doc ON pre_lancamentos (documento)",
         "CREATE INDEX idx_pre_lanc_created ON pre_lancamentos (created DESC)"
+      ]
+    },
+    {
+      "name": "assinaturas_demonstrativos",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "demonstrativo",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "demonstrativos"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_assinatura",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["eletronica_declarada", "icp_brasil"]
+        },
+        {
+          "name": "tipo_certificado",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["nenhum", "a1", "a3"]
+        },
+        {
+          "name": "assinante",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cargo_cpf",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email_assinante",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hash_conteudo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "hash_documentacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["solicitada", "assinada", "expirada", "cancelada"]
+        },
+        {
+          "name": "token_verificacao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_solicitacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_assinatura",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_certificado",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ip_assinatura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "provedor",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["interno", "d4sign", "clicksign", "outro"]
+        },
+        {
+          "name": "payload_provedor",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ass_dem_tenant_dem ON assinaturas_demonstrativos (tenant_id, demonstrativo)",
+        "CREATE INDEX idx_ass_dem_token ON assinaturas_demonstrativos (token_verificacao)",
+        "CREATE INDEX idx_ass_dem_status ON assinaturas_demonstrativos (status)",
+        "CREATE INDEX idx_ass_dem_created ON assinaturas_demonstrativos (created DESC)"
       ]
     }
   ]

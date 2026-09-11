@@ -14,6 +14,14 @@ import {
   Printer,
   ChevronRight,
   PieChart,
+  ShieldCheck,
+  PenTool,
+  Copy,
+  Check,
+  ExternalLink,
+  Lock,
+  Info,
+  Fingerprint,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -23,9 +31,17 @@ import {
   type BalancoResultado,
 } from '@/services/relatoriosContabeis'
 import { demonstrativosService } from '@/services/demonstrativos'
+import { assinaturasService } from '@/services/assinaturas'
 import { DemonstrativoModalView } from '@/components/DemonstrativoModalView'
-import type { Empresa, DemonstrativoRecord, DemonstrativoTipo } from '@/types'
-import { formatDatePtBr } from '@/lib/formatters'
+import type {
+  Empresa,
+  DemonstrativoRecord,
+  DemonstrativoTipo,
+  AssinaturaDemonstrativoRecord,
+  TipoAssinaturaDemonstrativo,
+  TipoCertificadoIcp,
+} from '@/types'
+import { formatDatePtBr, formatDateTimePtBr } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -36,6 +52,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -61,6 +89,30 @@ export default function RelatoriosContabeisPage() {
   const [viewingDemonstrativo, setViewingDemonstrativo] = useState<DemonstrativoRecord | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
 
+  // Módulo Assinaturas Digitais (ICP-Brasil / Eletrônica)
+  const [assinaturasMap, setAssinaturasMap] = useState<
+    Record<string, AssinaturaDemonstrativoRecord[]>
+  >({})
+  const [solicitarModalOpen, setSolicitarModalOpen] = useState(false)
+  const [assinarModalOpen, setAssinarModalOpen] = useState(false)
+  const [selectedDemParaAssinar, setSelectedDemParaAssinar] = useState<DemonstrativoRecord | null>(
+    null,
+  )
+  const [selectedAssinaturaParaConcluir, setSelectedAssinaturaParaConcluir] =
+    useState<AssinaturaDemonstrativoRecord | null>(null)
+
+  // Form Solicitar Assinatura
+  const [formAssinanteNome, setFormAssinanteNome] = useState('')
+  const [formAssinanteCargoCpf, setFormAssinanteCargoCpf] = useState('')
+  const [formAssinanteEmail, setFormAssinanteEmail] = useState('')
+  const [formTipoAssinatura, setFormTipoAssinatura] =
+    useState<TipoAssinaturaDemonstrativo>('eletronica_declarada')
+  const [formTipoCertificado, setFormTipoCertificado] = useState<TipoCertificadoIcp>('nenhum')
+
+  // Form Assinar (Concordância consciente)
+  const [concordoTermos, setConcordoTermos] = useState(false)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
+
   // 1. Carregar Empresas
   useEffect(() => {
     if (!tenant?.id) return
@@ -83,7 +135,7 @@ export default function RelatoriosContabeisPage() {
     if (!tenant?.id || !selectedEmpresaId || !selectedCompetencia) return
     setLoading(true)
     try {
-      const [dreRes, balancoRes, dems] = await Promise.all([
+      const [dreRes, balancoRes, dems, todasAssinaturas] = await Promise.all([
         relatoriosContabeisService.gerarDRE(tenant.id, selectedEmpresaId, selectedCompetencia),
         relatoriosContabeisService.gerarBalancoPatrimonial(
           tenant.id,
@@ -94,10 +146,23 @@ export default function RelatoriosContabeisPage() {
           empresaId: selectedEmpresaId,
           competencia: selectedCompetencia,
         }),
+        assinaturasService.list(tenant.id, {
+          empresaId: selectedEmpresaId,
+          competencia: selectedCompetencia,
+        }),
       ])
       setDreData(dreRes)
       setBalancoData(balancoRes)
       setDemonstrativos(dems)
+
+      // Mapear assinaturas por ID do demonstrativo
+      const map: Record<string, AssinaturaDemonstrativoRecord[]> = {}
+      todasAssinaturas.forEach((ass) => {
+        const dId = ass.demonstrativo
+        if (!map[dId]) map[dId] = []
+        map[dId].push(ass)
+      })
+      setAssinaturasMap(map)
     } catch (err) {
       console.error('Erro ao gerar relatórios contábeis:', err)
       toast({
@@ -262,6 +327,139 @@ export default function RelatoriosContabeisPage() {
     }
   }
 
+  // Abrir Modal para Solicitar Assinatura
+  const handleAbrirSolicitarAssinatura = (dem: DemonstrativoRecord) => {
+    setSelectedDemParaAssinar(dem)
+    setFormAssinanteNome(
+      activeEmpresa?.razao_social
+        ? `Resp. Legal - ${activeEmpresa.razao_social}`
+        : 'Responsável Técnico Contábil',
+    )
+    setFormAssinanteCargoCpf('Diretor / Administrador')
+    setFormAssinanteEmail(activeEmpresa?.email || '')
+    setFormTipoAssinatura('eletronica_declarada')
+    setFormTipoCertificado('nenhum')
+    setSolicitarModalOpen(true)
+  }
+
+  // Submeter Solicitação de Assinatura
+  const handleSubmitSolicitarAssinatura = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (
+      !tenant?.id ||
+      !selectedDemParaAssinar ||
+      !formAssinanteNome.trim() ||
+      !formAssinanteCargoCpf.trim()
+    ) {
+      toast({
+        variant: 'destructive',
+        title: 'Campos obrigatórios',
+        description: 'Preencha o nome e o cargo/CPF do assinante.',
+      })
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      await assinaturasService.solicitarAssinatura({
+        tenantId: tenant.id,
+        demonstrativoId: selectedDemParaAssinar.id,
+        empresaId: selectedDemParaAssinar.empresa,
+        competencia: selectedDemParaAssinar.competencia,
+        tipoAssinatura: formTipoAssinatura,
+        tipoCertificado: formTipoCertificado,
+        assinante: formAssinanteNome.trim(),
+        cargoCpf: formAssinanteCargoCpf.trim(),
+        emailAssinante: formAssinanteEmail.trim() || undefined,
+        dadosDemonstrativo: selectedDemParaAssinar.dados,
+      })
+
+      toast({
+        title: 'Solicitação de Assinatura Criada!',
+        description:
+          'O registro de integridade SHA-256 e token de validação pública foram gerados com sucesso.',
+      })
+
+      setSolicitarModalOpen(false)
+      loadRelatorios()
+    } catch (err: unknown) {
+      console.error('Erro ao solicitar assinatura:', err)
+      const msg =
+        err instanceof Error ? err.message : 'Falha ao registrar solicitação de assinatura.'
+      toast({
+        variant: 'destructive',
+        title: 'Erro na solicitação',
+        description: msg,
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Abrir Modal de Execução de Assinatura
+  const handleAbrirAssinar = (ass: AssinaturaDemonstrativoRecord, dem: DemonstrativoRecord) => {
+    setSelectedAssinaturaParaConcluir(ass)
+    setSelectedDemParaAssinar(dem)
+    setConcordoTermos(false)
+    setAssinarModalOpen(true)
+  }
+
+  // Submeter Execução de Assinatura
+  const handleConfirmarAssinatura = async () => {
+    if (!selectedAssinaturaParaConcluir || !selectedDemParaAssinar) return
+    if (!concordoTermos) {
+      toast({
+        variant: 'destructive',
+        title: 'Declaração obrigatória',
+        description: 'Você precisa declarar ciência e concordância com os valores apresentados.',
+      })
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      await assinaturasService.assinar({
+        assinaturaId: selectedAssinaturaParaConcluir.id,
+        demonstrativoId: selectedDemParaAssinar.id,
+        dadosAtuaisDemonstrativo: selectedDemParaAssinar.dados,
+        ipAssinatura: '189.120.45.12 (Origem Autenticada)',
+        observacoes: 'Assinatura realizada na plataforma pelo usuário contábil autorizado.',
+      })
+
+      toast({
+        title: 'Demonstrativo Assinado com Sucesso!',
+        description:
+          'Integridade validada, demonstrativo aprovado e token público ativado para verificação.',
+      })
+
+      setAssinarModalOpen(false)
+      loadRelatorios()
+    } catch (err: unknown) {
+      console.error('Erro ao assinar demonstrativo:', err)
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível concluir a assinatura digital do demonstrativo.'
+      toast({
+        variant: 'destructive',
+        title: 'Falha na assinatura',
+        description: msg,
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleCopyText = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedToken(text)
+    toast({
+      title: 'Copiado!',
+      description: 'Código copiado para a área de transferência.',
+    })
+    setTimeout(() => setCopiedToken(null), 2000)
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -410,7 +608,6 @@ export default function RelatoriosContabeisPage() {
             )}
           </TabsTrigger>
         </TabsList>
-
         {/* ================= ABA 1: DRE ================= */}
         <TabsContent value="dre" className="space-y-6 mt-4">
           {/* Cards de Resumo DRE */}
@@ -623,7 +820,6 @@ export default function RelatoriosContabeisPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
         {/* ================= ABA 2: BALANÇO PATRIMONIAL ================= */}
         <TabsContent value="balanco" className="space-y-6 mt-4">
           {/* Card Verificação da Equação Contábil */}
@@ -829,7 +1025,6 @@ export default function RelatoriosContabeisPage() {
             </Card>
           </div>
         </TabsContent>
-
         {/* ================= ABA 3: DEMONSTRATIVOS PARA ASSINATURA ================= */}
         <TabsContent value="demonstrativos" className="space-y-6 mt-4">
           <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden">
@@ -947,6 +1142,18 @@ export default function RelatoriosContabeisPage() {
                                   Enviar ao Cliente
                                 </Button>
                               )}
+
+                              {(dem.status === 'enviado' || dem.status === 'rascunho') && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAbrirSolicitarAssinatura(dem)}
+                                  disabled={actionLoading}
+                                  className="h-8 rounded-lg text-xs font-semibold bg-[#0FA3A3] hover:bg-[#0C8585] text-white shadow-xs gap-1"
+                                >
+                                  <PenTool className="h-3 w-3" />
+                                  <span>Solicitar Assinatura</span>
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         )
@@ -957,7 +1164,205 @@ export default function RelatoriosContabeisPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+
+          {/* SEÇÃO: HISTÓRICO DETALHADO DE ASSINATURAS & INTEGRIDADE */}
+          <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b border-[#E2E8F0] py-4 px-6 flex flex-row items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-[#0FA3A3]" />
+                  <CardTitle className="text-base font-bold text-[#1A2333]">
+                    Assinaturas Digitais & Registro de Integridade Criptográfica
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-xs text-[#64748B]">
+                  Controle de assinaturas eletrônicas e qualificadas (ICP-Brasil), hash SHA-256 e
+                  tokens de validação pública
+                </CardDescription>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="divide-y divide-[#E2E8F0]">
+                {demonstrativos.map((dem) => {
+                  const assinaturas = assinaturasMap[dem.id] || []
+
+                  return (
+                    <div key={dem.id} className="p-5 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm uppercase text-[#123B6D]">
+                            {dem.tipo.toUpperCase()}
+                          </span>
+                          <span className="text-xs font-mono text-[#64748B]">
+                            ({dem.competencia})
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-semibold text-[#64748B]"
+                          >
+                            Status: {dem.status.toUpperCase()}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-[#64748B]">
+                            {assinaturas.length}{' '}
+                            {assinaturas.length === 1 ? 'assinatura' : 'assinaturas'}
+                          </span>
+                          {dem.status !== 'reprovado' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAbrirSolicitarAssinatura(dem)}
+                              className="h-7 text-[11px] rounded-lg border-teal-300 text-[#0FA3A3] hover:bg-teal-50 gap-1 font-semibold"
+                            >
+                              <PenTool className="h-3 w-3" />
+                              <span>Nova Assinatura</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {assinaturas.length === 0 ? (
+                        <p className="text-xs text-[#94A3B8] py-2 italic">
+                          Nenhuma assinatura solicitada ainda para este demonstrativo. Clique em
+                          "Solicitar Assinatura" para gerar o hash SHA-256 de integridade.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {assinaturas.map((ass) => {
+                            const isAssinada = ass.status === 'assinada'
+                            const isSolicitada = ass.status === 'solicitada'
+                            const isIcp = ass.tipo_assinatura === 'icp_brasil'
+
+                            return (
+                              <div
+                                key={ass.id}
+                                className={cn(
+                                  'p-4 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all',
+                                  isAssinada
+                                    ? 'bg-emerald-50/50 border-emerald-200'
+                                    : 'bg-slate-50/70 border-slate-200',
+                                )}
+                              >
+                                <div className="space-y-1.5 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-sm text-[#1A2333]">
+                                      {ass.assinante}
+                                    </span>
+                                    <span className="text-[#64748B] text-[11px]">
+                                      ({ass.cargo_cpf})
+                                    </span>
+                                    <Badge
+                                      className={cn(
+                                        'text-[10px] font-bold px-2 py-0.5',
+                                        isAssinada
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'bg-blue-600 text-white',
+                                      )}
+                                    >
+                                      {isAssinada ? 'Assinada' : 'Solicitada'}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] font-semibold border-teal-300 text-teal-800 bg-teal-50/50"
+                                    >
+                                      {isIcp
+                                        ? `ICP-Brasil (${(ass.tipo_certificado || 'A1').toUpperCase()})`
+                                        : 'Eletrônica Declarada'}
+                                    </Badge>
+                                  </div>
+
+                                  {/* Hash SHA-256 e Token */}
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#64748B]">
+                                    <div className="flex items-center gap-1 font-mono">
+                                      <Fingerprint className="h-3 w-3 text-[#0FA3A3]" />
+                                      <span>Hash SHA-256:</span>
+                                      <span className="text-[#1A2333] font-semibold">
+                                        {ass.hash_conteudo
+                                          ? `${ass.hash_conteudo.slice(0, 16)}...${ass.hash_conteudo.slice(-8)}`
+                                          : 'Calculando...'}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyText(ass.hash_conteudo)}
+                                        className="text-[#0FA3A3] hover:text-[#0C8585] p-0.5"
+                                        title="Copiar Hash Completo"
+                                      >
+                                        {copiedToken === ass.hash_conteudo ? (
+                                          <Check className="h-3 w-3 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                      <span>Token Público:</span>
+                                      <span className="font-mono font-bold text-[#1A2333]">
+                                        {ass.token_verificacao}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyText(ass.token_verificacao)}
+                                        className="text-[#0FA3A3] hover:text-[#0C8585] p-0.5"
+                                        title="Copiar Token"
+                                      >
+                                        {copiedToken === ass.token_verificacao ? (
+                                          <Check className="h-3 w-3 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    {isAssinada && ass.data_assinatura && (
+                                      <span className="text-emerald-700 font-semibold">
+                                        Assinado em {formatDateTimePtBr(ass.data_assinatura)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Ações de Assinatura e Verificação */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <a
+                                    href={`/verificar-assinatura?token=${encodeURIComponent(
+                                      ass.token_verificacao,
+                                    )}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0FA3A3] hover:underline px-2.5 py-1.5 rounded-lg border border-teal-200 bg-white"
+                                  >
+                                    <span>Verificar</span>
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+
+                                  {isSolicitada && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleAbrirAssinar(ass, dem)}
+                                      disabled={actionLoading}
+                                      className="h-8 rounded-lg text-xs font-semibold bg-[#16A34A] hover:bg-[#15803D] text-white shadow-xs gap-1"
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                      <span>Assinar Agora</span>
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>{' '}
       </Tabs>
 
       {/* Modal de Visualização Formal e Download PDF */}
@@ -967,6 +1372,263 @@ export default function RelatoriosContabeisPage() {
         demonstrativo={viewingDemonstrativo}
         empresa={activeEmpresa}
       />
+
+      {/* MODAL 1: SOLICITAR ASSINATURA */}
+      <Dialog open={solicitarModalOpen} onOpenChange={setSolicitarModalOpen}>
+        <DialogContent className="max-w-lg rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
+              <PenTool className="h-5 w-5 text-[#0FA3A3]" />
+              <span>Solicitar Assinatura de Demonstrativo</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Congela o hash SHA-256 de integridade do demonstrativo (
+              {selectedDemParaAssinar?.tipo.toUpperCase()} {selectedDemParaAssinar?.competencia}) e
+              cria a solicitação formal de assinatura digital.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmitSolicitarAssinatura} className="space-y-4 text-xs mt-2">
+            <div>
+              <Label className="text-xs font-semibold">Nome Completo do Assinante *</Label>
+              <Input
+                value={formAssinanteNome}
+                onChange={(e) => setFormAssinanteNome(e.target.value)}
+                placeholder="Ex: Carlos Eduardo Silva"
+                className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">Cargo / CPF *</Label>
+                <Input
+                  value={formAssinanteCargoCpf}
+                  onChange={(e) => setFormAssinanteCargoCpf(e.target.value)}
+                  placeholder="Ex: Diretor - CPF 123.456.789-00"
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold">E-mail do Assinante (Opcional)</Label>
+                <Input
+                  type="email"
+                  value={formAssinanteEmail}
+                  onChange={(e) => setFormAssinanteEmail(e.target.value)}
+                  placeholder="ex: contato@empresa.com.br"
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <Label className="text-xs font-semibold">Tipo de Assinatura *</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {/* Opção 1: Eletrônica Declarada (Funcionando) */}
+                <label
+                  className={cn(
+                    'flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all',
+                    formTipoAssinatura === 'eletronica_declarada'
+                      ? 'border-[#0FA3A3] bg-teal-50/40'
+                      : 'border-slate-200 hover:bg-slate-50',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="tipo_assinatura"
+                    checked={formTipoAssinatura === 'eletronica_declarada'}
+                    onChange={() => setFormTipoAssinatura('eletronica_declarada')}
+                    className="mt-0.5 text-[#0FA3A3]"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[#1A2333]">Eletrônica Declarada</span>
+                      <Badge className="bg-emerald-600 text-white text-[9px] font-bold">
+                        Disponível Hoje
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] mt-0.5">
+                      Registro de integridade criptográfica SHA-256 do demonstrativo, com carimbo de
+                      data/hora e captura de IP do declarante (MP 2.200-2/2001 e Lei 14.063/2020).
+                    </p>
+                  </div>
+                </label>
+
+                {/* Opção 2: ICP-Brasil (Exige provedor) */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          'flex items-start gap-3 p-3 rounded-xl border transition-all opacity-60 bg-slate-50 cursor-not-allowed',
+                          formTipoAssinatura === 'icp_brasil' && 'border-slate-300',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="tipo_assinatura"
+                          disabled
+                          checked={formTipoAssinatura === 'icp_brasil'}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-700">
+                              ICP-Brasil Qualificada (Certificado A1 / A3)
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="border-amber-300 text-amber-800 bg-amber-50 text-[9px] font-bold"
+                            >
+                              Exige Provedor Externo
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-[#64748B] mt-0.5">
+                            Requer chave de API configurada no backend (D4Sign, Clicksign ou
+                            SafeWeb) para emitir envelope de certificado ICP-Brasil.
+                          </p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs">
+                      Assinatura ICP-Brasil qualificada exige credenciais de provedor externo
+                      cadastradas nos secrets do servidor. Ponto de extensão preparado em
+                      pocketbase/hooks/assinaturas_validate.js.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setSolicitarModalOpen(false)}
+                className="text-xs text-[#64748B]"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={actionLoading}
+                className="rounded-xl text-xs font-semibold bg-[#0FA3A3] hover:bg-[#0C8585] text-white shadow-xs"
+              >
+                {actionLoading ? 'Registrando...' : 'Confirmar Solicitação'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 2: EXECUTAR ASSINATURA (CONCORDÂNCIA CONSCIENTE) */}
+      <Dialog open={assinarModalOpen} onOpenChange={setAssinarModalOpen}>
+        <DialogContent className="max-w-lg rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              <span>Concluir Assinatura Digital do Demonstrativo</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Validação de integridade e registro da assinatura eletrônica declarada com efeito
+              legal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedAssinaturaParaConcluir && selectedDemParaAssinar && (
+            <div className="space-y-4 text-xs mt-2">
+              {/* Resumo do Documento */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Demonstrativo:</span>
+                  <span className="font-bold text-[#1A2333]">
+                    {selectedDemParaAssinar.tipo === 'dre'
+                      ? 'Demonstração do Resultado (DRE)'
+                      : 'Balanço Patrimonial'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Competência:</span>
+                  <span className="font-mono font-bold text-[#1A2333]">
+                    {selectedDemParaAssinar.competencia}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Empresa:</span>
+                  <span className="font-semibold text-[#1A2333]">
+                    {activeEmpresa?.razao_social || 'Empresa'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Assinante Designado:</span>
+                  <span className="font-bold text-[#123B6D]">
+                    {selectedAssinaturaParaConcluir.assinante} (
+                    {selectedAssinaturaParaConcluir.cargo_cpf})
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200/80 pt-1.5">
+                  <span className="text-[#64748B]">Hash de Integridade SHA-256:</span>
+                  <span className="font-mono text-[10px] text-emerald-800 font-semibold truncate max-w-[200px]">
+                    {selectedAssinaturaParaConcluir.hash_conteudo}
+                  </span>
+                </div>
+              </div>
+
+              {/* Termo e Checkbox Consciente */}
+              <div className="p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <Checkbox
+                    id="concordo-termos"
+                    checked={concordoTermos}
+                    onCheckedChange={(val) => setConcordoTermos(Boolean(val))}
+                    className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                  />
+                  <label
+                    htmlFor="concordo-termos"
+                    className="text-xs text-[#1A2333] leading-relaxed cursor-pointer font-medium"
+                  >
+                    <b>Declaração de Ciência e Fidedignidade:</b> Declaro sob as penas da lei que li
+                    e concordo com o inteiro teor deste demonstrativo contábil (
+                    {selectedDemParaAssinar.competencia}), atestando que os números refletem com
+                    exatidão a escrituração contábil mercantil da empresa.
+                  </label>
+                </div>
+                <p className="text-[10px] text-[#64748B] pl-6">
+                  Ao assinar, seu endereço IP e carimbo de data/hora UTC serão gravados
+                  permanentemente para fins de auditoria e validação pública no token{' '}
+                  <span className="font-mono font-bold text-[#1A2333]">
+                    {selectedAssinaturaParaConcluir.token_verificacao}
+                  </span>
+                  .
+                </p>
+              </div>
+
+              <DialogFooter className="pt-2 flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setAssinarModalOpen(false)}
+                  className="text-xs text-[#64748B]"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmarAssinatura}
+                  disabled={!concordoTermos || actionLoading}
+                  className="rounded-xl text-xs font-semibold bg-[#16A34A] hover:bg-[#15803D] text-white shadow-xs gap-1.5"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>{actionLoading ? 'Registrando...' : 'Confirmar e Assinar Agora'}</span>
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

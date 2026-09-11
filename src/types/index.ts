@@ -783,3 +783,41 @@ export interface AnalisarDocumentosResultado {
   altaConfianca: number
   ignoradosOuExistentes: number
 }
+
+// === Módulo Assinaturas Digitais de Demonstrativos (ICP-Brasil / Eletrônica) ===
+export type TipoAssinaturaDemonstrativo = 'eletronica_declarada' | 'icp_brasil'
+export type TipoCertificadoIcp = 'nenhum' | 'a1' | 'a3'
+export type AssinaturaDemonstrativoStatus = 'solicitada' | 'assinada' | 'expirada' | 'cancelada'
+export type AssinaturaProvedor = 'interno' | 'd4sign' | 'clicksign' | 'outro'
+
+export interface AssinaturaDemonstrativoRecord extends RecordModel {
+  tenant_id: string
+  demonstrativo: string
+  empresa: string
+  competencia: string
+  tipo_assinatura: TipoAssinaturaDemonstrativo
+  tipo_certificado?: TipoCertificadoIcp
+  assinante: string
+  cargo_cpf: string
+  email_assinante?: string
+  hash_conteudo: string
+  hash_documentacao?: string
+  status: AssinaturaDemonstrativoStatus
+  token_verificacao: string
+  data_solicitacao?: string
+  data_assinatura?: string
+  dados_certificado?: {
+    emissor?: string
+    serial?: string
+    validade?: string
+    titular?: string
+    autoridadeCertificadora?: string
+  }
+  ip_assinatura?: string
+  provedor: AssinaturaProvedor
+  payload_provedor?: Record<string, unknown>
+  expand?: {
+    demonstrativo?: DemonstrativoRecord
+    empresa?: Empresa
+  }
+}

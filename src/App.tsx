@@ -33,15 +33,17 @@ import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
 import { ImpostosRetidosPage } from '@/pages/ImpostosRetidos'
 import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
+import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* Public Auth Routes */}
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/verificar-assinatura" element={<VerificarAssinaturaPage />} />
 
         {/* Protected Application Routes wrapped by Layout */}
         <Route

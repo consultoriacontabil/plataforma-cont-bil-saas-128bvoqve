@@ -336,6 +336,75 @@ onRecordAfterUpdateSuccess(
             )
           }
         }
+      } else if (collectionName === 'assinaturas_demonstrativos') {
+        const origStatus = record.original().getString('status')
+        const currentStatus = record.getString('status')
+        const assinanteNome = record.getString('assinante')
+        const comp = record.getString('competencia')
+        const token = record.getString('token_verificacao')
+        const tipoAss =
+          record.getString('tipo_assinatura') === 'icp_brasil'
+            ? 'ICP-Brasil'
+            : 'Eletrônica Declarada'
+
+        // Assinatura foi concluída
+        if (currentStatus === 'assinada' && origStatus !== 'assinada') {
+          try {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" + tenantId + "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+            const tituloStaff = 'Demonstrativo Assinado Digitalmente (' + comp + ')'
+            const msgStaff =
+              'O assinante ' +
+              assinanteNome +
+              ' concluiu a assinatura (' +
+              tipoAss +
+              ') do demonstrativo da competência ' +
+              comp +
+              '. Código de autenticidade: ' +
+              token +
+              '.'
+
+            for (let s = 0; s < staffMembers.length; s++) {
+              const staffUserId = staffMembers[s].getString('user_id')
+              const notifStaff = new Record(notificacoesCol)
+              notifStaff.set('tenant_id', tenantId)
+              notifStaff.set('usuario_destino_id', staffUserId)
+              notifStaff.set('titulo', tituloStaff)
+              notifStaff.set('mensagem', msgStaff)
+              notifStaff.set('tipo', 'sistema')
+              notifStaff.set('link', '/relatorios-contabeis')
+              notifStaff.set('lida', false)
+              $app.save(notifStaff)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo] ' + tituloStaff,
+                    '<div style="font-family:sans-serif;color:#1A2333;">' +
+                      '<h2>Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>' +
+                      msgStaff +
+                      '</p>' +
+                      '<p>O demonstrativo foi automaticamente validado e aprovado.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          } catch (errAssNotif) {
+            console.log('[NOTIF] Erro ao notificar assinatura concluída:', errAssNotif)
+          }
+        }
       }
     } catch (err) {
       console.log('[NOTIF] Error in notifications hook:', err)
@@ -347,4 +416,5 @@ onRecordAfterUpdateSuccess(
   'obrigacoes',
   'funcionarios',
   'demonstrativos',
+  'assinaturas_demonstrativos',
 )

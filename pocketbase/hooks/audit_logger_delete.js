@@ -48,4 +48,5 @@ onRecordAfterDeleteSuccess(
   'demonstrativos',
   'impostos_retidos',
   'pre_lancamentos',
+  'assinaturas_demonstrativos',
 )

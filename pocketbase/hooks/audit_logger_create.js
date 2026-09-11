@@ -230,6 +230,17 @@ onRecordAfterCreateSuccess(
           record.getFloat('valor_sugerido').toFixed(2) +
           ' comp. ' +
           record.getString('competencia')
+      } else if (collectionName === 'assinaturas_demonstrativos') {
+        acao = 'Solicitação de assinatura de demonstrativo'
+        detalhes =
+          'Solicitada assinatura (' +
+          record.getString('tipo_assinatura') +
+          ') para ' +
+          record.getString('assinante') +
+          ' (' +
+          record.getString('competencia') +
+          ') - Token: ' +
+          record.getString('token_verificacao')
       }
 
       log.set('acao', acao)
@@ -264,4 +275,5 @@ onRecordAfterCreateSuccess(
   'demonstrativos',
   'impostos_retidos',
   'pre_lancamentos',
+  'assinaturas_demonstrativos',
 )

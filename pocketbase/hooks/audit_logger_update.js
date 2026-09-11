@@ -189,6 +189,15 @@ onRecordAfterUpdateSuccess(
           ' (R$ ' +
           record.getFloat('valor_sugerido').toFixed(2) +
           ')'
+      } else if (collectionName === 'assinaturas_demonstrativos') {
+        acao = 'Atualização de assinatura de demonstrativo'
+        detalhes =
+          'Assinatura de ' +
+          record.getString('assinante') +
+          ' (' +
+          record.getString('competencia') +
+          ') alterada para status: ' +
+          record.getString('status')
       }
 
       log.set('acao', acao)
@@ -222,4 +231,5 @@ onRecordAfterUpdateSuccess(
   'demonstrativos',
   'impostos_retidos',
   'pre_lancamentos',
+  'assinaturas_demonstrativos',
 )
