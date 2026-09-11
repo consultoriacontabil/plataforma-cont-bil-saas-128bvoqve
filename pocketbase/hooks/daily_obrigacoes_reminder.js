@@ -168,6 +168,162 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       console.log('[CRON] Error scanning certificados_digitais:', errCert)
     }
 
+    // 1.05 Scan for certidoes expiring within 30 days or already expired
+    try {
+      const activeCertidoes = $app.findRecordsByFilter(
+        'certidoes',
+        "status = 'valida' || status = 'vencida'",
+        'data_validade ASC',
+        300,
+        0,
+      )
+      console.log('[CRON] Found', activeCertidoes.length, 'certidoes to check')
+
+      for (let crt = 0; crt < activeCertidoes.length; crt++) {
+        const certItem = activeCertidoes[crt]
+        const cTenantId = certItem.getString('tenant_id')
+        const cEmpresaId = certItem.getString('empresa')
+        const cValidadeStr = certItem.getString('data_validade')
+        const cTipo = certItem.getString('tipo')
+        const cStatus = certItem.getString('status')
+        const cNumControle = certItem.getString('numero_controle')
+
+        if (!cValidadeStr) continue
+        const cValidade = new Date(cValidadeStr)
+        const diffCertTime = cValidade.getTime() - now.getTime()
+        const diffCertDays = Math.ceil(diffCertTime / (1000 * 60 * 60 * 24))
+
+        const isExpired = diffCertDays <= 0
+        const isExpiringSoon = diffCertDays > 0 && diffCertDays <= 30
+
+        if (isExpired && cStatus !== 'vencida') {
+          try {
+            certItem.set('status', 'vencida')
+            $app.save(certItem)
+          } catch (_) {}
+        }
+
+        if (isExpired || isExpiringSoon) {
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', cEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          let tipoDesc = 'Certidão Negativa'
+          if (cTipo === 'receita_pgfn_cnd') tipoDesc = 'CND Receita Federal / PGFN'
+          else if (cTipo === 'receita_pgfn_cpen') tipoDesc = 'CPEN Receita Federal / PGFN'
+          else if (cTipo === 'fgts_crf') tipoDesc = 'CRF FGTS (Caixa Econômica)'
+          else if (cTipo === 'estadual') tipoDesc = 'Certidão Estadual (ICMS/SEFAZ)'
+          else if (cTipo === 'municipal') tipoDesc = 'Certidão Municipal (ISS)'
+          else if (cTipo === 'trabalhista_cndt') tipoDesc = 'CNDT Trabalhista (TST)'
+
+          const certNotifTitle = isExpired
+            ? 'Certidão Vencida: ' + tipoDesc + ' - ' + empNome
+            : 'Certidão Vence em ' + diffCertDays + ' dias: ' + tipoDesc + ' - ' + empNome
+
+          const certNotifMsg = isExpired
+            ? 'A ' +
+              tipoDesc +
+              ' da empresa ' +
+              empNome +
+              (cNumControle ? ' (Controle: ' + cNumControle + ')' : '') +
+              ' venceu em ' +
+              cValidade.toLocaleDateString('pt-BR') +
+              '. Solicite ou emita a renovação da certidão para evitar bloqueios fiscais e cadastrais.'
+            : 'A ' +
+              tipoDesc +
+              ' da empresa ' +
+              empNome +
+              ' vencerá em ' +
+              diffCertDays +
+              ' dia(s) (validade: ' +
+              cValidade.toLocaleDateString('pt-BR') +
+              '). Planeje a renovação preventiva.'
+
+          // Prevenir flood: checar se já notificou nas últimas 24h
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 3600000).toISOString()
+          const existNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              cTenantId +
+              "' && titulo = '" +
+              certNotifTitle +
+              "' && created >= '" +
+              twentyFourHoursAgo +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existNotif.length === 0) {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                cTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              15,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifCert = new Record(notificacoesCol)
+              notifCert.set('tenant_id', cTenantId)
+              notifCert.set('usuario_destino_id', staffUserId)
+              notifCert.set('titulo', certNotifTitle)
+              notifCert.set('mensagem', certNotifMsg)
+              notifCert.set('tipo', isExpired ? 'atrasada' : 'prazo_proximo')
+              notifCert.set('link', '/empresas/' + cEmpresaId + '/editar')
+              notifCert.set('lida', false)
+              $app.save(notifCert)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo Regularidade] ' + certNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de Regularidade Fiscal / CND:</p>' +
+                      '<div style="background:' +
+                      (isExpired ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isExpired ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isExpired
+                        ? '⚠️ CERTIDÃO NEGATIVA VENCIDA'
+                        : '⏳ VENCIMENTO PRÓXIMO (≤30 DIAS)') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Certidão:</b> ' +
+                      tipoDesc +
+                      '<br/><b>Validade:</b> ' +
+                      cValidade.toLocaleDateString('pt-BR') +
+                      (cNumControle ? '<br/><b>Nº Controle:</b> ' + cNumControle : '') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse a ficha da empresa no sistema para registrar a nova via da certidão negativa.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errCertidao) {
+      console.log('[CRON] Error scanning certidoes:', errCertidao)
+    }
+
     // 1. Scan for pending or in_progress obrigacoes due within 7 days or overdue
     const pendingObrigacoes = $app.findRecordsByFilter(
       'obrigacoes',

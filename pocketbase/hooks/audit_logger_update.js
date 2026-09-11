@@ -227,6 +227,21 @@ onRecordAfterUpdateSuccess(
           record.getString('tipo').toUpperCase() +
           ' da empresa - Status: ' +
           record.getString('status')
+      } else if (collectionName === 'certidoes') {
+        acao = 'Atualização de certidão (CND/CPEN)'
+        detalhes =
+          'Atualizou certidão ' +
+          record.getString('tipo') +
+          ' para status: ' +
+          record.getString('status')
+      } else if (collectionName === 'ecac_comunicacoes') {
+        acao = 'Atualização de comunicação E-CAC'
+        detalhes =
+          'Atualizou comunicação E-CAC "' +
+          record.getString('assunto') +
+          '" (lida: ' +
+          (record.getBool('lida') ? 'sim' : 'não') +
+          ')'
       }
 
       log.set('acao', acao)
@@ -263,4 +278,6 @@ onRecordAfterUpdateSuccess(
   'assinaturas_demonstrativos',
   'contratos_honorarios',
   'certificados_digitais',
+  'certidoes',
+  'ecac_comunicacoes',
 )

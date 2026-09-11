@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T20:57:12.310Z",
+  "generatedAt": "2026-09-11T21:11:24.349Z",
   "collections": [
     {
       "name": "users",
@@ -4940,6 +4940,228 @@
         "CREATE INDEX idx_nfse_verif ON nfse_notas_emitidas (codigo_verificacao)",
         "CREATE INDEX idx_nfse_status_comp ON nfse_notas_emitidas (tenant_id, status, competencia)",
         "CREATE INDEX idx_nfse_created ON nfse_notas_emitidas (created DESC)"
+      ]
+    },
+    {
+      "name": "certidoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "receita_pgfn_cnd",
+            "receita_pgfn_cpen",
+            "fgts_crf",
+            "estadual",
+            "municipal",
+            "trabalhista_cndt"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["valida", "pendente_emissao", "vencida", "positiva_sem_efeito"]
+        },
+        {
+          "name": "numero_controle",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_emissao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_validade",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo_pdf",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["manual", "automatica"]
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_certidoes_tenant_empresa ON certidoes (tenant_id, empresa)",
+        "CREATE INDEX idx_certidoes_validade ON certidoes (data_validade ASC)",
+        "CREATE INDEX idx_certidoes_status ON certidoes (status)",
+        "CREATE INDEX idx_certidoes_tipo ON certidoes (tipo)"
+      ]
+    },
+    {
+      "name": "ecac_comunicacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "intimacao_fiscal",
+            "notificacao_lancamento",
+            "pendencia_cadastral",
+            "exclusao_simples",
+            "cobranca_parcelamento",
+            "aviso_geral"
+          ]
+        },
+        {
+          "name": "assunto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "conteudo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_comunicacao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_limite_resposta",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criticidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["baixa", "media", "alta"]
+        },
+        {
+          "name": "anexo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_processo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_captura",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["manual_supervisionado", "automatica_conector"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ecac_tenant_empresa ON ecac_comunicacoes (tenant_id, empresa)",
+        "CREATE INDEX idx_ecac_data ON ecac_comunicacoes (data_comunicacao DESC)",
+        "CREATE INDEX idx_ecac_criticidade ON ecac_comunicacoes (criticidade)",
+        "CREATE INDEX idx_ecac_lida ON ecac_comunicacoes (lida)"
       ]
     }
   ]

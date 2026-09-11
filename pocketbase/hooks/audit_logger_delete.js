@@ -51,4 +51,6 @@ onRecordAfterDeleteSuccess(
   'assinaturas_demonstrativos',
   'contratos_honorarios',
   'certificados_digitais',
+  'certidoes',
+  'ecac_comunicacoes',
 )

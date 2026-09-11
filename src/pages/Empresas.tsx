@@ -15,9 +15,16 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
-import { ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
+import { certidoesService, ecacService } from '@/services/regularidade'
+import { ShieldCheck, ShieldAlert, ShieldX, FileCheck2, Inbox, AlertTriangle } from 'lucide-react'
 import { maskCnpj } from '@/lib/formatters'
-import type { Empresa, EmpresaStatus, CertificadoDigitalRecord } from '@/types'
+import type {
+  Empresa,
+  EmpresaStatus,
+  CertificadoDigitalRecord,
+  CertidaoRecord,
+  EcacComunicacaoRecord,
+} from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +55,8 @@ export default function Empresas() {
   const [certificadosMap, setCertificadosMap] = useState<Record<string, CertificadoDigitalRecord>>(
     {},
   )
+  const [certidoesMap, setCertidoesMap] = useState<Record<string, CertidaoRecord[]>>({})
+  const [ecacMap, setEcacMap] = useState<Record<string, EcacComunicacaoRecord[]>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'todos' | EmpresaStatus>('todos')
@@ -62,18 +71,39 @@ export default function Empresas() {
     if (!tenant?.id) return
     try {
       setLoading(true)
-      const [res, certs] = await Promise.all([
+      const [res, certs, allCertidoes, allEcac] = await Promise.all([
         empresasService.list(tenant.id),
         certificadosService.list(tenant.id),
+        certidoesService.list(tenant.id),
+        ecacService.list(tenant.id),
       ])
       setEmpresas(res)
-      const map: Record<string, CertificadoDigitalRecord> = {}
+
+      const mapCerts: Record<string, CertificadoDigitalRecord> = {}
       certs.forEach((c) => {
-        if (c.empresa && !map[c.empresa]) {
-          map[c.empresa] = c
+        if (c.empresa && !mapCerts[c.empresa]) {
+          mapCerts[c.empresa] = c
         }
       })
-      setCertificadosMap(map)
+      setCertificadosMap(mapCerts)
+
+      const mapCertidoes: Record<string, CertidaoRecord[]> = {}
+      allCertidoes.forEach((cd) => {
+        if (!mapCertidoes[cd.empresa]) {
+          mapCertidoes[cd.empresa] = []
+        }
+        mapCertidoes[cd.empresa].push(cd)
+      })
+      setCertidoesMap(mapCertidoes)
+
+      const mapEcacMsgs: Record<string, EcacComunicacaoRecord[]> = {}
+      allEcac.forEach((msg) => {
+        if (!mapEcacMsgs[msg.empresa]) {
+          mapEcacMsgs[msg.empresa] = []
+        }
+        mapEcacMsgs[msg.empresa].push(msg)
+      })
+      setEcacMap(mapEcacMsgs)
     } catch (err) {
       console.error('Error loading empresas:', err)
       toast({
@@ -146,47 +176,99 @@ export default function Empresas() {
     }
   }
 
-  const renderCertificadoBadge = (empresaId: string) => {
+  const renderRegularidadeConsolidada = (empresaId: string) => {
     const cert = certificadosMap[empresaId]
-    const saude: CertificadoSaudeInfo = certificadosService.calcularSaude(cert)
+    const saudeCert = certificadosService.calcularSaude(cert)
+    const certidoes = certidoesMap[empresaId] || []
+    const ecacMsgs = ecacMap[empresaId] || []
 
-    if (saude.saude === 'valido') {
+    const certidoesVencidas = certidoes.filter((c) => {
+      const s = certidoesService.calcularSaude(c)
+      return s.saude === 'vencida' || s.saude === 'sem_efeito'
+    }).length
+
+    const certidoesVencendo = certidoes.filter((c) => {
+      const s = certidoesService.calcularSaude(c)
+      return s.saude === 'proximo_vencimento'
+    }).length
+
+    const ecacNaoLidas = ecacMsgs.filter((m) => !m.lida).length
+    const ecacAltas = ecacMsgs.filter((m) => !m.lida && m.criticidade === 'alta').length
+
+    const temAlertaCritico =
+      saudeCert.saude === 'expirado' || certidoesVencidas > 0 || ecacAltas > 0
+    const temAlertaAtencao =
+      saudeCert.saude === 'proximo_vencimento' || certidoesVencendo > 0 || ecacNaoLidas > 0
+
+    if (temAlertaCritico) {
       return (
-        <Badge
-          variant="outline"
-          className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
-        >
-          <ShieldCheck className="h-3 w-3 text-emerald-600" />
-          <span>Certificado OK</span>
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge
+            variant="outline"
+            className="border-red-200 bg-red-50 text-red-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
+          >
+            <ShieldX className="h-3 w-3 text-red-600" />
+            <span>
+              {certidoesVencidas > 0
+                ? `${certidoesVencidas} CND vencida`
+                : saudeCert.saude === 'expirado'
+                  ? 'Cert. Digital vencido'
+                  : 'E-CAC Urgente'}
+            </span>
+          </Badge>
+          <div className="flex items-center gap-2 text-[10px] text-[#64748B]">
+            {ecacNaoLidas > 0 && (
+              <span className="text-red-700 font-semibold">{ecacNaoLidas} E-CAC pendente</span>
+            )}
+            {certidoesVencendo > 0 && <span>{certidoesVencendo} vencendo</span>}
+          </div>
+        </div>
       )
     }
 
-    if (saude.saude === 'proximo_vencimento') {
+    if (temAlertaAtencao) {
       return (
-        <Badge
-          variant="outline"
-          className="border-amber-300 bg-amber-50 text-amber-800 text-[10px] font-semibold flex items-center gap-1 w-fit animate-pulse"
-        >
-          <ShieldAlert className="h-3 w-3 text-amber-600" />
-          <span>Vence em {saude.diasRestantes}d</span>
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge
+            variant="outline"
+            className="border-amber-300 bg-amber-50 text-amber-800 text-[10px] font-semibold flex items-center gap-1 w-fit animate-pulse"
+          >
+            <ShieldAlert className="h-3 w-3 text-amber-600" />
+            <span>
+              {certidoesVencendo > 0
+                ? `${certidoesVencendo} CND em renovação`
+                : saudeCert.saude === 'proximo_vencimento'
+                  ? `Cert. vence ${saudeCert.diasRestantes}d`
+                  : `${ecacNaoLidas} E-CAC não lida`}
+            </span>
+          </Badge>
+          <div className="flex items-center gap-2 text-[10px] text-[#64748B]">
+            {ecacNaoLidas > 0 && <span>{ecacNaoLidas} msg(s) E-CAC</span>}
+            {certidoes.length > 0 && <span>{certidoes.length - certidoesVencendo} CNDs OK</span>}
+          </div>
+        </div>
       )
     }
 
-    if (saude.saude === 'expirado') {
+    if (saudeCert.saude === 'valido' || certidoes.length > 0) {
       return (
-        <Badge
-          variant="outline"
-          className="border-red-200 bg-red-50 text-red-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
-        >
-          <ShieldX className="h-3 w-3 text-red-600" />
-          <span>Expirado</span>
-        </Badge>
+        <div className="flex flex-col gap-0.5">
+          <Badge
+            variant="outline"
+            className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
+          >
+            <ShieldCheck className="h-3 w-3 text-emerald-600" />
+            <span>Regularidade OK</span>
+          </Badge>
+          <span className="text-[10px] text-[#64748B]">
+            {certidoes.length > 0 ? `${certidoes.length} certidões • ` : ''}
+            {saudeCert.saude === 'valido' ? 'Cert. Ativo' : 'Sem cert. A1'}
+          </span>
+        </div>
       )
     }
 
-    return <span className="text-[11px] text-[#94A3B8]">Sem certificado</span>
+    return <span className="text-[11px] text-[#94A3B8]">Sem registros</span>
   }
 
   const getRegimeBadge = (regime?: string) => {
@@ -277,11 +359,11 @@ export default function Empresas() {
                 <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
                   <th className="py-3.5 px-4">Empresa</th>
                   <th className="py-3.5 px-4">CNPJ</th>
-                  <th className="py-3.5 px-4">Certificado Digital</th>
+                  <th className="py-3.5 px-4">Regularidade & CNDs</th>
                   <th className="py-3.5 px-4">Regime Tributário</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Ações</th>
-                </tr>
+                </tr>{' '}
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {loading ? (
@@ -325,7 +407,7 @@ export default function Empresas() {
                           </div>
                         </td>
                         <td className="py-3 px-4 font-mono text-[#64748B]">{maskCnpj(emp.cnpj)}</td>
-                        <td className="py-3 px-4">{renderCertificadoBadge(emp.id)}</td>
+                        <td className="py-3 px-4">{renderRegularidadeConsolidada(emp.id)}</td>
                         <td className="py-3 px-4">{getRegimeBadge(emp.regime_tributario)}</td>
                         <td className="py-3 px-4">{getStatusBadge(emp.status)}</td>
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>

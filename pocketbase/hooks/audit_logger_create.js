@@ -267,6 +267,24 @@ onRecordAfterCreateSuccess(
           'Processou documento ' +
           (record.getString('arquivo_nome') || 'avulso') +
           ' para extração e pré-preenchimento cadastral'
+      } else if (collectionName === 'certidoes') {
+        acao = 'Registro de certidão negativa (CND/CPEN)'
+        detalhes =
+          'Cadastrou certidão ' +
+          record.getString('tipo') +
+          ' (status: ' +
+          record.getString('status') +
+          ', validade: ' +
+          record.getString('data_validade') +
+          ')'
+      } else if (collectionName === 'ecac_comunicacoes') {
+        acao = 'Comunicação E-CAC registrada'
+        detalhes =
+          'Registrou comunicação E-CAC "' +
+          record.getString('assunto') +
+          '" (criticidade: ' +
+          record.getString('criticidade') +
+          ')'
       }
 
       log.set('acao', acao)
@@ -305,4 +323,6 @@ onRecordAfterCreateSuccess(
   'contratos_honorarios',
   'certificados_digitais',
   'empresa_cadastro_assistido',
+  'certidoes',
+  'ecac_comunicacoes',
 )

@@ -23,10 +23,29 @@ import { documentosService } from '@/services/documentos'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
-import { ShieldCheck, ShieldAlert, ShieldX, KeyRound, Download, AlertCircle } from 'lucide-react'
+import { certidoesService, ecacService } from '@/services/regularidade'
+import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
+import {
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  KeyRound,
+  Download,
+  AlertCircle,
+  FileCheck2,
+  Inbox,
+} from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { maskCnpj, formatDatePtBr } from '@/lib/formatters'
-import type { Empresa, Documento, Workflow, FiscalRecord, CertificadoDigitalRecord } from '@/types'
+import type {
+  Empresa,
+  Documento,
+  Workflow,
+  FiscalRecord,
+  CertificadoDigitalRecord,
+  CertidaoRecord,
+  EcacComunicacaoRecord,
+} from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -49,6 +68,8 @@ export default function EmpresaDetail() {
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [certificado, setCertificado] = useState<CertificadoDigitalRecord | null>(null)
+  const [certidoes, setCertidoes] = useState<CertidaoRecord[]>([])
+  const [ecacComunicacoes, setEcacComunicacoes] = useState<EcacComunicacaoRecord[]>([])
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
@@ -66,16 +87,20 @@ export default function EmpresaDetail() {
       setEmpresa(emp)
 
       // Fetch related data
-      const [docs, wfs, fisc, cert] = await Promise.all([
+      const [docs, wfs, fisc, cert, certsList, ecacList] = await Promise.all([
         documentosService.list(tenant.id, `empresa_id = "${id}"`),
         workflowService.list(tenant.id, `empresa_id = "${id}"`),
         fiscalService.list(tenant.id, `empresa_id = "${id}"`),
         certificadosService.getByEmpresa(id),
+        certidoesService.listByEmpresa(id),
+        ecacService.listByEmpresa(id),
       ])
       setDocumentos(docs)
       setWorkflows(wfs)
       setFiscalList(fisc)
       setCertificado(cert)
+      setCertidoes(certsList)
+      setEcacComunicacoes(ecacList)
     } catch (err) {
       console.error('Error loading empresa details:', err)
       toast({
@@ -197,6 +222,19 @@ export default function EmpresaDetail() {
               Certificado Digital{' '}
               {certificado && (
                 <span className="ml-1 inline-block h-2 w-2 rounded-full bg-teal-500" />
+              )}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="regularidade" className="rounded-lg text-xs font-semibold gap-2">
+            <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+            <span>
+              Regularidade & CND / E-CAC
+              {(certidoes.some((c) => {
+                const s = certidoesService.calcularSaude(c)
+                return s.saude === 'vencida' || s.saude === 'proximo_vencimento'
+              }) ||
+                ecacComunicacoes.some((e) => !e.lida)) && (
+                <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
               )}
             </span>
           </TabsTrigger>
@@ -323,6 +361,28 @@ export default function EmpresaDetail() {
                 {empresa.observacoes}
               </CardContent>
             </Card>
+          )}
+        </TabsContent>
+
+        {/* Tab: Regularidade (Certidões & Caixa Postal E-CAC) */}
+        <TabsContent value="regularidade" className="space-y-6">
+          {tenant?.id && (
+            <EmpresaRegularidadeSection
+              empresaId={empresa.id}
+              tenantId={tenant.id}
+              canEdit={true}
+              certidoes={certidoes}
+              comunicacoesEcac={ecacComunicacoes}
+              temCertificadoA1={Boolean(certificado && certificado.tipo === 'a1')}
+              onRefresh={async () => {
+                const [certsList, ecacList] = await Promise.all([
+                  certidoesService.listByEmpresa(empresa.id),
+                  ecacService.listByEmpresa(empresa.id),
+                ])
+                setCertidoes(certsList)
+                setEcacComunicacoes(ecacList)
+              }}
+            />
           )}
         </TabsContent>
 

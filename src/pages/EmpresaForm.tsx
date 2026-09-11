@@ -16,10 +16,12 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { certificadosService } from '@/services/certificados'
+import { certidoesService, ecacService } from '@/services/regularidade'
 import {
   EmpresaCertificadoSection,
   type CertificadoFormState,
 } from '@/components/EmpresaCertificadoSection'
+import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
 import { CadastroAssistidoModal } from '@/components/CadastroAssistidoModal'
 import { PainelConsistenciaCard } from '@/components/PainelConsistenciaCard'
 import {
@@ -101,6 +103,12 @@ export default function EmpresaForm() {
     AlertaValidacao[]
   >([])
 
+  // Regularidade state (Certidões e E-CAC)
+  const [certidoesList, setCertidoesList] = useState<import('@/types').CertidaoRecord[]>([])
+  const [comunicacoesEcacList, setComunicacoesEcacList] = useState<
+    import('@/types').EcacComunicacaoRecord[]
+  >([])
+
   // Certificado digital state
   const [certData, setCertData] = useState<CertificadoFormState>({
     tipo: 'a1',
@@ -170,9 +178,13 @@ export default function EmpresaForm() {
           status: data.status || 'ativo',
         })
 
-        // Buscar certificado existente da empresa
+        // Buscar certificado existente e dados de regularidade da empresa
         try {
-          const cert = await certificadosService.getByEmpresa(id)
+          const [cert, certsList, ecacList] = await Promise.all([
+            certificadosService.getByEmpresa(id),
+            certidoesService.listByEmpresa(id),
+            ecacService.listByEmpresa(id),
+          ])
           if (cert) {
             setCertData({
               id: cert.id,
@@ -188,8 +200,10 @@ export default function EmpresaForm() {
               arquivoNomeAtual: cert.arquivo_pfx || '',
             })
           }
+          setCertidoesList(certsList)
+          setComunicacoesEcacList(ecacList)
         } catch (certErr) {
-          console.error('Erro ao buscar certificado da empresa:', certErr)
+          console.error('Erro ao buscar certificado/regularidade da empresa:', certErr)
         }
       } catch (err) {
         toast({
@@ -916,6 +930,27 @@ export default function EmpresaForm() {
               : undefined
           }
         />
+
+        {/* Section 5: Monitor de Regularidade (Certidões & Caixa Postal E-CAC) */}
+        {isEditing && id && tenant?.id && (
+          <EmpresaRegularidadeSection
+            empresaId={id}
+            tenantId={tenant.id}
+            canEdit={canEditCertificado}
+            certidoes={certidoesList}
+            comunicacoesEcac={comunicacoesEcacList}
+            temCertificadoA1={Boolean(certData.tipo === 'a1' && (certData.id || certData.validade))}
+            onRefresh={async () => {
+              if (!id) return
+              const [cList, eList] = await Promise.all([
+                certidoesService.listByEmpresa(id),
+                ecacService.listByEmpresa(id),
+              ])
+              setCertidoesList(cList)
+              setComunicacoesEcacList(eList)
+            }}
+          />
+        )}
 
         {/* Submit Actions Bottom */}
         <div className="flex items-center justify-end gap-3 pt-2">

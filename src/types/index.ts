@@ -243,6 +243,64 @@ export interface CertificadoDigitalRecord extends RecordModel {
   }
 }
 
+// === Módulo Monitor de Regularidade (Certidões CND/CPEN & E-CAC) ===
+export type TipoCertidao =
+  | 'receita_pgfn_cnd'
+  | 'receita_pgfn_cpen'
+  | 'fgts_crf'
+  | 'estadual'
+  | 'municipal'
+  | 'trabalhista_cndt'
+
+export type StatusCertidao = 'valida' | 'pendente_emissao' | 'vencida' | 'positiva_sem_efeito'
+
+export type OrigemCertidao = 'manual' | 'automatica'
+
+export interface CertidaoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  tipo: TipoCertidao
+  status: StatusCertidao
+  numero_controle?: string
+  data_emissao?: string
+  data_validade: string
+  arquivo_pdf?: string
+  origem: OrigemCertidao
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
+export type TipoComunicacaoEcac =
+  | 'intimacao_fiscal'
+  | 'notificacao_lancamento'
+  | 'pendencia_cadastral'
+  | 'exclusao_simples'
+  | 'cobranca_parcelamento'
+  | 'aviso_geral'
+
+export type CriticidadeEcac = 'baixa' | 'media' | 'alta'
+export type OrigemCapturaEcac = 'manual_supervisionado' | 'automatica_conector'
+
+export interface EcacComunicacaoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  tipo: TipoComunicacaoEcac
+  assunto: string
+  conteudo?: string
+  data_comunicacao: string
+  data_limite_resposta?: string
+  lida: boolean
+  criticidade: CriticidadeEcac
+  anexo?: string
+  numero_processo?: string
+  origem_captura?: OrigemCapturaEcac
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
 export type NotificacaoTipo =
   | 'prazo_proximo'
   | 'atrasada'
