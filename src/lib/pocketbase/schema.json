@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T14:42:43.443Z",
+  "generatedAt": "2026-09-11T14:54:36.474Z",
   "collections": [
     {
       "name": "users",
@@ -133,7 +133,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["administrador", "contador", "auxiliar", "consultor"]
+          "selectValues": ["administrador", "contador", "auxiliar", "consultor", "cliente"]
         },
         {
           "name": "status",
@@ -1296,6 +1296,442 @@
         "CREATE INDEX idx_lancamentos_conta ON lancamentos_contabeis (conta_contabil)",
         "CREATE INDEX idx_lancamentos_data ON lancamentos_contabeis (data DESC)",
         "CREATE INDEX idx_lancamentos_lote ON lancamentos_contabeis (lote_id)"
+      ]
+    },
+    {
+      "name": "portal_acessos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome_contato",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_portal_acessos_email ON portal_acessos (tenant_id, email)",
+        "CREATE INDEX idx_portal_acessos_empresa ON portal_acessos (empresa)",
+        "CREATE INDEX idx_portal_acessos_user ON portal_acessos (user)"
+      ]
+    },
+    {
+      "name": "mapeamento_contabil",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["obrigacao", "documento"]
+        },
+        {
+          "name": "chave",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conta_debito",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "conta_credito",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_map_contabil_tenant_origem ON mapeamento_contabil (tenant_id, origem, chave)"
+      ]
+    },
+    {
+      "name": "funcionarios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "nome_completo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cpf",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cargo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_admissao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_demissao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "salario",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["clt", "pj", "estagio"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "demitido", "ferias", "afastado"]
+        },
+        {
+          "name": "centro_custo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_funcionarios_tenant_emp ON funcionarios (tenant_id, empresa)",
+        "CREATE INDEX idx_funcionarios_status ON funcionarios (status)",
+        "CREATE INDEX idx_funcionarios_cpf ON funcionarios (tenant_id, cpf)"
+      ]
+    },
+    {
+      "name": "folha_pagamento",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "salario_base",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proventos",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descontos",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fgts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_liquido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["rascunho", "processada", "paga"]
+        },
+        {
+          "name": "pago_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_folha_tenant_emp_comp ON folha_pagamento (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_folha_funcionario ON folha_pagamento (funcionario)",
+        "CREATE INDEX idx_folha_status ON folha_pagamento (status)"
+      ]
+    },
+    {
+      "name": "eventos_dp",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["admissao", "demissao", "ferias", "afastado", "alteracao_salarial"]
+        },
+        {
+          "name": "data_evento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "anexo",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "documentos"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_eventos_dp_func ON eventos_dp (funcionario)",
+        "CREATE INDEX idx_eventos_dp_tenant_emp ON eventos_dp (tenant_id, empresa)",
+        "CREATE INDEX idx_eventos_dp_data ON eventos_dp (data_evento DESC)"
       ]
     }
   ]

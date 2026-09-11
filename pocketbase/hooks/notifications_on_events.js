@@ -167,6 +167,27 @@ onRecordAfterUpdateSuccess(
             } catch (_) {}
           }
         }
+      } else if (collectionName === 'funcionarios') {
+        const origStatus = record.original().getString('status')
+        const currentStatus = record.getString('status')
+        const nome = record.getString('nome_completo')
+        if (origStatus && origStatus !== currentStatus) {
+          const notif = new Record(notificacoesCol)
+          notif.set('tenant_id', tenantId)
+          notif.set('titulo', 'DP: Mudança de status de funcionário')
+          notif.set(
+            'mensagem',
+            'O colaborador "' +
+              nome +
+              '" mudou de status para ' +
+              currentStatus.toUpperCase() +
+              '.',
+          )
+          notif.set('tipo', 'sistema')
+          notif.set('link', '/departamento-pessoal')
+          notif.set('lida', false)
+          $app.save(notif)
+        }
       }
     } catch (err) {
       console.log('[NOTIF] Error in notifications hook:', err)
@@ -176,4 +197,5 @@ onRecordAfterUpdateSuccess(
   'workflows',
   'documentos',
   'obrigacoes',
+  'funcionarios',
 )

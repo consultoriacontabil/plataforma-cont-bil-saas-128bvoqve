@@ -55,6 +55,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
+import { fechoContabilService } from '@/services/fechoContabil'
+import { Sparkles, FileSpreadsheet } from 'lucide-react'
 
 const TIPOS_OBRIGACOES: ObrigacaoTipo[] = [
   'DAS',
@@ -86,6 +88,7 @@ export default function Obrigacoes() {
   const [filterEmpresa, setFilterEmpresa] = useState<string>('todas')
   const [filterTipo, setFilterTipo] = useState<string>('todos')
   const [filterStatus, setFilterStatus] = useState<string>('todos')
+  const [generatingFecho, setGeneratingFecho] = useState(false)
 
   // Calendar State
   const [currentDate, setCurrentDate] = useState<Date>(new Date())
@@ -477,13 +480,62 @@ export default function Obrigacoes() {
           </div>
 
           {canEdit && (
-            <Button
-              onClick={handleOpenCreate}
-              className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9 shadow-xs"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Nova Obrigação</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={async () => {
+                  if (!tenant?.id) return
+                  setGeneratingFecho(true)
+                  try {
+                    const res = await fechoContabilService.processarFechoLote(
+                      tenant.id,
+                      'todas',
+                      filterEmpresa !== 'todas' ? filterEmpresa : undefined,
+                    )
+                    if (res.lancamentosGerados === 0 && res.pendentesMapeamento.length === 0) {
+                      toast({
+                        title: 'Fecho Contábil',
+                        description: 'Nenhuma nova obrigação entregue/paga pendente de lançamento.',
+                      })
+                    } else if (res.lancamentosGerados > 0) {
+                      toast({
+                        title: 'Fecho Automático Concluído!',
+                        description: `${res.lancamentosGerados} lançamentos gerados (${res.processados} guias quitadas) somando R$ ${res.valorTotal.toFixed(2)}.`,
+                      })
+                    }
+                    if (res.pendentesMapeamento.length > 0) {
+                      toast({
+                        variant: 'destructive',
+                        title: 'Obrigações sem Mapeamento',
+                        description: `Atenção: faltam regras no Mapeamento Contábil para: ${res.pendentesMapeamento.join(', ')}. Configure no menu Contábil > Mapeamento.`,
+                      })
+                    }
+                  } catch (err) {
+                    console.error('Erro ao gerar fecho contábil:', err)
+                    toast({
+                      variant: 'destructive',
+                      title: 'Erro no fecho automático',
+                      description: 'Não foi possível processar os lançamentos contábeis.',
+                    })
+                  } finally {
+                    setGeneratingFecho(false)
+                  }
+                }}
+                disabled={generatingFecho}
+                variant="outline"
+                className="gap-2 rounded-xl border-[#0FA3A3] text-[#0FA3A3] hover:bg-[#0FA3A3]/10 text-xs font-semibold h-9 shadow-xs"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>{generatingFecho ? 'Gerando Lançamentos...' : 'Gerar Fecho Contábil'}</span>
+              </Button>
+
+              <Button
+                onClick={handleOpenCreate}
+                className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9 shadow-xs"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nova Obrigação</span>
+              </Button>
+            </div>
           )}
         </div>
       </div>

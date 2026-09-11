@@ -94,6 +94,35 @@ onRecordAfterUpdateSuccess(
       } else if (collectionName === 'plano_contas') {
         acao = 'Atualização de conta contábil'
         detalhes = 'Alterou conta ' + record.getString('codigo') + ' - ' + record.getString('nome')
+      } else if (collectionName === 'funcionarios') {
+        acao = 'Atualização de funcionário'
+        detalhes =
+          'Atualizou colaborador ' +
+          record.getString('nome_completo') +
+          ' (status: ' +
+          record.getString('status') +
+          ')'
+      } else if (collectionName === 'folha_pagamento') {
+        acao = 'Atualização de folha'
+        detalhes =
+          'Atualizou folha comp. ' +
+          record.getString('competencia') +
+          ' para status ' +
+          record.getString('status')
+      } else if (collectionName === 'eventos_dp') {
+        acao = 'Atualização de evento DP'
+        detalhes = 'Alterou evento ' + record.getString('tipo')
+      } else if (collectionName === 'portal_acessos') {
+        acao = 'Atualização de acesso ao portal'
+        detalhes =
+          'Atualizou acesso ' +
+          record.getString('email') +
+          ' (ativo: ' +
+          (record.getBool('ativo') ? 'sim' : 'não') +
+          ')'
+      } else if (collectionName === 'mapeamento_contabil') {
+        acao = 'Atualização de mapeamento contábil'
+        detalhes = 'Alterou regra de ' + record.getString('chave')
       }
 
       log.set('acao', acao)
@@ -112,4 +141,9 @@ onRecordAfterUpdateSuccess(
   'obrigacoes',
   'lancamentos_contabeis',
   'plano_contas',
+  'funcionarios',
+  'folha_pagamento',
+  'eventos_dp',
+  'portal_acessos',
+  'mapeamento_contabil',
 )

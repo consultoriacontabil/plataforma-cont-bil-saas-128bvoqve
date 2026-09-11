@@ -13,6 +13,7 @@ interface AuthContextType {
   signOut: () => void
   switchTenant: (tenant: Tenant) => void
   hasPermission: (allowedRoles: UserRole[]) => boolean
+  isCliente: boolean
   refreshAuth: () => Promise<void>
 }
 
@@ -174,6 +175,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return allowedRoles.includes(member.perfil)
   }
 
+  const isCliente = member?.perfil === 'cliente'
+
   return (
     <AuthContext.Provider
       value={{
@@ -187,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         switchTenant,
         hasPermission,
+        isCliente,
         refreshAuth,
       }}
     >

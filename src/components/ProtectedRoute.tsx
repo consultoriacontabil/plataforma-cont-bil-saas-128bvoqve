@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth()
+  const { user, loading, isCliente } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -20,6 +20,11 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Se o usuário logado for perfil 'cliente', direcionar para tela do /portal
+  if (isCliente && !location.pathname.startsWith('/portal')) {
+    return <Navigate to="/portal" replace />
   }
 
   return <>{children}</>

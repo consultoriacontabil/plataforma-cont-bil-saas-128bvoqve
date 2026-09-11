@@ -116,8 +116,11 @@ export default function Layout() {
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
+    if (path.startsWith('/departamento-pessoal')) return 'Departamento Pessoal (DP)'
     if (path.startsWith('/contabil/lancamentos')) return 'Lançamentos Contábeis'
     if (path.startsWith('/contabil/balancete')) return 'Balancete de Verificação'
+    if (path.startsWith('/contabil/mapeamento')) return 'Mapeamento Contábil Automático'
+    if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
@@ -232,6 +235,7 @@ export default function Layout() {
           badge: obrigacoesBadgeCount > 0 ? obrigacoesBadgeCount : undefined,
         },
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
+        { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
       ],
     },
     {
@@ -239,11 +243,13 @@ export default function Layout() {
       items: [
         { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
         { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
+        { label: 'Mapeamento Fecho', to: '/contabil/mapeamento', icon: Compass },
       ],
     },
     {
       group: 'GESTÃO',
       items: [
+        { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
         { label: 'Relatórios', to: '/relatorios', icon: Layers },
         { label: 'Usuários & Perfis', to: '/usuarios', icon: Users },
         { label: 'Auditoria', to: '/auditoria', icon: ShieldCheck },

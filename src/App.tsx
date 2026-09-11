@@ -22,6 +22,10 @@ import Obrigacoes from '@/pages/Obrigacoes'
 import Relatorios from '@/pages/Relatorios'
 import LancamentosContabeis from '@/pages/LancamentosContabeis'
 import Balancete from '@/pages/Balancete'
+import DepartamentoPessoal from '@/pages/DepartamentoPessoal'
+import PortalClientePage from '@/pages/PortalCliente'
+import PortalAcessosPage from '@/pages/PortalAcessos'
+import MapeamentoContabilPage from '@/pages/MapeamentoContabil'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -56,14 +60,19 @@ export default function App() {
           <Route path="/obrigacoes" element={<Obrigacoes />} />
           <Route path="/fiscal" element={<Fiscal />} />
 
-          {/* Módulo Contábil (P1) */}
+          {/* Módulo Departamento Pessoal (P1) */}
+          <Route path="/departamento-pessoal" element={<DepartamentoPessoal />} />
+
+          {/* Módulo Contábil (P1) e Fecho Automático */}
           <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />
           <Route path="/contabil/balancete" element={<Balancete />} />
+          <Route path="/contabil/mapeamento" element={<MapeamentoContabilPage />} />
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/integracoes" element={<Integracoes />} />
 
           {/* Gestão */}
+          <Route path="/portal-acessos" element={<PortalAcessosPage />} />
           <Route path="/usuarios" element={<Usuarios />} />
           <Route path="/usuarios/perfis" element={<Usuarios />} />
           <Route path="/auditoria" element={<Auditoria />} />
@@ -74,6 +83,16 @@ export default function App() {
           {/* Perfil */}
           <Route path="/perfil" element={<Perfil />} />
         </Route>
+
+        {/* Portal do Cliente (Layout Simplificado Exclusivo para Empresas) */}
+        <Route
+          path="/portal"
+          element={
+            <ProtectedRoute>
+              <PortalClientePage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Catch-all 404 */}
         <Route path="*" element={<NotFound />} />

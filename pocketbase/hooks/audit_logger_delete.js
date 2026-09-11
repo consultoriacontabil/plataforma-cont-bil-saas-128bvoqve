@@ -32,4 +32,9 @@ onRecordAfterDeleteSuccess(
   'obrigacoes',
   'lancamentos_contabeis',
   'plano_contas',
+  'funcionarios',
+  'folha_pagamento',
+  'eventos_dp',
+  'portal_acessos',
+  'mapeamento_contabil',
 )

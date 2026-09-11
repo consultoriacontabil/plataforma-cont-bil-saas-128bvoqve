@@ -1,6 +1,6 @@
 import type { RecordModel } from 'pocketbase'
 
-export type UserRole = 'administrador' | 'contador' | 'auxiliar' | 'consultor'
+export type UserRole = 'administrador' | 'contador' | 'auxiliar' | 'consultor' | 'cliente'
 export type UserStatus = 'ativo' | 'convite_pendente'
 
 export interface User extends RecordModel {
@@ -282,4 +282,99 @@ export interface BalanceteItem {
   debitos: number
   creditos: number
   saldoAtual: number
+}
+
+// === Módulo Departamento Pessoal (DP - P1) ===
+export type FuncionarioTipo = 'clt' | 'pj' | 'estagio'
+export type FuncionarioStatus = 'ativo' | 'demitido' | 'ferias' | 'afastado'
+
+export interface Funcionario extends RecordModel {
+  tenant_id: string
+  empresa: string
+  nome_completo: string
+  cpf: string
+  cargo: string
+  data_admissao: string
+  data_demissao?: string
+  salario: number
+  tipo: FuncionarioTipo
+  status: FuncionarioStatus
+  centro_custo?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
+export interface ItemRubrica {
+  descricao: string
+  valor: number
+}
+
+export type FolhaPagamentoStatus = 'rascunho' | 'processada' | 'paga'
+
+export interface FolhaPagamento extends RecordModel {
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  competencia: string
+  salario_base: number
+  proventos?: ItemRubrica[] | string
+  descontos?: ItemRubrica[] | string
+  inss: number
+  irrf: number
+  fgts: number
+  total_liquido: number
+  status: FolhaPagamentoStatus
+  pago_em?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+  }
+}
+
+export type EventoDpTipo = 'admissao' | 'demissao' | 'ferias' | 'afastado' | 'alteracao_salarial'
+
+export interface EventoDp extends RecordModel {
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  tipo: EventoDpTipo
+  data_evento: string
+  descricao: string
+  anexo?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+    anexo?: Documento
+  }
+}
+
+// === Módulo Portal do Cliente ===
+export interface PortalAcesso extends RecordModel {
+  tenant_id: string
+  empresa: string
+  email: string
+  nome_contato: string
+  user?: string
+  ativo: boolean
+  expand?: {
+    empresa?: Empresa
+    user?: User
+  }
+}
+
+// === Módulo Fecho Contábil Automático ===
+export type MapeamentoOrigem = 'obrigacao' | 'documento'
+
+export interface MapeamentoContabil extends RecordModel {
+  tenant_id: string
+  origem: MapeamentoOrigem
+  chave: string
+  descricao?: string
+  conta_debito: string
+  conta_credito: string
+  expand?: {
+    conta_debito?: ContaContabil
+    conta_credito?: ContaContabil
+  }
 }

@@ -18,15 +18,27 @@ onRecordAfterCreateSuccess(
       log.set('entidade_id', record.id)
 
       let userId = ''
-      if (record.has('usuario_upload_id') && record.getString('usuario_upload_id')) {
-        userId = record.getString('usuario_upload_id')
-      } else if (record.has('criado_por_id') && record.getString('criado_por_id')) {
-        userId = record.getString('criado_por_id')
-      } else if (record.has('criado_por') && record.getString('criado_por')) {
-        userId = record.getString('criado_por')
-      } else if (record.has('user_id') && record.getString('user_id')) {
-        userId = record.getString('user_id')
-      }
+      try {
+        if (record.getString('usuario_upload_id')) {
+          userId = record.getString('usuario_upload_id')
+        }
+      } catch (_) {}
+      try {
+        if (!userId && record.getString('criado_por_id')) {
+          userId = record.getString('criado_por_id')
+        }
+      } catch (_) {}
+      try {
+        if (!userId && record.getString('criado_por')) {
+          userId = record.getString('criado_por')
+        }
+      } catch (_) {}
+      try {
+        if (!userId && record.getString('user_id')) {
+          userId = record.getString('user_id')
+        }
+      } catch (_) {}
+
       if (userId) {
         log.set('usuario_id', userId)
       }
@@ -95,6 +107,35 @@ onRecordAfterCreateSuccess(
           ' (' +
           record.getString('tipo') +
           ')'
+      } else if (collectionName === 'funcionarios') {
+        acao = 'Admissão / Funcionário cadastrado'
+        detalhes =
+          'Cadastrou colaborador ' +
+          record.getString('nome_completo') +
+          ' (Cargo: ' +
+          record.getString('cargo') +
+          ')'
+      } else if (collectionName === 'folha_pagamento') {
+        acao = 'Folha de pagamento gerada'
+        detalhes =
+          'Gerou folha competência ' +
+          record.getString('competencia') +
+          ' no valor líquido de R$ ' +
+          record.getFloat('total_liquido').toFixed(2)
+      } else if (collectionName === 'eventos_dp') {
+        acao = 'Evento de DP registrado'
+        detalhes = 'Evento ' + record.getString('tipo') + ': ' + record.getString('descricao')
+      } else if (collectionName === 'portal_acessos') {
+        acao = 'Acesso ao portal criado'
+        detalhes =
+          'Criou acesso para ' +
+          record.getString('nome_contato') +
+          ' (' +
+          record.getString('email') +
+          ')'
+      } else if (collectionName === 'mapeamento_contabil') {
+        acao = 'Mapeamento contábil configurado'
+        detalhes = 'Mapeou ' + record.getString('origem') + ' / ' + record.getString('chave')
       }
 
       log.set('acao', acao)
@@ -113,4 +154,9 @@ onRecordAfterCreateSuccess(
   'obrigacoes',
   'lancamentos_contabeis',
   'plano_contas',
+  'funcionarios',
+  'folha_pagamento',
+  'eventos_dp',
+  'portal_acessos',
+  'mapeamento_contabil',
 )

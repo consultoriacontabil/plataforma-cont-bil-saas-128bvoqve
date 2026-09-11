@@ -1,0 +1,1187 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import {
+  Users2,
+  Receipt,
+  History,
+  Plus,
+  Search,
+  Filter,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Building2,
+  Calendar,
+  DollarSign,
+  Briefcase,
+  PlayCircle,
+  Trash2,
+  Edit,
+  ShieldCheck,
+  CheckCheck,
+} from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { dpService, type CreateFuncionarioInput } from '@/services/dp'
+import { empresasService } from '@/services/empresas'
+import type {
+  Funcionario,
+  FolhaPagamento,
+  EventoDp,
+  Empresa,
+  FuncionarioStatus,
+  FuncionarioTipo,
+  EventoDpTipo,
+} from '@/types'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useToast } from '@/hooks/use-toast'
+import { maskCpf, isValidCpf, formatDatePtBr } from '@/lib/formatters'
+import { cn } from '@/lib/utils'
+
+export default function DepartamentoPessoal() {
+  const { tenant, member } = useAuth()
+  const { toast } = useToast()
+
+  const [activeTab, setActiveTab] = useState<'funcionarios' | 'folha' | 'eventuais'>('funcionarios')
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Filtros Globais
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('todas')
+
+  // === Aba 1: Funcionários ===
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
+  const [buscaFuncionario, setBuscaFuncionario] = useState('')
+  const [filtroStatusFunc, setFiltroStatusFunc] = useState<string>('todos')
+  const [modalFuncOpen, setModalFuncOpen] = useState(false)
+  const [editingFuncionario, setEditingFuncionario] = useState<Funcionario | null>(null)
+
+  // Form Funcionário
+  const [formFuncEmpresa, setFormFuncEmpresa] = useState('')
+  const [formFuncNome, setFormFuncNome] = useState('')
+  const [formFuncCpf, setFormFuncCpf] = useState('')
+  const [formFuncCargo, setFormFuncCargo] = useState('')
+  const [formFuncAdmissao, setFormFuncAdmissao] = useState('')
+  const [formFuncSalario, setFormFuncSalario] = useState('')
+  const [formFuncTipo, setFormFuncTipo] = useState<FuncionarioTipo>('clt')
+  const [formFuncStatus, setFormFuncStatus] = useState<FuncionarioStatus>('ativo')
+  const [formFuncCentroCusto, setFormFuncCentroCusto] = useState('')
+  const [savingFunc, setSavingFunc] = useState(false)
+
+  // === Aba 2: Folha de Pagamento ===
+  const [folhaRecords, setFolhaRecords] = useState<FolhaPagamento[]>([])
+  const [selectedCompetencia, setSelectedCompetencia] = useState<string>('09/2026')
+  const [processingFolha, setProcessingFolha] = useState(false)
+
+  // === Aba 3: Eventos DP ===
+  const [eventos, setEventos] = useState<EventoDp[]>([])
+  const [filtroTipoEvento, setFiltroTipoEvento] = useState<string>('todos')
+  const [modalEventoOpen, setModalEventoOpen] = useState(false)
+  const [formEventoEmpresa, setFormEventoEmpresa] = useState('')
+  const [formEventoFunc, setFormEventoFunc] = useState('')
+  const [formEventoTipo, setFormEventoTipo] = useState<EventoDpTipo>('ferias')
+  const [formEventoData, setFormEventoData] = useState('')
+  const [formEventoDesc, setFormEventoDesc] = useState('')
+  const [savingEvento, setSavingEvento] = useState(false)
+
+  const canManage = member?.perfil === 'administrador' || member?.perfil === 'contador'
+
+  // Carregar dados gerais
+  const loadData = useCallback(async () => {
+    if (!tenant?.id) return
+    setLoading(true)
+    try {
+      const [emps, funcs, folha, evts] = await Promise.all([
+        empresasService.list(tenant.id),
+        dpService.listFuncionarios(tenant.id, {
+          empresaId: selectedEmpresaId,
+          status: filtroStatusFunc,
+          busca: buscaFuncionario,
+        }),
+        dpService.listFolha(tenant.id, {
+          empresaId: selectedEmpresaId,
+          competencia: selectedCompetencia,
+        }),
+        dpService.listEventos(tenant.id, {
+          empresaId: selectedEmpresaId,
+          tipo: filtroTipoEvento,
+        }),
+      ])
+      setEmpresas(emps)
+      setFuncionarios(funcs)
+      setFolhaRecords(folha)
+      setEventos(evts)
+    } catch (err) {
+      console.error('Erro ao carregar DP:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar módulo',
+        description: 'Não foi possível buscar as informações de Departamento Pessoal.',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [
+    tenant?.id,
+    selectedEmpresaId,
+    filtroStatusFunc,
+    buscaFuncionario,
+    selectedCompetencia,
+    filtroTipoEvento,
+    toast,
+  ])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Abrir Modal de Funcionário
+  const handleOpenFuncModal = (func?: Funcionario) => {
+    if (func) {
+      setEditingFuncionario(func)
+      setFormFuncEmpresa(func.empresa)
+      setFormFuncNome(func.nome_completo)
+      setFormFuncCpf(maskCpf(func.cpf))
+      setFormFuncCargo(func.cargo)
+      setFormFuncAdmissao(func.data_admissao ? func.data_admissao.slice(0, 10) : '')
+      setFormFuncSalario(String(func.salario || ''))
+      setFormFuncTipo(func.tipo)
+      setFormFuncStatus(func.status)
+      setFormFuncCentroCusto(func.centro_custo || '')
+    } else {
+      setEditingFuncionario(null)
+      setFormFuncEmpresa(selectedEmpresaId !== 'todas' ? selectedEmpresaId : empresas[0]?.id || '')
+      setFormFuncNome('')
+      setFormFuncCpf('')
+      setFormFuncCargo('')
+      setFormFuncAdmissao(new Date().toISOString().slice(0, 10))
+      setFormFuncSalario('')
+      setFormFuncTipo('clt')
+      setFormFuncStatus('ativo')
+      setFormFuncCentroCusto('')
+    }
+    setModalFuncOpen(true)
+  }
+
+  // Salvar Funcionário
+  const handleSaveFuncionario = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!tenant?.id) return
+
+    if (!isValidCpf(formFuncCpf)) {
+      toast({
+        variant: 'destructive',
+        title: 'CPF Inválido',
+        description: 'Por favor, digite um número de CPF válido com 11 dígitos.',
+      })
+      return
+    }
+
+    const salarioNum = parseFloat(formFuncSalario.replace(',', '.')) || 0
+    if (salarioNum <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Salário inválido',
+        description: 'Informe um valor de salário maior que zero.',
+      })
+      return
+    }
+
+    setSavingFunc(true)
+    try {
+      if (editingFuncionario) {
+        await dpService.updateFuncionario(editingFuncionario.id, {
+          empresa: formFuncEmpresa,
+          nome_completo: formFuncNome.trim(),
+          cpf: formFuncCpf,
+          cargo: formFuncCargo.trim(),
+          data_admissao: new Date(`${formFuncAdmissao}T12:00:00Z`).toISOString(),
+          salario: salarioNum,
+          tipo: formFuncTipo,
+          status: formFuncStatus,
+          centro_custo: formFuncCentroCusto.trim() || undefined,
+        })
+        toast({
+          title: 'Colaborador atualizado',
+          description: `${formFuncNome} salvo com sucesso.`,
+        })
+      } else {
+        const input: CreateFuncionarioInput = {
+          tenant_id: tenant.id,
+          empresa: formFuncEmpresa,
+          nome_completo: formFuncNome.trim(),
+          cpf: formFuncCpf,
+          cargo: formFuncCargo.trim(),
+          data_admissao: new Date(`${formFuncAdmissao}T12:00:00Z`).toISOString(),
+          salario: salarioNum,
+          tipo: formFuncTipo,
+          status: formFuncStatus,
+          centro_custo: formFuncCentroCusto.trim() || undefined,
+        }
+        await dpService.createFuncionario(input)
+        toast({
+          title: 'Admissão cadastrada!',
+          description: `Novo colaborador ${formFuncNome} inserido no quadro ativo.`,
+        })
+      }
+      setModalFuncOpen(false)
+      loadData()
+    } catch (err) {
+      console.error('Erro ao salvar funcionário:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar',
+        description: 'Verifique os dados e tente novamente.',
+      })
+    } finally {
+      setSavingFunc(false)
+    }
+  }
+
+  // Deletar funcionário
+  const handleDeleteFuncionario = async (id: string, nome: string) => {
+    if (!window.confirm(`Deseja realmente remover o colaborador ${nome}?`)) return
+    try {
+      await dpService.deleteFuncionario(id)
+      toast({
+        title: 'Registro removido',
+        description: `${nome} foi excluído da base.`,
+      })
+      loadData()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o funcionário.',
+      })
+    }
+  }
+
+  // Processar Folha
+  const handleProcessarFolha = async () => {
+    if (!tenant?.id) return
+    if (selectedEmpresaId === 'todas') {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione uma empresa',
+        description: 'Para processar a folha, selecione uma empresa específica no filtro.',
+      })
+      return
+    }
+
+    setProcessingFolha(true)
+    try {
+      const res = await dpService.processarFolhaCompetencia(
+        tenant.id,
+        selectedEmpresaId,
+        selectedCompetencia,
+      )
+      if (res.gerados === 0) {
+        toast({
+          title: 'Folha já processada',
+          description: `Nenhum novo registro gerado. Todos os funcionários já possuem folha para ${selectedCompetencia}.`,
+        })
+      } else {
+        toast({
+          title: 'Folha processada com sucesso!',
+          description: `${res.gerados} colaboradores calculados. Total líquido: R$ ${res.totalLiquido.toFixed(2)}`,
+        })
+      }
+      loadData()
+    } catch (err) {
+      console.error('Erro ao processar folha:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao processar',
+        description: 'Falha no cálculo da folha de pagamento.',
+      })
+    } finally {
+      setProcessingFolha(false)
+    }
+  }
+
+  // Marcar folha como paga
+  const handleMarcarFolhaPaga = async (id: string) => {
+    try {
+      await dpService.marcarFolhaPaga(id)
+      toast({
+        title: 'Folha quitada',
+        description: 'Status atualizado para PAGA.',
+      })
+      loadData()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar',
+        description: 'Não foi possível marcar como paga.',
+      })
+    }
+  }
+
+  // Pagar lote completo da competência
+  const handlePagarLote = async () => {
+    const pendentes = folhaRecords.filter((f) => f.status !== 'paga')
+    if (pendentes.length === 0) {
+      toast({ title: 'Todos os registros já estão pagos!' })
+      return
+    }
+    if (!window.confirm(`Deseja marcar ${pendentes.length} pagamentos como QUITADOS?`)) return
+
+    try {
+      await dpService.marcarLoteFolhaPaga(pendentes.map((p) => p.id))
+      toast({
+        title: 'Lote de folha liquidado',
+        description: `${pendentes.length} pagamentos foram marcados como pagos.`,
+      })
+      loadData()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao liquidar lote',
+        description: 'Falha na atualização.',
+      })
+    }
+  }
+
+  // Abrir Modal de Evento DP
+  const handleOpenEventoModal = () => {
+    setFormEventoEmpresa(selectedEmpresaId !== 'todas' ? selectedEmpresaId : empresas[0]?.id || '')
+    setFormEventoFunc(funcionarios[0]?.id || '')
+    setFormEventoTipo('ferias')
+    setFormEventoData(new Date().toISOString().slice(0, 10))
+    setFormEventoDesc('')
+    setModalEventoOpen(true)
+  }
+
+  // Salvar Evento DP
+  const handleSaveEvento = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!tenant?.id || !formEventoFunc) return
+
+    setSavingEvento(true)
+    try {
+      await dpService.createEvento({
+        tenant_id: tenant.id,
+        empresa: formEventoEmpresa,
+        funcionario: formEventoFunc,
+        tipo: formEventoTipo,
+        data_evento: new Date(`${formEventoData}T12:00:00Z`).toISOString(),
+        descricao: formEventoDesc.trim(),
+      })
+      toast({
+        title: 'Evento registrado',
+        description: `Evento de ${formEventoTipo} inserido com sucesso.`,
+      })
+      setModalEventoOpen(false)
+      loadData()
+    } catch (err) {
+      console.error('Erro ao salvar evento:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao registrar evento',
+        description: 'Verifique se os campos estão preenchidos.',
+      })
+    } finally {
+      setSavingEvento(false)
+    }
+  }
+
+  // Totais da folha selecionada
+  const folhaTotais = useMemo(() => {
+    let bruto = 0
+    let inss = 0
+    let irrf = 0
+    let fgts = 0
+    let liquido = 0
+
+    folhaRecords.forEach((f) => {
+      bruto += f.salario_base || 0
+      inss += f.inss || 0
+      irrf += f.irrf || 0
+      fgts += f.fgts || 0
+      liquido += f.total_liquido || 0
+    })
+
+    return { bruto, inss, irrf, fgts, liquido, totalEncargos: inss + irrf + fgts }
+  }, [folhaRecords])
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Top Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">
+              Departamento Pessoal (DP)
+            </h2>
+            <Badge className="bg-[#0FA3A3] text-white text-[11px] font-semibold">P1</Badge>
+          </div>
+          <p className="text-xs text-[#64748B]">
+            Gestão de colaboradores ativos, cálculo de folha de pagamento CLT/PJ e ocorrências
+            eventuais
+          </p>
+        </div>
+
+        {/* Filtro de Empresa Global */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-[#64748B]" />
+            <Select value={selectedEmpresaId} onValueChange={setSelectedEmpresaId}>
+              <SelectTrigger className="w-56 h-9 text-xs rounded-xl bg-white border-[#E2E8F0]">
+                <SelectValue placeholder="Selecione a Empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as Empresas</SelectItem>
+                {empresas.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.nome_fantasia || emp.razao_social}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+        className="w-full"
+      >
+        <TabsList className="bg-slate-200/60 p-1 rounded-xl h-10 w-full sm:w-auto">
+          <TabsTrigger value="funcionarios" className="gap-2 text-xs font-semibold rounded-lg">
+            <Users2 className="h-4 w-4" />
+            <span>Colaboradores ({funcionarios.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="folha" className="gap-2 text-xs font-semibold rounded-lg">
+            <Receipt className="h-4 w-4" />
+            <span>Folha de Pagamento</span>
+          </TabsTrigger>
+          <TabsTrigger value="eventuais" className="gap-2 text-xs font-semibold rounded-lg">
+            <History className="h-4 w-4" />
+            <span>Eventuais & Timeline</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* === TAB 1: FUNCIONÁRIOS === */}
+        <TabsContent value="funcionarios" className="space-y-4 mt-4">
+          {/* Barra de Filtros e Novo Colaborador */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+            <div className="flex flex-1 items-center gap-3">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
+                <Input
+                  value={buscaFuncionario}
+                  onChange={(e) => setBuscaFuncionario(e.target.value)}
+                  placeholder="Buscar por nome, cargo ou CPF..."
+                  className="pl-9 h-9 text-xs rounded-xl border-[#E2E8F0]"
+                />
+              </div>
+
+              <Select value={filtroStatusFunc} onValueChange={setFiltroStatusFunc}>
+                <SelectTrigger className="w-36 h-9 text-xs rounded-xl border-[#E2E8F0]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Status</SelectItem>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="ferias">Férias</SelectItem>
+                  <SelectItem value="afastado">Afastado</SelectItem>
+                  <SelectItem value="demitido">Demitido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {canManage && (
+              <Button
+                onClick={() => handleOpenFuncModal()}
+                className="gap-2 rounded-xl text-xs font-semibold h-9 bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nova Admissão</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Tabela de Funcionários */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold border-b border-[#E2E8F0]">
+                  <tr>
+                    <th className="py-3 px-4">Nome Completo / CPF</th>
+                    <th className="py-3 px-4">Empresa</th>
+                    <th className="py-3 px-4">Cargo / Tipo</th>
+                    <th className="py-3 px-4">Admissão</th>
+                    <th className="py-3 px-4">Salário Base</th>
+                    <th className="py-3 px-4">Status</th>
+                    {canManage && <th className="py-3 px-4 text-right">Ações</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[#1A2333]">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-[#94A3B8]">
+                        Carregando quadro de colaboradores...
+                      </td>
+                    </tr>
+                  ) : funcionarios.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-[#94A3B8]">
+                        Nenhum funcionário encontrado para os filtros selecionados.
+                      </td>
+                    </tr>
+                  ) : (
+                    funcionarios.map((f) => (
+                      <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <p className="font-bold text-[#1A2333]">{f.nome_completo}</p>
+                          <p className="text-[11px] text-[#64748B]">CPF: {maskCpf(f.cpf)}</p>
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-[#475569]">
+                          {f.expand?.empresa?.nome_fantasia ||
+                            f.expand?.empresa?.razao_social ||
+                            '—'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <p className="font-semibold text-[#1A2333]">{f.cargo}</p>
+                          <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#64748B]">
+                            {f.tipo}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#64748B]">
+                          {formatDatePtBr(f.data_admissao)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-[#1A2333]">
+                          R${' '}
+                          {f.salario.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {f.status === 'ativo' && (
+                            <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
+                              Ativo
+                            </Badge>
+                          )}
+                          {f.status === 'ferias' && (
+                            <Badge className="bg-[#FEF3C7] text-[#D97706] border-amber-200">
+                              Férias
+                            </Badge>
+                          )}
+                          {f.status === 'afastado' && (
+                            <Badge className="bg-[#F3E8FF] text-[#9333EA] border-purple-200">
+                              Afastado
+                            </Badge>
+                          )}
+                          {f.status === 'demitido' && (
+                            <Badge className="bg-[#FEE2E2] text-[#DC2626] border-rose-200">
+                              Demitido
+                            </Badge>
+                          )}
+                        </td>
+                        {canManage && (
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenFuncModal(f)}
+                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0FA3A3]"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteFuncionario(f.id, f.nome_completo)}
+                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#EF4444]"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* === TAB 2: FOLHA DE PAGAMENTO === */}
+        <TabsContent value="folha" className="space-y-4 mt-4">
+          {/* Header da Folha e Resumos */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#64748B]" />
+                <Select value={selectedCompetencia} onValueChange={setSelectedCompetencia}>
+                  <SelectTrigger className="w-36 h-9 text-xs rounded-xl border-[#E2E8F0]">
+                    <SelectValue placeholder="Competência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="08/2026">08/2026</SelectItem>
+                    <SelectItem value="09/2026">09/2026</SelectItem>
+                    <SelectItem value="10/2026">10/2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {canManage && (
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleProcessarFolha}
+                  disabled={processingFolha}
+                  className="gap-2 rounded-xl text-xs font-semibold h-9 bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  <span>
+                    {processingFolha ? 'Calculando...' : 'Processar Folha da Competência'}
+                  </span>
+                </Button>
+                {folhaRecords.length > 0 && (
+                  <Button
+                    onClick={handlePagarLote}
+                    variant="outline"
+                    className="gap-2 rounded-xl text-xs font-semibold h-9 border-[#E2E8F0]"
+                  >
+                    <CheckCheck className="h-4 w-4 text-emerald-600" />
+                    <span>Quitar Folha</span>
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Cards Totalizadores de Folha */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    Salário Bruto Total
+                  </p>
+                  <p className="text-xl font-bold text-[#1A2333] mt-1">
+                    R${' '}
+                    {folhaTotais.bruto.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-[#2563EB]">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    INSS & IRRF Retidos
+                  </p>
+                  <p className="text-xl font-bold text-[#D97706] mt-1">
+                    R${' '}
+                    {(folhaTotais.inss + folhaTotais.irrf).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-[#D97706]">
+                  <Receipt className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    FGTS Patronal (8%)
+                  </p>
+                  <p className="text-xl font-bold text-[#6366F1] mt-1">
+                    R${' '}
+                    {folhaTotais.fgts.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-[#6366F1]">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    Líquido a Pagar
+                  </p>
+                  <p className="text-xl font-bold text-[#16A34A] mt-1">
+                    R${' '}
+                    {folhaTotais.liquido.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-[#16A34A]">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabela de Holerites da Competência */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold border-b border-[#E2E8F0]">
+                  <tr>
+                    <th className="py-3 px-4">Colaborador</th>
+                    <th className="py-3 px-4">Salário Base</th>
+                    <th className="py-3 px-4">INSS</th>
+                    <th className="py-3 px-4">IRRF</th>
+                    <th className="py-3 px-4">FGTS</th>
+                    <th className="py-3 px-4">Total Líquido</th>
+                    <th className="py-3 px-4">Status</th>
+                    {canManage && <th className="py-3 px-4 text-right">Ação</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[#1A2333]">
+                  {folhaRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-[#94A3B8]">
+                        Nenhuma folha gerada para a competência {selectedCompetencia}. Clique em
+                        &quot;Processar Folha&quot; acima.
+                      </td>
+                    </tr>
+                  ) : (
+                    folhaRecords.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-[#1A2333]">
+                          {item.expand?.funcionario?.nome_completo || 'Colaborador'}
+                          <p className="text-[11px] font-normal text-[#64748B]">
+                            {item.expand?.funcionario?.cargo || 'Cargo'}
+                          </p>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-medium">
+                          R$ {item.salario_base.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-amber-600">
+                          - R$ {item.inss.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-amber-600">
+                          - R$ {item.irrf.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-indigo-600">
+                          R$ {item.fgts.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
+                          R$ {item.total_liquido.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {item.status === 'paga' ? (
+                            <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
+                              Paga
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-[#FEF3C7] text-[#D97706] border-amber-200">
+                              Processada
+                            </Badge>
+                          )}
+                        </td>
+                        {canManage && (
+                          <td className="py-3.5 px-4 text-right">
+                            {item.status !== 'paga' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMarcarFolhaPaga(item.id)}
+                                className="h-7 text-[11px] font-semibold text-[#16A34A] border-emerald-200 hover:bg-emerald-50"
+                              >
+                                Marcar Paga
+                              </Button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* === TAB 3: EVENTUAIS / EVENTOS DP === */}
+        <TabsContent value="eventuais" className="space-y-4 mt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+            <div className="flex items-center gap-3">
+              <Select value={filtroTipoEvento} onValueChange={setFiltroTipoEvento}>
+                <SelectTrigger className="w-48 h-9 text-xs rounded-xl border-[#E2E8F0]">
+                  <SelectValue placeholder="Tipo de Ocorrência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Tipos</SelectItem>
+                  <SelectItem value="admissao">Admissão</SelectItem>
+                  <SelectItem value="demissao">Demissão</SelectItem>
+                  <SelectItem value="ferias">Férias</SelectItem>
+                  <SelectItem value="afastado">Afastamento</SelectItem>
+                  <SelectItem value="alteracao_salarial">Alteração Salarial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {canManage && (
+              <Button
+                onClick={handleOpenEventoModal}
+                className="gap-2 rounded-xl text-xs font-semibold h-9 bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Registrar Eventual</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Timeline de Eventos */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-2xs">
+            {eventos.length === 0 ? (
+              <p className="text-center py-8 text-xs text-[#94A3B8]">
+                Nenhum evento eventual de DP registrado.
+              </p>
+            ) : (
+              <div className="relative border-l-2 border-slate-200 ml-4 space-y-6">
+                {eventos.map((ev) => (
+                  <div key={ev.id} className="relative pl-6">
+                    <span
+                      className={cn(
+                        'absolute -left-2.5 top-1 h-5 w-5 rounded-full border-2 border-white flex items-center justify-center text-[10px] text-white',
+                        ev.tipo === 'admissao' && 'bg-[#16A34A]',
+                        ev.tipo === 'demissao' && 'bg-[#DC2626]',
+                        ev.tipo === 'ferias' && 'bg-[#D97706]',
+                        ev.tipo === 'afastado' && 'bg-[#9333EA]',
+                        ev.tipo === 'alteracao_salarial' && 'bg-[#2563EB]',
+                      )}
+                    />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[#1A2333] capitalize">
+                          {ev.tipo.replace('_', ' ')}:{' '}
+                          {ev.expand?.funcionario?.nome_completo || 'Colaborador'}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] uppercase">
+                          {ev.expand?.empresa?.nome_fantasia || 'Empresa'}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-[#64748B] flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {formatDatePtBr(ev.data_evento)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#475569] mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      {ev.descricao}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Modal: Admissão / Editar Funcionário */}
+      <Dialog open={modalFuncOpen} onOpenChange={setModalFuncOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFuncionario ? 'Editar Colaborador' : 'Nova Admissão de Colaborador'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Preencha os dados do contrato de trabalho e remuneração base.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveFuncionario} className="space-y-3 py-2 text-xs">
+            <div>
+              <Label className="text-xs font-semibold">Empresa Contratante</Label>
+              <Select value={formFuncEmpresa} onValueChange={setFormFuncEmpresa} required>
+                <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nome_fantasia || e.razao_social}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Nome Completo</Label>
+              <Input
+                value={formFuncNome}
+                onChange={(e) => setFormFuncNome(e.target.value)}
+                placeholder="Ex: Carlos Eduardo Silveira"
+                required
+                className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">CPF (com validação)</Label>
+                <Input
+                  value={formFuncCpf}
+                  onChange={(e) => setFormFuncCpf(maskCpf(e.target.value))}
+                  placeholder="000.000.000-00"
+                  required
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Cargo</Label>
+                <Input
+                  value={formFuncCargo}
+                  onChange={(e) => setFormFuncCargo(e.target.value)}
+                  placeholder="Ex: Desenvolvedor Pleno"
+                  required
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">Data Admissão</Label>
+                <Input
+                  type="date"
+                  value={formFuncAdmissao}
+                  onChange={(e) => setFormFuncAdmissao(e.target.value)}
+                  required
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Salário Base (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formFuncSalario}
+                  onChange={(e) => setFormFuncSalario(e.target.value)}
+                  placeholder="Ex: 4500.00"
+                  required
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">Tipo Contrato</Label>
+                <Select
+                  value={formFuncTipo}
+                  onValueChange={(v) => setFormFuncTipo(v as FuncionarioTipo)}
+                >
+                  <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clt">CLT Integral</SelectItem>
+                    <SelectItem value="pj">Prestador PJ</SelectItem>
+                    <SelectItem value="estagio">Estágio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold">Status Inicial</Label>
+                <Select
+                  value={formFuncStatus}
+                  onValueChange={(v) => setFormFuncStatus(v as FuncionarioStatus)}
+                >
+                  <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="ferias">Férias</SelectItem>
+                    <SelectItem value="afastado">Afastado</SelectItem>
+                    <SelectItem value="demitido">Demitido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Centro de Custo / Setor (Opcional)</Label>
+              <Input
+                value={formFuncCentroCusto}
+                onChange={(e) => setFormFuncCentroCusto(e.target.value)}
+                placeholder="Ex: Operacional / Administrativo"
+                className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalFuncOpen(false)}
+                className="rounded-xl text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingFunc}
+                className="rounded-xl text-xs bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+              >
+                {savingFunc ? 'Salvando...' : 'Confirmar Admissão'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Registrar Evento Eventual */}
+      <Dialog open={modalEventoOpen} onOpenChange={setModalEventoOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Registrar Ocorrência / Eventual DP</DialogTitle>
+            <DialogDescription className="text-xs">
+              Registre férias, demissão, afastamento ou alteração na timeline do colaborador.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEvento} className="space-y-3 py-2 text-xs">
+            <div>
+              <Label className="text-xs font-semibold">Empresa</Label>
+              <Select value={formEventoEmpresa} onValueChange={setFormEventoEmpresa} required>
+                <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nome_fantasia || e.razao_social}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Colaborador</Label>
+              <Select value={formEventoFunc} onValueChange={setFormEventoFunc} required>
+                <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                  <SelectValue placeholder="Selecione o colaborador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {funcionarios
+                    .filter((f) => !formEventoEmpresa || f.empresa === formEventoEmpresa)
+                    .map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.nome_completo} ({f.cargo})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold">Tipo de Evento</Label>
+                <Select
+                  value={formEventoTipo}
+                  onValueChange={(v) => setFormEventoTipo(v as EventoDpTipo)}
+                >
+                  <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ferias">Férias</SelectItem>
+                    <SelectItem value="demissao">Demissão / Rescisão</SelectItem>
+                    <SelectItem value="afastado">Afastamento Médico / INSS</SelectItem>
+                    <SelectItem value="alteracao_salarial">Alteração Salarial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold">Data do Evento</Label>
+                <Input
+                  type="date"
+                  value={formEventoData}
+                  onChange={(e) => setFormEventoData(e.target.value)}
+                  required
+                  className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Descrição / Detalhes</Label>
+              <Textarea
+                value={formEventoDesc}
+                onChange={(e) => setFormEventoDesc(e.target.value)}
+                placeholder="Ex: Período aquisitivo 2024/2025, gozo de 30 dias de férias..."
+                required
+                className="rounded-xl border-[#E2E8F0] text-xs resize-none h-20 mt-1"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalEventoOpen(false)}
+                className="rounded-xl text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingEvento}
+                className="rounded-xl text-xs bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+              >
+                {savingEvento ? 'Gravando...' : 'Salvar Evento'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
