@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T20:27:43.374Z",
+  "generatedAt": "2026-09-11T20:41:09.310Z",
   "collections": [
     {
       "name": "users",
@@ -4315,6 +4315,56 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "provedor_fiscal",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["governacional", "betha", "ginfes"]
+        },
+        {
+          "name": "provedor_ambiente",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["producao", "homologacao"]
+        },
+        {
+          "name": "govbr_client_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "govbr_client_secret",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "govbr_api_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "provedor_municipio_ibge",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_teste_provedor",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_teste_evolution",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -4382,7 +4432,14 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["em_analise", "aprovada", "emitida", "rejeitada", "cancelada"]
+          "selectValues": [
+            "em_analise",
+            "aprovada",
+            "emitida",
+            "rejeitada",
+            "cancelada",
+            "erro_emissao"
+          ]
         },
         {
           "name": "score_confianca",
@@ -4488,6 +4545,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "ultimo_erro_emissao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tentativas_emissao",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -4739,6 +4808,31 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "provedor_usado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "url_consulta_nfse",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "protocolo_autorizacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ged_documento_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "documentos"
         }
       ],
       "indexes": [

@@ -5,9 +5,13 @@ import type {
   NfseNotaEmitidaRecord,
   Empresa,
   CertificadoDigitalRecord,
+  Documento,
+  ProvedorFiscalTipo,
+  ProvedorAmbiente,
 } from '@/types'
 import { auditService } from './audit'
-import { isValidCnpj, isValidCpf, maskCnpj, maskCpf } from '@/lib/formatters'
+import { maskCnpj, maskCpf } from '@/lib/formatters'
+import { FiscalAdapterFactory } from './fiscalAdapters'
 
 export interface SalvarConfigInput {
   empresa_padrao?: string
@@ -16,6 +20,12 @@ export interface SalvarConfigInput {
   evolution_instance?: string
   modo_operacao: 'simulacao' | 'producao'
   auto_aprovar_alta_confianca: boolean
+  provedor_fiscal?: ProvedorFiscalTipo
+  provedor_ambiente?: ProvedorAmbiente
+  govbr_client_id?: string
+  govbr_client_secret?: string
+  govbr_api_url?: string
+  provedor_municipio_ibge?: string
   msg_saudacao?: string
   msg_recebimento?: string
   msg_aprovacao?: string
@@ -59,6 +69,9 @@ export const nfseWhatsappService = {
         tenant_id: tenantId,
         webhook_token: defaultToken,
         modo_operacao: 'simulacao',
+        provedor_fiscal: 'governacional',
+        provedor_ambiente: 'producao',
+        govbr_api_url: 'https://nfse.receita.fazenda.gov.br/portalnfse',
         auto_aprovar_alta_confianca: false,
         msg_saudacao:
           'Olá! Sou o assistente de Emissão Inteligente de NFS-e da Rumo Consultoria Contábil. Pode me enviar os dados da nota fiscal a emitir (Tomador, CNPJ/CPF, descrição do serviço e valor).',
@@ -99,7 +112,11 @@ export const nfseWhatsappService = {
       'nfse_config_atualizada',
       'nfse_config',
       configId,
-      JSON.stringify({ modo: input.modo_operacao, ativo: input.ativo }),
+      JSON.stringify({
+        modo: input.modo_operacao,
+        provedor: input.provedor_fiscal,
+        ativo: input.ativo,
+      }),
     )
 
     return updated
@@ -134,7 +151,8 @@ export const nfseWhatsappService = {
     return pb.collection('nfse_notas_emitidas').getFullList<NfseNotaEmitidaRecord>({
       filter,
       sort: '-created',
-      expand: 'empresa,solicitacao,certificado_usado,titulo_financeiro,emitido_por',
+      expand:
+        'empresa,solicitacao,certificado_usado,titulo_financeiro,emitido_por,ged_documento_id',
     })
   },
 
@@ -175,7 +193,7 @@ export const nfseWhatsappService = {
         historico_mensagens_json: historico,
       })
 
-    // Tentar envio via webhook endpoint
+    // Enviar mensagem real/registrada ao WhatsApp através do backend
     try {
       await pb.send('/backend/v1/nfse/enviar-whatsapp', {
         method: 'POST',
@@ -211,8 +229,8 @@ export const nfseWhatsappService = {
   },
 
   /**
-   * Emissão da NFS-e (Etapas 5 e 6 da arquitetura)
-   * Gera número sequencial, calcula impostos, cria XML Nacional, opcionalmente gera Título a Receber
+   * Emissão da NFS-e via ADAPTER FISCAL (Gov.br / Emissor Nacional com fallback para Simulação Controlada)
+   * Etapas 5, 6, 7 e 8 da arquitetura completa
    */
   async emitirNfse(
     tenantId: string,
@@ -221,10 +239,11 @@ export const nfseWhatsappService = {
   ): Promise<NfseNotaEmitidaRecord> {
     const config = await this.getConfig(tenantId)
 
-    // Obter dados da empresa emissora (prestador)
+    // 1. Obter dados da empresa prestadora (emitente)
     const empresa = await pb.collection('empresas').getOne<Empresa>(input.empresa_id)
 
-    // Obter certificado digital vinculado à empresa se houver
+    // 2. Obter certificado digital vinculado à empresa
+    let certificadoRecord: CertificadoDigitalRecord | undefined
     let certificadoId: string | undefined
     try {
       const certs = await pb
@@ -234,13 +253,14 @@ export const nfseWhatsappService = {
           sort: '-validade',
         })
       if (certs.length > 0) {
+        certificadoRecord = certs[0]
         certificadoId = certs[0].id
       }
     } catch {
       /* sem certificado */
     }
 
-    // Gerar próximo número de nota sequencial para esta empresa
+    // 3. Gerar próximo número sequencial de nota para esta empresa
     const todasNotasEmpresa = await pb
       .collection('nfse_notas_emitidas')
       .getFullList<NfseNotaEmitidaRecord>({
@@ -259,22 +279,11 @@ export const nfseWhatsappService = {
     const mes = String(agora.getMonth() + 1).padStart(2, '0')
     const competencia = `${ano}-${mes}`
 
-    // Gerar código de verificação randômico no formato AAAA-BBBB-CCCC
-    const chars = '0123456789ABCDEF'
-    const randPart = (len: number) =>
-      Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-    const codigoVerificacao = `${randPart(4)}-${randPart(4)}-${randPart(4)}`
-
-    // Chave de acesso simulada 44 dígitos
-    const cleanCnpjEmpresa = (empresa.cnpj || '').replace(/\D/g, '').padEnd(14, '0')
-    const chaveAcesso = `35${ano % 100}${mes}${cleanCnpjEmpresa}56001${String(proximoNumero).padStart(9, '0')}${randPart(8)}`
-
-    // Alíquotas e retenções
-    const aliquotaIss = input.aliquota_iss !== undefined ? input.aliquota_iss : 2.0 // 2% padrão Simples
+    // 4. Alíquotas e tributos
+    const aliquotaIss = input.aliquota_iss !== undefined ? input.aliquota_iss : 2.0
     const valorServicos = input.valor_servicos
     const valorIss = Number(((valorServicos * aliquotaIss) / 100).toFixed(2))
 
-    // PIS/COFINS/CSLL/IRRF estimados se não for Simples Nacional
     let valorPis = 0
     let valorCofins = 0
     let valorIr = 0
@@ -301,12 +310,16 @@ export const nfseWhatsappService = {
       ).toFixed(2),
     )
 
-    // Gerar XML no padrão Nacional / ABRASF
-    const xmlConteudo = gerarXmlNfse({
+    // 5. SELEÇÃO DO ADAPTER FISCAL
+    // Se o tenant tiver credenciais configuradas para o Gov.br, tentará emitir via Gov.br
+    const provedorId = config?.provedor_fiscal || 'governacional'
+    const adapter = FiscalAdapterFactory.getAdapter(provedorId)
+
+    const payloadAdapter = {
       numero: proximoNumero,
-      codigoVerificacao,
-      dataEmissao: agora.toISOString(),
+      serie: 'E',
       competencia,
+      dataEmissao: agora.toISOString(),
       prestador: {
         cnpj: empresa.cnpj,
         razaoSocial: empresa.razao_social,
@@ -318,6 +331,7 @@ export const nfseWhatsappService = {
         cidade: empresa.cidade || 'São Paulo',
         uf: empresa.uf || 'SP',
         cep: empresa.cep || '01310-100',
+        codigoIbge: config?.provedor_municipio_ibge || '3550308',
         telefone: empresa.telefone || '',
         email: empresa.email || '',
       },
@@ -340,9 +354,75 @@ export const nfseWhatsappService = {
         valorIr,
         valorCsll,
       },
-    })
+      ambiente: (config?.provedor_ambiente || 'producao') as 'producao' | 'homologacao',
+      certificado: certificadoRecord,
+      credenciais: {
+        clientId: config?.govbr_client_id,
+        clientSecret: config?.govbr_client_secret,
+        apiUrl: config?.govbr_api_url,
+        municipioIbge: config?.provedor_municipio_ibge,
+      },
+    }
 
-    // Opcional: Criar Título a Receber no Financeiro
+    // 6. Chamada ao Adapter Fiscal
+    const resultadoEmissao = await adapter.emitir(payloadAdapter)
+
+    // SE O PROVEDOR DEVOLVER ERRO (REJEIÇÃO):
+    // Manter a solicitação na fila com status 'erro_emissao', registrar o motivo e permitir retentativa — NUNCA PERDER A SOLICITAÇÃO!
+    if (!resultadoEmissao.sucesso) {
+      if (input.solicitacao_id) {
+        try {
+          const sol = await pb
+            .collection('nfse_solicitacoes')
+            .getOne<NfseSolicitacaoRecord>(input.solicitacao_id)
+          const tentativas = (sol.tentativas_emissao || 0) + 1
+          const historico = sol.historico_mensagens_json ? [...sol.historico_mensagens_json] : []
+          historico.push({
+            origem: 'escritorio_bot',
+            texto: `[Falha de Emissão Fiscal no provedor ${adapter.nome}]: ${resultadoEmissao.mensagemRetorno}. A solicitação permanece na fila aguardando retentativa ou ajuste de credenciais.`,
+            data: agora.toISOString(),
+          })
+
+          await pb.collection('nfse_solicitacoes').update(input.solicitacao_id, {
+            status: 'erro_emissao',
+            ultimo_erro_emissao: resultadoEmissao.mensagemRetorno,
+            tentativas_emissao: tentativas,
+            revisado_por: userId,
+            data_revisao: agora.toISOString(),
+            historico_mensagens_json: historico,
+          })
+        } catch (errUpd) {
+          console.error('Erro ao atualizar solicitação com erro:', errUpd)
+        }
+      }
+
+      // Auditoria da rejeição
+      await auditService.log(
+        tenantId,
+        userId,
+        'nfse_rejeitada_provedor',
+        'nfse_solicitacoes',
+        input.solicitacao_id || 'manual',
+        JSON.stringify({
+          provedor: adapter.id,
+          erro: resultadoEmissao.mensagemRetorno,
+          detalhe: resultadoEmissao.erroRejeicao,
+        }),
+      )
+
+      throw new Error(
+        `O provedor fiscal (${adapter.nome}) rejeitou a emissão: ${resultadoEmissao.mensagemRetorno}. A solicitação foi mantida na fila com status "erro_emissao" para retentativa.`,
+      )
+    }
+
+    // 7. SUCESSO NA EMISSÃO:
+    const codigoVerificacao = resultadoEmissao.codigoVerificacao
+    const chaveAcesso =
+      resultadoEmissao.chaveAcesso ||
+      `35${ano % 100}${mes}${empresa.cnpj.replace(/\D/g, '').padEnd(14, '0')}56001${String(proximoNumero).padStart(9, '0')}`
+    const xmlConteudo = resultadoEmissao.xmlAssinado
+
+    // 8. Opcional: Criar Título a Receber no Financeiro
     let tituloFinanceiroId: string | undefined
     if (input.criar_titulo_receber) {
       try {
@@ -357,13 +437,13 @@ export const nfseWhatsappService = {
           empresa: empresa.id,
           tipo: 'receber',
           pessoa: input.tomador_nome,
-          descricao: `NFS-e Nº ${proximoNumero} - ${input.descricao_servicos.slice(0, 60)}`,
+          descricao: `NFS-e Nº ${proximoNumero} (${adapter.nome}) - ${input.descricao_servicos.slice(0, 50)}`,
           documento_ref: `NFSE-${proximoNumero}`,
           valor: valorLiquido,
           data_emissao: dataEmissaoStr,
           data_vencimento: dataVenc,
           status: 'pendente',
-          observacoes: `Gerado automaticamente pela Emissão de NFS-e via WhatsApp (Cod. Verificação: ${codigoVerificacao})`,
+          observacoes: `Gerado automaticamente pela Emissão de NFS-e (Provedor: ${adapter.nome}, Cod. Verificação: ${codigoVerificacao})`,
         })
         tituloFinanceiroId = titulo.id
       } catch (errTitulo) {
@@ -371,7 +451,26 @@ export const nfseWhatsappService = {
       }
     }
 
-    // Criar Registro em nfse_notas_emitidas
+    // 9. Guardar DANFSE / XML no GED da empresa (coleção documentos)
+    let gedDocId: string | undefined
+    try {
+      const gedCol = pb.collection('documentos')
+      const docGed = await gedCol.create<Documento>({
+        tenant_id: tenantId,
+        empresa_id: empresa.id,
+        tipo: 'nota_fiscal',
+        nome_arquivo: `NFSe_${proximoNumero}_${empresa.cnpj.replace(/\D/g, '')}.xml`,
+        data_upload: agora.toISOString(),
+        usuario_upload_id: userId,
+        status: 'processado',
+        observacoes: `NFS-e Nº ${proximoNumero} emitida via WhatsApp pelo provedor ${adapter.nome}. Cod. Verificação: ${codigoVerificacao}`,
+      })
+      gedDocId = docGed.id
+    } catch (errGed) {
+      console.warn('Aviso: não foi possível arquivar no GED da empresa:', errGed)
+    }
+
+    // 10. Criar Registro em nfse_notas_emitidas
     const nota = await pb.collection('nfse_notas_emitidas').create<NfseNotaEmitidaRecord>({
       tenant_id: tenantId,
       empresa: empresa.id,
@@ -399,7 +498,11 @@ export const nfseWhatsappService = {
       valor_liquido: valorLiquido,
       iss_retido: !!input.iss_retido,
       status: 'emitida',
-      modo_emissao: 'simulacao',
+      modo_emissao: resultadoEmissao.modo === 'governacional_real' ? 'nacional_gov' : 'simulacao',
+      provedor_usado: adapter.id,
+      url_consulta_nfse: resultadoEmissao.urlConsulta,
+      protocolo_autorizacao: resultadoEmissao.protocoloAutorizacao,
+      ged_documento_id: gedDocId || null,
       certificado_usado: certificadoId || null,
       xml_conteudo: xmlConteudo,
       titulo_financeiro: tituloFinanceiroId || null,
@@ -408,7 +511,7 @@ export const nfseWhatsappService = {
       whatsapp_enviado_em: null,
     })
 
-    // Se veio de uma solicitação na fila, atualizar seu status e histórico
+    // 11. Se veio de uma solicitação na fila, atualizar seu status e histórico
     if (input.solicitacao_id) {
       try {
         const sol = await pb
@@ -418,10 +521,14 @@ export const nfseWhatsappService = {
         const templateEmitida =
           config?.msg_nota_emitida ||
           'Sua NFS-e Nº {{numero_nota}} foi emitida com sucesso! 🎉\nCódigo de Verificação: {{codigo_verificacao}}\nValor: R$ {{valor}}\n\nSegue o arquivo da nota fiscal para seus registros.'
-        const msgTexto = templateEmitida
+        let msgTexto = templateEmitida
           .replace('{{numero_nota}}', String(proximoNumero))
           .replace('{{codigo_verificacao}}', codigoVerificacao)
           .replace('{{valor}}', valorServicos.toFixed(2))
+
+        if (resultadoEmissao.urlConsulta) {
+          msgTexto += `\n\nLink de Consulta Oficial: ${resultadoEmissao.urlConsulta}`
+        }
 
         hist.push({
           origem: 'escritorio_bot',
@@ -433,10 +540,11 @@ export const nfseWhatsappService = {
           status: 'emitida',
           revisado_por: userId,
           data_revisao: agora.toISOString(),
+          ultimo_erro_emissao: '',
           historico_mensagens_json: hist,
         })
 
-        // Enviar confirmação ao WhatsApp
+        // Enviar confirmação de entrega ao WhatsApp via backend
         await pb.send('/backend/v1/nfse/enviar-whatsapp', {
           method: 'POST',
           body: {
@@ -449,7 +557,7 @@ export const nfseWhatsappService = {
       }
     }
 
-    // Auditoria
+    // 12. Auditoria detalhada da emissão real ou simulada
     await auditService.log(
       tenantId,
       userId,
@@ -460,7 +568,10 @@ export const nfseWhatsappService = {
         numero: proximoNumero,
         tomador: input.tomador_nome,
         valor: valorServicos,
-        modo: 'simulacao',
+        modo: resultadoEmissao.modo,
+        provedor: adapter.id,
+        protocolo: resultadoEmissao.protocoloAutorizacao,
+        certificado: certificadoId || 'nenhum',
       }),
     )
 
@@ -502,14 +613,16 @@ export const nfseWhatsappService = {
     }
 
     try {
-      // Simulação controlada / tentativa de ping HTTP real
       const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url
-      const res = await fetch(`${cleanUrl}/instance/connectionState/${instance}`, {
-        method: 'GET',
-        headers: {
-          apikey: key,
+      const res = await fetch(
+        `${cleanUrl}/instance/connectionState/${encodeURIComponent(instance)}`,
+        {
+          method: 'GET',
+          headers: {
+            apikey: key,
+          },
         },
-      })
+      )
 
       if (res.ok) {
         const data = await res.json()
@@ -533,6 +646,29 @@ export const nfseWhatsappService = {
         detalhe: errMsg,
       }
     }
+  },
+
+  /**
+   * Testar conexão com o Provedor Fiscal selecionado (Gov.br Emissor Nacional / Betha / Ginfes)
+   */
+  async testarConexaoProvedor(params: {
+    tenantId: string
+    provedor: ProvedorFiscalTipo
+    apiUrl?: string
+    clientId?: string
+    clientSecret?: string
+    municipioIbge?: string
+    empresaId?: string
+  }): Promise<{ sucesso: boolean; mensagem: string; statusCode?: number; detalhe?: string }> {
+    const adapter = FiscalAdapterFactory.getAdapter(params.provedor)
+    return adapter.testarConexao({
+      apiUrl: params.apiUrl,
+      clientId: params.clientId,
+      clientSecret: params.clientSecret,
+      municipioIbge: params.municipioIbge,
+      empresaId: params.empresaId,
+      tenantId: params.tenantId,
+    })
   },
 }
 
@@ -688,6 +824,8 @@ export function gerarDanfseHtml(nota: NfseNotaEmitidaRecord, empresa?: Empresa):
     minute: '2-digit',
   })
 
+  const isGovReal = nota.modo_emissao === 'nacional_gov'
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -764,13 +902,13 @@ export function gerarDanfseHtml(nota: NfseNotaEmitidaRecord, empresa?: Empresa):
     }
     .badge-sim {
       display: inline-block;
-      background: #FEF3C7;
-      color: #B45309;
+      background: ${isGovReal ? '#ECFDF5' : '#FEF3C7'};
+      color: ${isGovReal ? '#065F46' : '#B45309'};
       padding: 2px 6px;
       font-weight: bold;
       font-size: 9px;
       border-radius: 4px;
-      border: 1px solid #FCD34D;
+      border: 1px solid ${isGovReal ? '#6EE7B7' : '#FCD34D'};
     }
     @media print {
       body { padding: 0; }
@@ -783,24 +921,37 @@ export function gerarDanfseHtml(nota: NfseNotaEmitidaRecord, empresa?: Empresa):
     <div>
       <strong style="color: #0FA3A3;">Rumo Consultoria Contábil</strong> — Visualizador de DANFSE
     </div>
-    <button onclick="window.print()" style="background: #0FA3A3; color: white; border: none; padding: 6px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;">
-      Imprimir / Salvar em PDF
-    </button>
+    <div style="display: flex; gap: 8px;">
+      ${
+        nota.url_consulta_nfse
+          ? `<a href="${nota.url_consulta_nfse}" target="_blank" style="background: #fff; color: #0FA3A3; border: 1px solid #0FA3A3; padding: 6px 14px; border-radius: 6px; font-weight: bold; text-decoration: none; font-size: 11px;">Consultar no Portal Gov.br</a>`
+          : ''
+      }
+      <button onclick="window.print()" style="background: #0FA3A3; color: white; border: none; padding: 6px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px;">
+        Imprimir / Salvar em PDF
+      </button>
+    </div>
   </div>
 
   <div class="danfse-container">
     <table class="header-table">
       <tr>
         <td style="width: 25%; text-align: center;">
-          <div style="font-weight: bold; font-size: 14px; color: #0FA3A3;">PREFEITURA MUNICIPAL</div>
-          <div style="font-size: 9px; color: #64748B;">Secretaria de Finanças / Fazenda</div>
+          <div style="font-weight: bold; font-size: 14px; color: #0FA3A3;">
+            ${isGovReal ? 'RECEITA FEDERAL' : 'PREFEITURA MUNICIPAL'}
+          </div>
+          <div style="font-size: 9px; color: #64748B;">
+            ${isGovReal ? 'Emissor Nacional Gov.br' : 'Secretaria de Finanças / Fazenda'}
+          </div>
           <div style="font-size: 8px; margin-top: 4px;">Padrão Nacional ABRASF</div>
         </td>
         <td style="width: 50%; text-align: center;">
           <div style="font-size: 13px; font-weight: bold;">DOCUMENTO AUXILIAR DA NOTA FISCAL DE SERVIÇOS ELETRÔNICA</div>
           <div style="font-size: 16px; font-weight: bold; margin-top: 2px; color: #1E293B;">DANFSE</div>
           <div style="margin-top: 4px;">
-            <span class="badge-sim">MODO SIMULAÇÃO CONTROLADA (GOV.BR / ABRASF)</span>
+            <span class="badge-sim">
+              ${isGovReal ? 'PRODUÇÃO — GOV.BR EMISSOR NACIONAL' : 'MODO SIMULAÇÃO CONTROLADA (GOV.BR / ABRASF)'}
+            </span>
           </div>
         </td>
         <td style="width: 25%; text-align: center; font-size: 10px;">
@@ -911,11 +1062,12 @@ ${nota.discriminacao_servicos}
       </table>
     </div>
 
-    <div class="section-title">OUTRAS INFORMAÇÕES</div>
+    <div class="section-title">OUTRAS INFORMAÇÕES & AUDITORIA FISCAL</div>
     <div class="content-box" style="font-size: 9px; color: #475569; line-height: 1.4;">
-      • Documento gerado eletronicamente pela Plataforma Rumo Contábil (Módulo de Emissão Inteligente via WhatsApp).<br/>
+      • Provedor Fiscal: <strong>${isGovReal ? 'Gov.br (Emissor Nacional de NFS-e)' : 'Simulação Controlada (Gov.br / ABRASF)'}</strong><br/>
       • Chave de Acesso: <span style="font-family: monospace;">${nota.chave_acesso || '—'}</span><br/>
-      • Esta NFS-e foi emitida com respaldo na legislação municipal vigente e layout nacional ABRASF.<br/>
+      ${nota.protocolo_autorizacao ? `• Protocolo de Autorização: <span style="font-family: monospace;">${nota.protocolo_autorizacao}</span><br/>` : ''}
+      ${nota.url_consulta_nfse ? `• URL de Consulta Pública: <a href="${nota.url_consulta_nfse}" target="_blank" style="color: #0284C7;">${nota.url_consulta_nfse}</a><br/>` : ''}
       • Autenticidade e conferência garantidas pelo código de verificação: <strong>${nota.codigo_verificacao}</strong>.
     </div>
   </div>

@@ -1122,9 +1122,13 @@ export type StatusNfseSolicitacao =
   | 'emitida'
   | 'rejeitada'
   | 'cancelada'
+  | 'erro_emissao'
 export type ModoOperacaoNfse = 'simulacao' | 'producao'
 export type ModoEmissaoNfse = 'simulacao' | 'nacional_gov' | 'prefeitura_ws'
 export type StatusNfseNota = 'emitida' | 'cancelada' | 'substituida'
+
+export type ProvedorFiscalTipo = 'governacional' | 'betha' | 'ginfes'
+export type ProvedorAmbiente = 'producao' | 'homologacao'
 
 export interface NfseConfigRecord extends RecordModel {
   tenant_id: string
@@ -1135,6 +1139,25 @@ export interface NfseConfigRecord extends RecordModel {
   evolution_instance?: string
   modo_operacao: ModoOperacaoNfse
   auto_aprovar_alta_confianca: boolean
+  provedor_fiscal?: ProvedorFiscalTipo
+  provedor_ambiente?: ProvedorAmbiente
+  govbr_client_id?: string
+  govbr_client_secret?: string
+  govbr_api_url?: string
+  provedor_municipio_ibge?: string
+  ultimo_teste_provedor?: {
+    sucesso: boolean
+    data: string
+    mensagem: string
+    status_code?: number
+    detalhe?: string
+  }
+  ultimo_teste_evolution?: {
+    sucesso: boolean
+    data: string
+    mensagem: string
+    detalhe?: string
+  }
   msg_saudacao?: string
   msg_recebimento?: string
   msg_aprovacao?: string
@@ -1180,6 +1203,8 @@ export interface NfseSolicitacaoRecord extends RecordModel {
   dados_extraidos_json?: Record<string, unknown>
   alertas_json?: NfseAlertaItem[]
   motivo_rejeicao?: string
+  ultimo_erro_emissao?: string
+  tentativas_emissao?: number
   revisado_por?: string
   data_revisao?: string
   resposta_enviada_whatsapp: boolean
@@ -1218,6 +1243,10 @@ export interface NfseNotaEmitidaRecord extends RecordModel {
   iss_retido: boolean
   status: StatusNfseNota
   modo_emissao: ModoEmissaoNfse
+  provedor_usado?: string
+  url_consulta_nfse?: string
+  protocolo_autorizacao?: string
+  ged_documento_id?: string
   certificado_usado?: string
   xml_conteudo?: string
   pdf_html_conteudo?: string

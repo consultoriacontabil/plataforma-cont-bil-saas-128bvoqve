@@ -137,7 +137,10 @@ export default function NfseWhatsappPage() {
 
   // Métricas para os Cards de Resumo
   const totalRecebidas = solicitacoes.length
-  const emAnalise = solicitacoes.filter((s) => s.status === 'em_analise').length
+  const emAnalise = solicitacoes.filter(
+    (s) => s.status === 'em_analise' || s.status === 'erro_emissao',
+  ).length
+  const comErro = solicitacoes.filter((s) => s.status === 'erro_emissao').length
   const totalEmitidas = notasEmitidas.length
   const valorTotalEmitido = notasEmitidas.reduce((acc, n) => acc + (n.valor_servicos || 0), 0)
 
@@ -185,11 +188,35 @@ export default function NfseWhatsappPage() {
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
-            className="text-xs bg-amber-50 text-amber-700 border-amber-200 py-1 px-2.5 font-medium flex items-center gap-1.5 shadow-xs"
-            title="A plataforma está configurada em modo simulação controlada, gerando XMLs nacionais válidos e DANFSE com número sequencial sem cobrança real na prefeitura."
+            className={`text-xs py-1 px-2.5 font-medium flex items-center gap-1.5 shadow-xs ${
+              config?.modo_operacao === 'producao' &&
+              config?.govbr_client_id &&
+              config?.govbr_client_secret
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+            title={
+              config?.modo_operacao === 'producao' &&
+              config?.govbr_client_id &&
+              config?.govbr_client_secret
+                ? 'Emissão conectada diretamente ao Emissor Nacional de NFS-e (Gov.br / Receita Federal).'
+                : 'A plataforma opera em Modo Simulação Controlada, gerando XMLs nacionais válidos e DANFSE com número sequencial.'
+            }
           >
-            <Radio className="h-3 w-3 text-amber-500 animate-pulse" />
-            Modo Simulação Controlada
+            <Radio
+              className={`h-3 w-3 ${
+                config?.modo_operacao === 'producao' &&
+                config?.govbr_client_id &&
+                config?.govbr_client_secret
+                  ? 'text-emerald-600 animate-pulse'
+                  : 'text-amber-500 animate-pulse'
+              }`}
+            />
+            {config?.modo_operacao === 'producao' &&
+            config?.govbr_client_id &&
+            config?.govbr_client_secret
+              ? 'PRODUÇÃO — Gov.br'
+              : 'Modo Simulação Controlada'}
           </Badge>
 
           <Button
@@ -411,6 +438,9 @@ export default function NfseWhatsappPage() {
                   <SelectItem value="em_analise" className="text-xs">
                     Em Análise
                   </SelectItem>
+                  <SelectItem value="erro_emissao" className="text-xs text-rose-600 font-semibold">
+                    Erro / Rejeição Provedor
+                  </SelectItem>
                   <SelectItem value="emitida" className="text-xs">
                     Emitida
                   </SelectItem>
@@ -543,19 +573,23 @@ export default function NfseWhatsappPage() {
                                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                   : sol.status === 'em_analise'
                                     ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : sol.status === 'rejeitada'
-                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                      : 'bg-slate-50 text-slate-700'
+                                    : sol.status === 'erro_emissao'
+                                      ? 'bg-rose-100 text-rose-800 border-rose-300 font-semibold'
+                                      : sol.status === 'rejeitada'
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : 'bg-slate-50 text-slate-700'
                               }
                             >
                               {sol.status === 'em_analise'
                                 ? 'Em Análise'
-                                : sol.status === 'emitida'
-                                  ? 'Emitida'
-                                  : sol.status === 'rejeitada'
-                                    ? 'Rejeitada'
-                                    : sol.status}
-                            </Badge>
+                                : sol.status === 'erro_emissao'
+                                  ? 'Erro Transmissão'
+                                  : sol.status === 'emitida'
+                                    ? 'Emitida'
+                                    : sol.status === 'rejeitada'
+                                      ? 'Rejeitada'
+                                      : sol.status}
+                            </Badge>{' '}
                           </TableCell>
 
                           <TableCell className="align-top py-3.5 text-right space-x-1">
@@ -572,34 +606,53 @@ export default function NfseWhatsappPage() {
                               <MessageSquare className="h-3.5 w-3.5" />
                             </Button>
 
-                            {sol.status === 'em_analise' && canEmit && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSolicitacaoParaRejeitar(sol)
-                                    setModalRejeitarOpen(true)
-                                  }}
-                                  className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                                  title="Rejeitar com motivo de inconsistência"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
+                            {(sol.status === 'em_analise' || sol.status === 'erro_emissao') &&
+                              canEmit && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSolicitacaoParaRejeitar(sol)
+                                      setModalRejeitarOpen(true)
+                                    }}
+                                    className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                    title="Rejeitar com motivo de inconsistência"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
 
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setSolicitacaoParaAprovar(sol)
-                                    setModalAprovarOpen(true)
-                                  }}
-                                  className="h-8 px-2.5 text-xs bg-[#0FA3A3] hover:bg-[#0d8c8c] text-white gap-1"
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                  Emitir
-                                </Button>
-                              </>
-                            )}
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setSolicitacaoParaAprovar(sol)
+                                      setModalAprovarOpen(true)
+                                    }}
+                                    className={`h-8 px-2.5 text-xs text-white gap-1 ${
+                                      sol.status === 'erro_emissao'
+                                        ? 'bg-amber-600 hover:bg-amber-700'
+                                        : 'bg-[#0FA3A3] hover:bg-[#0d8c8c]'
+                                    }`}
+                                    title={
+                                      sol.status === 'erro_emissao'
+                                        ? 'Retentar envio após erro no provedor'
+                                        : 'Aprovar e emitir NFS-e'
+                                    }
+                                  >
+                                    {sol.status === 'erro_emissao' ? (
+                                      <>
+                                        <RefreshCw className="h-3.5 w-3.5" />
+                                        Retentar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check className="h-3.5 w-3.5" />
+                                        Emitir
+                                      </>
+                                    )}
+                                  </Button>
+                                </>
+                              )}
 
                             {sol.status === 'emitida' && (
                               <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
@@ -775,6 +828,7 @@ export default function NfseWhatsappPage() {
       <NfseAprovacaoModal
         solicitacao={solicitacaoParaAprovar}
         empresas={empresas}
+        config={config}
         open={modalAprovarOpen}
         onOpenChange={setModalAprovarOpen}
         onSuccess={() => loadData(true)}

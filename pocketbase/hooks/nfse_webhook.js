@@ -2,7 +2,7 @@
 
 /**
  * Webhook Evolution API para Emissão Inteligente de NFS-e (Etapas 1, 2, 3 e 8)
- * Rota pública protegida por token de tenant: /api/nfse/webhook/{token}
+ * Rota pública protegida por token de tenant: /backend/v1/nfse/webhook/{token}
  */
 routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
   try {
@@ -199,7 +199,6 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
     )
     if (tomadorMatch && tomadorMatch[1]) {
       tomadorNome = tomadorMatch[1].trim()
-      // Limpeza de palavras espúrias
       tomadorNome = tomadorNome.replace(/^(a\s+|o\s+|empresa\s+|cliente\s+)/i, '').trim()
     }
 
@@ -353,17 +352,22 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
       console.log('[NFSE-WEBHOOK] Erro ao criar notificação:', errNotif)
     }
 
-    // 6. Resposta de volta ao WhatsApp (Etapa 8 - Ponto de extensão Evolution API)
-    // Se a Evolution API estiver configurada com URL e Key, despachar HTTP POST para sendMessage
+    // 6. Resposta de volta ao WhatsApp (Etapa 8 - Envio real via Evolution API)
     let evoUrl = configRec.getString('evolution_api_url')
     const evoKey = configRec.getString('evolution_api_key')
     const evoInstance = configRec.getString('evolution_instance')
     let respostaHttp = null
 
-    if (evoUrl && evoKey && evoInstance && remoteJid) {
+    // Garantir destino do WhatsApp
+    let destinatario = remoteJid
+    if (!destinatario || !destinatario.includes('@')) {
+      if (telefoneLimpo) destinatario = telefoneLimpo + '@s.whatsapp.net'
+    }
+
+    if (evoUrl && evoKey && evoInstance && destinatario) {
       if (evoUrl.endsWith('/')) evoUrl = evoUrl.slice(0, -1)
       try {
-        const sendEndpoint = evoUrl + '/message/sendText/' + evoInstance
+        const sendEndpoint = evoUrl + '/message/sendText/' + encodeURIComponent(evoInstance)
         respostaHttp = $http.send({
           url: sendEndpoint,
           method: 'POST',
@@ -372,16 +376,19 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
             apikey: evoKey,
           },
           body: JSON.stringify({
-            number: remoteJid,
+            number: destinatario,
             text: msgRecebimentoTexto,
             options: {
-              delay: 1200,
+              delay: 1000,
               presence: 'composing',
             },
           }),
-          timeout: 10,
+          timeout: 12,
         })
-        console.log('[NFSE-WEBHOOK] Resposta enviada à Evolution API:', sendEndpoint)
+        console.log(
+          '[NFSE-WEBHOOK] Resposta de confirmação despachada via Evolution API:',
+          sendEndpoint,
+        )
       } catch (errEvo) {
         console.log('[NFSE-WEBHOOK] Fallback gracioso: Evolution API offline ou simulada:', errEvo)
       }
@@ -393,7 +400,7 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
       score_confianca: score,
       alertas_count: alertas.length,
       resposta_simulada_ou_enviada: msgRecebimentoTexto,
-      evolution_dispatch: respostaHttp ? 'enviado' : 'simulado_sem_servidor',
+      evolution_dispatch: respostaHttp ? 'enviado_real' : 'simulado_sem_servidor',
     })
   } catch (errGlobal) {
     console.log('[NFSE-WEBHOOK] Erro interno:', errGlobal)

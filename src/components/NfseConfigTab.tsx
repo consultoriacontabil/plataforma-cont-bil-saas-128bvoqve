@@ -25,10 +25,15 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  HelpCircle,
+  Building,
+  ShieldCheck,
+  Server,
+  ExternalLink,
+  AlertCircle,
 } from 'lucide-react'
-import type { NfseConfigRecord, Empresa } from '@/types'
+import type { NfseConfigRecord, Empresa, ProvedorFiscalTipo, ProvedorAmbiente } from '@/types'
 import { nfseWhatsappService } from '@/services/nfseWhatsapp'
+import { FiscalAdapterFactory } from '@/services/fiscalAdapters'
 import { useToast } from '@/hooks/use-toast'
 
 interface NfseConfigTabProps {
@@ -65,6 +70,24 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
   const [ativo, setAtivo] = useState<boolean>(config?.ativo ?? true)
   const [telefoneSuporte, setTelefoneSuporte] = useState<string>(config?.telefone_suporte || '')
 
+  // Provedores Fiscais (Frente 1)
+  const [provedorFiscal, setProvedorFiscal] = useState<ProvedorFiscalTipo>(
+    config?.provedor_fiscal || 'governacional',
+  )
+  const [provedorAmbiente, setProvedorAmbiente] = useState<ProvedorAmbiente>(
+    config?.provedor_ambiente || 'producao',
+  )
+  const [govbrClientId, setGovbrClientId] = useState<string>(config?.govbr_client_id || '')
+  const [govbrClientSecret, setGovbrClientSecret] = useState<string>(
+    config?.govbr_client_secret || '',
+  )
+  const [govbrApiUrl, setGovbrApiUrl] = useState<string>(
+    config?.govbr_api_url || 'https://nfse.receita.fazenda.gov.br/portalnfse',
+  )
+  const [municipioIbge, setMunicipioIbge] = useState<string>(
+    config?.provedor_municipio_ibge || '3550308',
+  )
+
   // Mensagens
   const [msgSaudacao, setMsgSaudacao] = useState<string>(config?.msg_saudacao || '')
   const [msgRecebimento, setMsgRecebimento] = useState<string>(config?.msg_recebimento || '')
@@ -73,11 +96,20 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
   const [msgNotaEmitida, setMsgNotaEmitida] = useState<string>(config?.msg_nota_emitida || '')
 
   const [salvando, setSalvando] = useState(false)
-  const [testando, setTestando] = useState(false)
-  const [resultadoTeste, setResultadoTeste] = useState<{
+  const [testandoEvo, setTestandoEvo] = useState(false)
+  const [resultadoTesteEvo, setResultadoTesteEvo] = useState<{
     sucesso: boolean
     mensagem: string
   } | null>(null)
+
+  const [testandoProvedor, setTestandoProvedor] = useState(false)
+  const [resultadoTesteProvedor, setResultadoTesteProvedor] = useState<{
+    sucesso: boolean
+    mensagem: string
+    statusCode?: number
+    detalhe?: string
+  } | null>(null)
+
   const [copiado, setCopiado] = useState(false)
 
   // URL do webhook montada para Evolution API
@@ -110,6 +142,12 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           evolution_instance: evolutionInstance.trim(),
           modo_operacao: modoOperacao,
           auto_aprovar_alta_confianca: autoAprovar,
+          provedor_fiscal: provedorFiscal,
+          provedor_ambiente: provedorAmbiente,
+          govbr_client_id: govbrClientId.trim(),
+          govbr_client_secret: govbrClientSecret.trim(),
+          govbr_api_url: govbrApiUrl.trim(),
+          provedor_municipio_ibge: municipioIbge.trim(),
           msg_saudacao: msgSaudacao.trim(),
           msg_recebimento: msgRecebimento.trim(),
           msg_aprovacao: msgAprovacao.trim(),
@@ -123,7 +161,7 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
 
       toast({
         title: 'Configurações salvas!',
-        description: 'Os parâmetros do canal WhatsApp e regras fiscais foram atualizados.',
+        description: 'Os parâmetros do canal WhatsApp e provedor fiscal foram atualizados.',
       })
       onRefresh()
     } catch (err: unknown) {
@@ -138,16 +176,16 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
     }
   }
 
-  const handleTestarConexao = async () => {
-    setTestando(true)
-    setResultadoTeste(null)
+  const handleTestarEvolution = async () => {
+    setTestandoEvo(true)
+    setResultadoTesteEvo(null)
     try {
       const res = await nfseWhatsappService.testarConexaoEvolution(
         evolutionUrl,
         evolutionKey,
         evolutionInstance,
       )
-      setResultadoTeste(res)
+      setResultadoTesteEvo(res)
       if (res.sucesso) {
         toast({
           title: 'Conexão estabelecida com sucesso',
@@ -155,15 +193,50 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
         })
       } else {
         toast({
-          title: 'Falha no teste de conexão',
+          title: 'Falha no teste com a Evolution API',
           description: res.mensagem,
           variant: 'destructive',
         })
       }
     } finally {
-      setTestando(false)
+      setTestandoEvo(false)
     }
   }
+
+  const handleTestarProvedorFiscal = async () => {
+    setTestandoProvedor(true)
+    setResultadoTesteProvedor(null)
+    try {
+      const res = await nfseWhatsappService.testarConexaoProvedor({
+        tenantId,
+        provedor: provedorFiscal,
+        apiUrl: govbrApiUrl,
+        clientId: govbrClientId,
+        clientSecret: govbrClientSecret,
+        municipioIbge,
+        empresaId: empresaPadrao,
+      })
+
+      setResultadoTesteProvedor(res)
+      if (res.sucesso) {
+        toast({
+          title: 'Conexão com Provedor Fiscal confirmada!',
+          description: res.mensagem,
+        })
+      } else {
+        toast({
+          title: 'Teste de conexão com Provedor Fiscal',
+          description: res.mensagem,
+          variant: res.mensagem.includes('incompletas') ? 'default' : 'destructive',
+        })
+      }
+    } finally {
+      setTestandoProvedor(false)
+    }
+  }
+
+  const temCredenciaisGovbr = !!(govbrClientId.trim() && govbrClientSecret.trim())
+  const adapters = FiscalAdapterFactory.listAdapters()
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
@@ -176,53 +249,292 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-[#1A2333]">
-                Arquitetura do Canal WhatsApp & Bot Engine
+                Arquitetura do Canal WhatsApp & Motor Fiscal de NFS-e
               </h3>
-              <Badge className="bg-[#0FA3A3] text-white text-[10px]">
-                {modoOperacao === 'simulacao' ? 'MODO SIMULAÇÃO ATIVO' : 'MODO PRODUÇÃO'}
+              <Badge
+                className={
+                  temCredenciaisGovbr && modoOperacao === 'producao'
+                    ? 'bg-emerald-600 text-white text-[10px]'
+                    : 'bg-amber-600 text-white text-[10px]'
+                }
+              >
+                {temCredenciaisGovbr && modoOperacao === 'producao'
+                  ? 'PRODUÇÃO — GOV.BR'
+                  : 'MODO SIMULAÇÃO CONTROLADA'}
               </Badge>
             </div>
             <p className="text-xs text-[#475569] leading-relaxed">
-              O fluxo de emissão conecta mensagens recebidas pelo seu servidor WhatsApp (Evolution
-              API / Baileys) ao <strong>Motor Cognitivo IA</strong>, que estrutura os dados fiscais
-              e alimenta o <strong>Painel de Supervisão</strong>.
+              O módulo conecta a <strong>Evolution API</strong> (WhatsApp real) ao{' '}
+              <strong>Motor Cognitivo IA</strong>, ao <strong>Painel de Supervisão</strong> e ao{' '}
+              <strong>Adapter de Provedores Fiscais (Gov.br / Betha / Ginfes)</strong>.
             </p>
           </div>
         </div>
 
-        {/* Banner honesto sobre conexão com servidor do usuário */}
+        {/* Banner honesto sobre credenciais de emissão e fallback */}
         <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900">
           <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <strong>Como funciona a conexão real com o WhatsApp?</strong>
+            <strong>Honestidade da Integração Fiscal & Simulação Controlada:</strong>
             <p className="text-[11px] text-blue-800 leading-normal">
-              A conexão real requer uma instância ativa da <strong>Evolution API ou Baileys</strong>{' '}
-              hospedada em servidor próprio ou VPS. Caso ainda não possua servidor configurado, a
-              plataforma opera perfeitamente em <strong>Modo Simulação Controlada</strong>,
-              permitindo receber webhooks de teste, supervisionar, aprovar e emitir NFS-e com XML e
-              DANFSE completos.
+              Quando o tenant possui credenciais e certificado e-CNPJ A1 cadastrados, a emissão é
+              transmitida diretamente ao <strong>Emissor Nacional Gov.br</strong>. Se ainda não
+              houver credenciais ativas, o sistema opera automaticamente em{' '}
+              <strong>Modo Simulação Controlada</strong> com geração de XML ABRASF válido, número
+              sequencial e DANFSE para impressão, garantindo que o escritório nunca pare.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Card 1: Webhook & Credenciais Evolution API */}
+      {/* Card 1: Conector Provedor Fiscal (FRENTE 1) */}
       <Card className="rounded-2xl border-slate-200 shadow-xs">
         <CardHeader className="pb-3 border-b border-slate-100">
-          <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
-            <Globe className="h-4 w-4 text-[#0FA3A3]" />
-            1. Webhook do Bot Engine (Etapa 1 do Framework)
+          <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building className="h-4 w-4 text-[#0FA3A3]" />
+              1. Provedor Fiscal de NFS-e (Adapter Pattern — Gov.br / Betha / Ginfes)
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                temCredenciaisGovbr
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 text-[10px]'
+                  : 'border-amber-300 bg-amber-50 text-amber-800 text-[10px]'
+              }
+            >
+              {temCredenciaisGovbr ? 'Credenciais Configuradas' : 'Requer Credenciais'}
+            </Badge>
           </CardTitle>
           <CardDescription className="text-xs text-[#64748B]">
-            Configure esta URL de Webhook no painel da Evolution API para receber mensagens
-            automaticamente neste tenant.
+            Selecione o provedor tributário. O Emissor Nacional (Gov.br) é o padrão federal ativo;
+            Betha e Ginfes estão disponíveis como pontos de extensão arquiteturais.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="pt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1A2333]">
+                Provedor Fiscal Selecionado
+              </Label>
+              <Select
+                value={provedorFiscal}
+                onValueChange={(val: ProvedorFiscalTipo) => setProvedorFiscal(val)}
+                disabled={!canEdit}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {adapters.map((ad) => (
+                    <SelectItem key={ad.id} value={ad.id} className="text-xs">
+                      {ad.nome} {ad.statusDisponibilidade === 'em_breve' ? '(Em breve)' : '— Ativo'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-[#64748B]">
+                {provedorFiscal === 'governacional'
+                  ? 'Padrão Nacional da Receita Federal (Emissor Nacional Gov.br).'
+                  : 'Ponto de extensão arquitetural. Requer credenciais próprias do município.'}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1A2333]">Ambiente de Emissão</Label>
+              <Select
+                value={provedorAmbiente}
+                onValueChange={(val: ProvedorAmbiente) => setProvedorAmbiente(val)}
+                disabled={!canEdit}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="producao" className="text-xs">
+                    Produção Oficial (Com Valor Fiscal)
+                  </SelectItem>
+                  <SelectItem value="homologacao" className="text-xs">
+                    Homologação (Ambiente de Testes)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-[#64748B]">
+                Em produção, as notas são protocoladas na base da Receita Federal / Município.
+              </p>
+            </div>
+          </div>
+
+          {/* Credenciais Gov.br */}
+          {provedorFiscal === 'governacional' && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                  Credenciais de Acesso API Gov.br (Emissor Nacional)
+                </span>
+                <span className="text-[10px] text-[#64748B]">
+                  Autenticação via Certificado e-CNPJ A1 + Chaves de API
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-[#1A2333]">
+                    Client ID / Chave da Aplicação Gov.br
+                  </Label>
+                  <Input
+                    value={govbrClientId}
+                    onChange={(e) => setGovbrClientId(e.target.value)}
+                    placeholder="Ex: gov_live_7m1e0poGF..."
+                    className="h-8 text-xs bg-white"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium text-[#1A2333]">
+                    Client Secret / Senha de API Gov.br
+                  </Label>
+                  <Input
+                    type="password"
+                    value={govbrClientSecret}
+                    onChange={(e) => setGovbrClientSecret(e.target.value)}
+                    placeholder="••••••••••••••••••••"
+                    className="h-8 text-xs bg-white"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-1">
+                  <Label className="text-[11px] font-medium text-[#1A2333]">
+                    Endpoint Base da API Gov.br
+                  </Label>
+                  <Input
+                    value={govbrApiUrl}
+                    onChange={(e) => setGovbrApiUrl(e.target.value)}
+                    placeholder="https://nfse.receita.fazenda.gov.br/portalnfse"
+                    className="h-8 text-xs bg-white font-mono"
+                    disabled={!canEdit}
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-1">
+                  <Label className="text-[11px] font-medium text-[#1A2333]">
+                    Código IBGE do Município Emissor
+                  </Label>
+                  <Input
+                    value={municipioIbge}
+                    onChange={(e) => setMunicipioIbge(e.target.value)}
+                    placeholder="Ex: 3550308 (São Paulo)"
+                    className="h-8 text-xs bg-white font-mono"
+                    disabled={!canEdit}
+                  />
+                </div>
+              </div>
+
+              {/* Informações sobre o Certificado Digital A1 */}
+              <div className="rounded-lg bg-white border border-slate-200 p-2.5 flex items-start gap-2 text-xs">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-[#475569] leading-tight">
+                  <strong>Certificado e-CNPJ A1:</strong> A emissão utiliza o certificado digital A1
+                  armazenado na empresa prestadora (gerenciado na tela de Empresas e Certificados
+                  Digitais). A autenticação mTLS/assinatura XML é executada na transmissão da NFS-e.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ponto de Extensão Betha / Ginfes */}
+          {(provedorFiscal === 'betha' || provedorFiscal === 'ginfes') && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2 text-xs text-amber-900">
+              <div className="flex items-center gap-2 font-bold">
+                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                Ponto de Extensão Arquitetural: {provedorFiscal.toUpperCase()}
+              </div>
+              <p className="text-[11px] text-amber-800 leading-normal">
+                A interface do Adapter para {provedorFiscal.toUpperCase()} já está estruturada e
+                conectada ao fluxo. Para ativar a emissão direta na sua prefeitura com este
+                provedor, certifique-se de que os webservices SOAP municipais estão liberados para o
+                CNPJ do prestador.
+              </p>
+            </div>
+          )}
+
+          {/* Testar Conexão com o Provedor */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestarProvedorFiscal}
+              disabled={testandoProvedor || !canEdit}
+              className="text-xs gap-1.5"
+            >
+              {testandoProvedor ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Testando Provedor...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Testar Conexão com Provedor Fiscal ({provedorFiscal})
+                </>
+              )}
+            </Button>
+
+            {resultadoTesteProvedor && (
+              <div
+                className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border ${
+                  resultadoTesteProvedor.sucesso
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                }`}
+              >
+                {resultadoTesteProvedor.sucesso ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                )}
+                <span>{resultadoTesteProvedor.mensagem}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card 2: Webhook & Credenciais Evolution API (FRENTE 2) */}
+      <Card className="rounded-2xl border-slate-200 shadow-xs">
+        <CardHeader className="pb-3 border-b border-slate-100">
+          <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-[#0FA3A3]" />
+              2. Conector WhatsApp Real (Evolution API / Baileys)
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                evolutionUrl && evolutionKey && evolutionInstance
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 text-[10px]'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 text-[10px]'
+              }
+            >
+              {evolutionUrl && evolutionKey && evolutionInstance
+                ? 'Servidor Configurado'
+                : 'Fila Interna / Simulado'}
+            </Badge>
+          </CardTitle>
+          <CardDescription className="text-xs text-[#64748B]">
+            Conecte sua instância da Evolution API para que o bot receba mensagens reais no WhatsApp
+            e responda automaticamente após a aprovação no painel de supervisão.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="pt-4 space-y-4">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-[#1A2333]">
-              URL do Webhook (Endpoint Seguro)
+              URL do Webhook de Entrada (Cole na Evolution API)
             </Label>
             <div className="flex gap-2">
               <Input
@@ -245,15 +557,15 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
               </Button>
             </div>
             <p className="text-[11px] text-[#94A3B8]">
-              Método: <code>POST</code> | Header sugerido:{' '}
-              <code>Content-Type: application/json</code>
+              Eventos sugeridos no painel da Evolution: <code>MESSAGES_UPSERT</code> ou{' '}
+              <code>SEND_MESSAGE</code>.
             </p>
           </div>
 
           <div className="border-t border-slate-100 pt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1.5 md:col-span-1">
               <Label className="text-xs font-medium text-[#1A2333]">
-                URL Base da Evolution API
+                URL Base do Servidor Evolution
               </Label>
               <Input
                 value={evolutionUrl}
@@ -288,19 +600,19 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
             </div>
           </div>
 
-          {/* Botão Testar Conexão */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+          {/* Botão Testar Conexão Evolution */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
             <Button
               variant="outline"
               size="sm"
-              onClick={handleTestarConexao}
-              disabled={testando || !canEdit}
+              onClick={handleTestarEvolution}
+              disabled={testandoEvo || !canEdit}
               className="text-xs gap-1.5"
             >
-              {testando ? (
+              {testandoEvo ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Testando Conexão...
+                  Testando Conexão WhatsApp...
                 </>
               ) : (
                 <>
@@ -310,32 +622,32 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
               )}
             </Button>
 
-            {resultadoTeste && (
+            {resultadoTesteEvo && (
               <div
                 className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border ${
-                  resultadoTeste.sucesso
+                  resultadoTesteEvo.sucesso
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : 'bg-rose-50 text-rose-800 border-rose-200'
                 }`}
               >
-                {resultadoTeste.sucesso ? (
+                {resultadoTesteEvo.sucesso ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                 ) : (
                   <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
                 )}
-                <span>{resultadoTeste.mensagem}</span>
+                <span>{resultadoTesteEvo.mensagem}</span>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Card 2: Regras Operacionais e Empresa Padrão */}
+      {/* Card 3: Regras Operacionais e Empresa Padrão */}
       <Card className="rounded-2xl border-slate-200 shadow-xs">
         <CardHeader className="pb-3 border-b border-slate-100">
           <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
-            2. Regras de Supervisão & Empresa Prestadora
+            3. Regras de Supervisão & Empresa Prestadora
           </CardTitle>
           <CardDescription className="text-xs text-[#64748B]">
             Defina o comportamento do bot para novas mensagens recebidas e regras de emissão.
@@ -398,8 +710,8 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
                 <span className="text-xs font-bold text-[#1A2333]">Modo de Emissão Fiscal</span>
                 <p className="text-[11px] text-[#64748B]">
                   {modoOperacao === 'simulacao'
-                    ? 'Simulação controlada (sem envio à prefeitura)'
-                    : 'Produção real (Webservice / Gov.br)'}
+                    ? 'Simulação controlada (sem cobrança na prefeitura)'
+                    : 'Produção real (Gov.br Emissor Nacional)'}
                 </p>
               </div>
               <Select
@@ -424,12 +736,12 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
         </CardContent>
       </Card>
 
-      {/* Card 3: Modelos de Mensagens do Bot (Etapas 1 e 8) */}
+      {/* Card 4: Modelos de Mensagens do Bot (Etapas 1 e 8) */}
       <Card className="rounded-2xl border-slate-200 shadow-xs">
         <CardHeader className="pb-3 border-b border-slate-100">
           <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
             <Key className="h-4 w-4 text-[#0FA3A3]" />
-            3. Mensagens Automáticas do Bot (Etapa 8 - Respostas de Volta)
+            4. Mensagens Automáticas do Bot (Etapa 8 - Respostas de Volta)
           </CardTitle>
           <CardDescription className="text-xs text-[#64748B]">
             Personalize as respostas enviadas ao cliente no WhatsApp em cada etapa do framework.
@@ -497,7 +809,7 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
                 Salvando Configurações...
               </>
             ) : (
-              'Salvar Configurações do WhatsApp'
+              'Salvar Configurações do WhatsApp & Provedor'
             )}
           </Button>
         </div>

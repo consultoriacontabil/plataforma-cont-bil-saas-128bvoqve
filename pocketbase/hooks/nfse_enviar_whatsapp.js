@@ -2,7 +2,7 @@
 
 /**
  * Endpoint para envio de mensagem / atualização de status via WhatsApp (Etapa 8)
- * Rota autenticada: POST /api/nfse/enviar-whatsapp
+ * Rota autenticada: POST /backend/v1/nfse/enviar-whatsapp
  */
 routerAdd(
   'POST',
@@ -51,18 +51,28 @@ routerAdd(
 
       // Se houver Evolution API configurada, tentar envio real
       let enviadoReal = false
+      let respostaEvo = null
+      let detalheEnvio = ''
+
       if (configRec) {
         let evoUrl = configRec.getString('evolution_api_url')
         const evoKey = configRec.getString('evolution_api_key')
         const evoInstance = configRec.getString('evolution_instance')
-        const remoteJid =
-          solRec.getString('origem_chat_jid') || solRec.getString('contato_telefone')
 
-        if (evoUrl && evoKey && evoInstance && remoteJid) {
+        // Destinatário pode ser o JID salvo ou o telefone sanitizado
+        let destinatario = solRec.getString('origem_chat_jid')
+        if (!destinatario || !destinatario.includes('@')) {
+          const tel = (solRec.getString('contato_telefone') || '').replace(/\D/g, '')
+          if (tel) {
+            destinatario = tel.includes('@') ? tel : tel + '@s.whatsapp.net'
+          }
+        }
+
+        if (evoUrl && evoKey && evoInstance && destinatario) {
           if (evoUrl.endsWith('/')) evoUrl = evoUrl.slice(0, -1)
           try {
-            const sendEndpoint = evoUrl + '/message/sendText/' + evoInstance
-            $http.send({
+            const sendEndpoint = evoUrl + '/message/sendText/' + encodeURIComponent(evoInstance)
+            const resp = $http.send({
               url: sendEndpoint,
               method: 'POST',
               headers: {
@@ -70,26 +80,48 @@ routerAdd(
                 apikey: evoKey,
               },
               body: JSON.stringify({
-                number: remoteJid,
+                number: destinatario,
                 text: mensagemTexto,
+                options: {
+                  delay: 800,
+                  presence: 'composing',
+                  linkPreview: true,
+                },
               }),
-              timeout: 10,
+              timeout: 12,
             })
-            enviadoReal = true
+
+            if (resp.statusCode >= 200 && resp.statusCode < 300) {
+              enviadoReal = true
+              respostaEvo = resp.json
+              detalheEnvio =
+                'Mensagem despachada com sucesso para o WhatsApp real via Evolution API'
+            } else {
+              detalheEnvio =
+                'Evolution API retornou status ' + resp.statusCode + ': ' + (resp.rawText || '')
+            }
           } catch (errHttp) {
+            detalheEnvio =
+              'Falha ao conectar com servidor Evolution API: ' +
+              (errHttp.message || String(errHttp))
             console.log(
-              '[NFSE-ENVIO-WA] Servidor Evolution indisponível, registrado em modo simulado:',
+              '[NFSE-ENVIO-WA] Servidor Evolution indisponível, fallback para simulação controlada:',
               errHttp,
             )
           }
+        } else {
+          detalheEnvio =
+            'Evolution API não configurada neste tenant — mensagem registrada internamente'
         }
       }
 
       return e.json(200, {
         status: 'sucesso',
         enviado_real: enviadoReal,
-        modo: enviadoReal ? 'evolution_api' : 'simulado_registrado',
+        modo: enviadoReal ? 'evolution_api_real' : 'simulado_registrado',
         mensagem: mensagemTexto,
+        detalhe: detalheEnvio,
+        resposta_evolution: respostaEvo,
         data: agora,
       })
     } catch (err) {

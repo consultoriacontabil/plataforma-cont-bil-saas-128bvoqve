@@ -30,8 +30,10 @@ import {
   Loader2,
   Building2,
   ShieldAlert,
+  Radio,
+  CheckCircle2,
 } from 'lucide-react'
-import type { NfseSolicitacaoRecord, Empresa } from '@/types'
+import type { NfseSolicitacaoRecord, Empresa, NfseConfigRecord } from '@/types'
 import { isValidCnpj, isValidCpf, maskCnpj, maskCpf } from '@/lib/formatters'
 import { nfseWhatsappService } from '@/services/nfseWhatsapp'
 import { useToast } from '@/hooks/use-toast'
@@ -39,6 +41,7 @@ import { useToast } from '@/hooks/use-toast'
 interface NfseAprovacaoModalProps {
   solicitacao: NfseSolicitacaoRecord | null
   empresas: Empresa[]
+  config?: NfseConfigRecord | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
@@ -48,6 +51,7 @@ interface NfseAprovacaoModalProps {
 export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
   solicitacao,
   empresas,
+  config,
   open,
   onOpenChange,
   onSuccess,
@@ -103,6 +107,10 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
 
   const valorLiquidoEstimado = valorServicos - (issRetido ? (valorServicos * aliquotaIss) / 100 : 0)
 
+  const isProducaoGov =
+    config?.modo_operacao === 'producao' &&
+    !!(config?.govbr_client_id && config?.govbr_client_secret)
+
   const handleEmitir = async () => {
     if (!empresaId) {
       toast({
@@ -154,18 +162,22 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
       )
 
       toast({
-        title: 'NFS-e emitida com sucesso!',
-        description: 'A nota fiscal foi gerada e a confirmação enviada ao WhatsApp do cliente.',
+        title: isProducaoGov
+          ? 'NFS-e emitida com sucesso no Gov.br!'
+          : 'NFS-e emitida com sucesso (Modo Simulação)!',
+        description:
+          'A nota fiscal foi gerada, guardada no GED e a confirmação com o link oficial enviada ao WhatsApp do cliente.',
       })
       onSuccess()
       onOpenChange(false)
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
       toast({
-        title: 'Falha na emissão da NFS-e',
+        title: 'Falha na transmissão da NFS-e',
         description: errMsg,
         variant: 'destructive',
       })
+      onSuccess() // atualiza a fila para refletir o status de erro_emissao
     } finally {
       setEmitindo(false)
     }
@@ -175,17 +187,28 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0FA3A3] text-white text-xs font-bold">
-              5
-            </span>
-            <DialogTitle className="text-lg font-bold text-[#1A2333]">
-              Revisar & Emitir NFS-e (API Engine Fiscal)
-            </DialogTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0FA3A3] text-white text-xs font-bold">
+                5
+              </span>
+              <DialogTitle className="text-lg font-bold text-[#1A2333]">
+                Revisar & Emitir NFS-e (API Engine Fiscal)
+              </DialogTitle>
+            </div>
+            <Badge
+              className={
+                isProducaoGov
+                  ? 'bg-emerald-600 text-white text-[10px]'
+                  : 'bg-amber-600 text-white text-[10px]'
+              }
+            >
+              {isProducaoGov ? 'PRODUÇÃO — GOV.BR' : 'SIMULAÇÃO CONTROLADA'}
+            </Badge>
           </div>
           <DialogDescription className="text-xs text-[#64748B]">
             Etapa 5 do Framework: Valide os dados extraídos pelo Motor Cognitivo IA, ajuste se
-            necessário e acione o motor de emissão fiscal (Modo Simulação Ativo).
+            necessário e acione a transmissão para o Emissor Nacional (Gov.br) ou Simulação.
           </DialogDescription>
         </DialogHeader>
 
@@ -205,6 +228,21 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
               &quot;{solicitacao.mensagem_original}&quot;
             </p>
           </div>
+
+          {/* Alertas de erro prévio se houver */}
+          {solicitacao.ultimo_erro_emissao && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3 space-y-1">
+              <div className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                <ShieldAlert className="h-4 w-4 text-rose-600" />
+                Retentativa: Motivo do Erro na Última Transmissão:
+              </div>
+              <p className="text-xs text-rose-900">{solicitacao.ultimo_erro_emissao}</p>
+              <div className="text-[11px] text-rose-700">
+                Tentativas realizadas: <strong>{solicitacao.tentativas_emissao || 1}</strong>. A
+                solicitação foi preservada na fila para retentativa.
+              </div>
+            </div>
+          )}
 
           {/* Alertas do Motor Cognitivo se houver */}
           {solicitacao.alertas_json && solicitacao.alertas_json.length > 0 && (
@@ -441,11 +479,20 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
 
         <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-2">
           <div className="flex items-center gap-2 text-xs text-[#64748B]">
-            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-              Modo Simulação
+            <Badge
+              variant="outline"
+              className={
+                isProducaoGov
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }
+            >
+              {isProducaoGov ? 'Produção Gov.br Ativa' : 'Modo Simulação Controlada'}
             </Badge>
             <span className="hidden sm:inline">
-              Emissão segura com geração de XML/PDF e número sequencial.
+              {isProducaoGov
+                ? 'Emissão protocolada no Emissor Nacional com arquivamento no GED.'
+                : 'Emissão segura com geração de XML/PDF e número sequencial.'}
             </span>
           </div>
 
@@ -474,7 +521,9 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
               ) : (
                 <>
                   <Send className="h-3.5 w-3.5" />
-                  Aprovar & Emitir NFS-e
+                  {solicitacao.status === 'erro_emissao'
+                    ? 'Retentar Emissão de NFS-e'
+                    : 'Aprovar & Emitir NFS-e'}
                 </>
               )}
             </Button>
