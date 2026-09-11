@@ -20,6 +20,9 @@ import {
   Layers,
   History,
   RotateCcw,
+  GitCompare,
+  DownloadCloud,
+  Check,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -73,6 +76,13 @@ import {
   RegimeAtual,
 } from '@/lib/reformaTributaria/calculos'
 import { RelatorioReformaModal } from '@/components/RelatorioReformaModal'
+import { ComparadorCenariosModal } from '@/components/ComparadorCenariosModal'
+import {
+  Tooltip as TooltipUI,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function SimuladorReformaPage() {
   const { tenant, user, member } = useAuth()
@@ -108,6 +118,17 @@ export default function SimuladorReformaPage() {
   // Modal Relatório Imprimível
   const [modalRelatorioOpen, setModalRelatorioOpen] = useState(false)
 
+  // Modal Comparador de Cenários Lado a Lado
+  const [modalComparadorOpen, setModalComparadorOpen] = useState(false)
+
+  // Estado da busca de receita contábil real
+  const [buscandoReceitaReal, setBuscandoReceitaReal] = useState(false)
+  const [origemReceitaRealInfo, setOrigemReceitaRealInfo] = useState<{
+    periodo: string
+    valor: number
+    detalhes: string
+  } | null>(null)
+
   // Aba ativa: simulador | historico | parametros
   const [activeTab, setActiveTab] = useState<'simulador' | 'historico' | 'parametros'>('simulador')
 
@@ -121,6 +142,61 @@ export default function SimuladorReformaPage() {
       .catch((err) => console.error('Erro ao listar empresas:', err))
       .finally(() => setLoadingEmpresas(false))
   }, [tenant?.id])
+
+  // Função para puxar faturamento real dos lançamentos contábeis
+  const handlePuxarFaturamentoReal = async () => {
+    if (!tenant?.id) return
+    if (!selectedEmpresaId || selectedEmpresaId === 'avulsa') {
+      toast({
+        title: 'Selecione uma empresa',
+        description:
+          'É necessário selecionar uma empresa da carteira para consultar seus lançamentos contábeis.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setBuscandoReceitaReal(true)
+      const res = await simuladorReformaService.obterReceitaRealExercicio(
+        tenant.id,
+        selectedEmpresaId,
+      )
+
+      if (res.sucesso && res.faturamentoTotal > 0) {
+        setFaturamentoAnual(res.faturamentoTotal)
+        setOrigemReceitaRealInfo({
+          periodo: res.periodoDescricao,
+          valor: res.faturamentoTotal,
+          detalhes: `${res.quantidadeLancamentos} lançamentos confirmados em ${res.detalhesPorConta.length} conta(s) de receita`,
+        })
+
+        toast({
+          title: 'Faturamento real importado!',
+          description: `Valor de ${res.faturamentoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} obtido a partir de ${res.periodoDescricao}.`,
+        })
+      } else {
+        toast({
+          title: 'Lançamentos contábeis insuficientes',
+          description:
+            res.mensagem ||
+            'Não foram identificadas receitas confirmadas no último exercício para esta empresa. Você pode preencher o faturamento manualmente.',
+          variant: 'default',
+        })
+      }
+    } catch (err: any) {
+      console.error('Erro ao puxar receita contábil:', err)
+      toast({
+        title: 'Erro ao consultar lançamentos',
+        description:
+          err?.message ||
+          'Não foi possível consultar os lançamentos contábeis no momento. Preencha manualmente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBuscandoReceitaReal(false)
+    }
+  }
 
   // Carrega histórico de simulações
   const carregarHistorico = async () => {
@@ -434,6 +510,17 @@ export default function SimuladorReformaPage() {
             type="button"
             variant="outline"
             size="sm"
+            onClick={() => setModalComparadorOpen(true)}
+            className="gap-2 rounded-xl text-xs font-bold h-9 border-[#0FA3A3]/40 bg-teal-50/60 text-[#0E7A7A] hover:bg-teal-100/70 shadow-xs"
+          >
+            <GitCompare className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Comparar Cenários (Lado a Lado)</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={() => {
               setTituloSimulacao(
                 `Cenário ${razaoSocial || 'Simulação'} - ${new Date().toLocaleDateString('pt-BR')}`,
@@ -558,11 +645,49 @@ export default function SimuladorReformaPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Faturamento Anual (Receita Bruta) */}
+                {/* Faturamento Anual (Receita Bruta) com Integração Contábil */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#1A2333]">
-                    Faturamento Anual (R$)
-                  </Label>
+                  <div className="flex items-center justify-between gap-1">
+                    <Label className="text-xs font-semibold text-[#1A2333]">
+                      Faturamento Anual (R$)
+                    </Label>
+
+                    {/* Botão Puxar do último exercício contábil */}
+                    <TooltipProvider>
+                      <TooltipUI>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={selectedEmpresaId === 'avulsa' || buscandoReceitaReal}
+                              onClick={handlePuxarFaturamentoReal}
+                              className={`h-6 px-1.5 text-[11px] font-semibold gap-1 rounded-lg ${
+                                selectedEmpresaId === 'avulsa'
+                                  ? 'text-slate-400 cursor-not-allowed'
+                                  : 'text-[#0FA3A3] hover:text-[#0c8282] hover:bg-teal-50'
+                              }`}
+                            >
+                              <DownloadCloud
+                                className={`h-3 w-3 ${buscandoReceitaReal ? 'animate-bounce' : ''}`}
+                              />
+                              <span>
+                                {buscandoReceitaReal ? 'Buscando...' : 'Puxar do último exercício'}
+                              </span>
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {selectedEmpresaId === 'avulsa' && (
+                          <TooltipContent side="top" className="text-xs max-w-xs">
+                            Selecione uma empresa da carteira acima para puxar os lançamentos
+                            contábeis de receitas do último exercício.
+                          </TooltipContent>
+                        )}
+                      </TooltipUI>
+                    </TooltipProvider>
+                  </div>
+
                   <Input
                     type="number"
                     min="0"
@@ -571,6 +696,7 @@ export default function SimuladorReformaPage() {
                     onChange={(e) => {
                       const val = Number(e.target.value) || 0
                       setFaturamentoAnual(val)
+                      setOrigemReceitaRealInfo(null)
                       if (regimeAtual === 'simples_nacional') {
                         setAliquotaAtualEstimada(
                           estimarAliquotaSimplesNacional(val, setorAtividade),
@@ -579,9 +705,17 @@ export default function SimuladorReformaPage() {
                     }}
                     className="h-9 rounded-xl text-xs border-[#E2E8F0]"
                   />
-                  <span className="text-[10px] text-[#64748B]">
-                    {formatBRL(faturamentoAnual)} / ano
-                  </span>
+
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-[#64748B]">{formatBRL(faturamentoAnual)} / ano</span>
+
+                    {origemReceitaRealInfo && (
+                      <span className="text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        <Check className="h-2.5 w-2.5" />
+                        Base real: {origemReceitaRealInfo.periodo}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Setor de Atividade */}
@@ -1456,6 +1590,20 @@ export default function SimuladorReformaPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL COMPARADOR DE CENÁRIOS LADO A LADO */}
+      <ComparadorCenariosModal
+        open={modalComparadorOpen}
+        onOpenChange={setModalComparadorOpen}
+        cenarioBaseAtual={calculada}
+        empresaAtual={
+          selectedEmpresaId !== 'avulsa'
+            ? empresas.find((e) => e.id === selectedEmpresaId) || null
+            : null
+        }
+        historicoSalvo={historico}
+        tenantNome={tenant?.name}
+      />
 
       {/* MODAL RELATÓRIO IMPRIMÍVEL (PRINT TO PDF) */}
       <RelatorioReformaModal
