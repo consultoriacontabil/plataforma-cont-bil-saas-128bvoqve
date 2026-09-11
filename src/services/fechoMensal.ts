@@ -19,8 +19,9 @@ export const ITENS_CHECKLIST_PADRAO = [
   },
   {
     codigo_item: 'folha_paga',
-    titulo: 'Folha de Pagamento Calculada e Paga',
-    descricao: 'Verificar holerites, pró-labore, GPS/INSS e FGTS processados do mês',
+    titulo: 'Folha de Pagamento e Impostos Retidos (DARF/FGTS)',
+    descricao:
+      'Verificar holerites, quitação de salários e recolhimento das retenções de INSS, IRRF e FGTS',
     ordem: 2,
     obrigatorio: true,
   },
@@ -281,6 +282,45 @@ export const fechoMensalService = {
           status: 'alerta',
           detalhe: `Diferença de partida detectada: R$ ${dif.toFixed(2)}`,
         }
+      }
+
+      // 2.1 Verificação de Folha e Impostos Retidos (DARF/FGTS)
+      try {
+        const folhas = await pb.collection('folha_pagamento').getFullList({
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && competencia = "${competencia}"`,
+        })
+        const impostos = await pb.collection('impostos_retidos').getFullList({
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && competencia = "${competencia}"`,
+        })
+
+        if (folhas.length === 0) {
+          res.folha_paga = {
+            status: 'pendente',
+            detalhe: 'Nenhuma folha de pagamento calculada para o período',
+          }
+        } else {
+          const folhasNaoPagas = folhas.filter((f) => f.status !== 'paga')
+          const impostosPendentes = impostos.filter((i) => i.status !== 'pago')
+
+          if (folhasNaoPagas.length === 0 && impostosPendentes.length === 0) {
+            res.folha_paga = {
+              status: 'ok',
+              detalhe: `Folha quitada (${folhas.length} colaboradores) e ${impostos.length} guias de retenção pagas`,
+            }
+          } else {
+            const pendenciasDesc: string[] = []
+            if (folhasNaoPagas.length > 0)
+              pendenciasDesc.push(`${folhasNaoPagas.length} folhas pendentes de quitação`)
+            if (impostosPendentes.length > 0)
+              pendenciasDesc.push(`${impostosPendentes.length} impostos retidos pendentes`)
+            res.folha_paga = {
+              status: 'alerta',
+              detalhe: pendenciasDesc.join('; '),
+            }
+          }
+        }
+      } catch (errFolha) {
+        console.warn('Erro ao checar folha/impostos no checklist:', errFolha)
       }
 
       // 5. Documentos do mês arquivados

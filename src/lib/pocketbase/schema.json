@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:03:36.675Z",
+  "generatedAt": "2026-09-11T16:13:27.595Z",
   "collections": [
     {
       "name": "users",
@@ -2766,6 +2766,221 @@
         "CREATE INDEX idx_intlogs_tenant_int ON integracoes_logs (tenant_id, integracao)",
         "CREATE INDEX idx_intlogs_conta ON integracoes_logs (conta_bancaria)",
         "CREATE INDEX idx_intlogs_data ON integracoes_logs (data_execucao DESC)"
+      ]
+    },
+    {
+      "name": "demonstrativos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["dre", "balanco"]
+        },
+        {
+          "name": "dados",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["rascunho", "enviado", "aprovado", "reprovado"]
+        },
+        {
+          "name": "data_envio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_aprovacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes_cliente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aprovado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "gerado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_dem_tenant_emp_comp ON demonstrativos (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_dem_status ON demonstrativos (status)",
+        "CREATE INDEX idx_dem_tipo ON demonstrativos (tipo)",
+        "CREATE INDEX idx_dem_created ON demonstrativos (created DESC)"
+      ]
+    },
+    {
+      "name": "impostos_retidos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["darf_inss", "darf_irrf", "fgts"]
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "pago", "atrasado"]
+        },
+        {
+          "name": "vinculo_folha",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vinculo_titulo_financeiro",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_financeiras"
+        },
+        {
+          "name": "lote_contabil",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pago_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_imp_tenant_emp_comp ON impostos_retidos (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_imp_tipo_status ON impostos_retidos (tipo, status)",
+        "CREATE INDEX idx_imp_vencimento ON impostos_retidos (vencimento)",
+        "CREATE INDEX idx_imp_created ON impostos_retidos (created DESC)"
       ]
     }
   ]

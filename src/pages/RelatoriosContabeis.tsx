@@ -19,10 +19,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import {
   relatoriosContabeisService,
-  DREResultado,
-  BalancoResultado,
+  type DREResultado,
+  type BalancoResultado,
 } from '@/services/relatoriosContabeis'
-import type { Empresa } from '@/types'
+import { demonstrativosService } from '@/services/demonstrativos'
+import { DemonstrativoModalView } from '@/components/DemonstrativoModalView'
+import type { Empresa, DemonstrativoRecord, DemonstrativoTipo } from '@/types'
+import { formatDatePtBr } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -45,11 +48,18 @@ export default function RelatoriosContabeisPage() {
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('')
   const [selectedCompetencia, setSelectedCompetencia] = useState<string>('09/2026')
-  const [activeTab, setActiveTab] = useState<'dre' | 'balanco'>('dre')
+  const [activeTab, setActiveTab] = useState<'dre' | 'balanco' | 'demonstrativos'>('dre')
 
   // Dados dos relatórios
   const [dreData, setDreData] = useState<DREResultado | null>(null)
   const [balancoData, setBalancoData] = useState<BalancoResultado | null>(null)
+
+  // Módulo 1: Demonstrativos para assinatura
+  const [demonstrativos, setDemonstrativos] = useState<DemonstrativoRecord[]>([])
+  const [loadingDemonstrativos, setLoadingDemonstrativos] = useState(false)
+  const [modalViewOpen, setModalViewOpen] = useState(false)
+  const [viewingDemonstrativo, setViewingDemonstrativo] = useState<DemonstrativoRecord | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
 
   // 1. Carregar Empresas
   useEffect(() => {
@@ -73,16 +83,21 @@ export default function RelatoriosContabeisPage() {
     if (!tenant?.id || !selectedEmpresaId || !selectedCompetencia) return
     setLoading(true)
     try {
-      const [dreRes, balancoRes] = await Promise.all([
+      const [dreRes, balancoRes, dems] = await Promise.all([
         relatoriosContabeisService.gerarDRE(tenant.id, selectedEmpresaId, selectedCompetencia),
         relatoriosContabeisService.gerarBalancoPatrimonial(
           tenant.id,
           selectedEmpresaId,
           selectedCompetencia,
         ),
+        demonstrativosService.list(tenant.id, {
+          empresaId: selectedEmpresaId,
+          competencia: selectedCompetencia,
+        }),
       ])
       setDreData(dreRes)
       setBalancoData(balancoRes)
+      setDemonstrativos(dems)
     } catch (err) {
       console.error('Erro ao gerar relatórios contábeis:', err)
       toast({
@@ -174,6 +189,79 @@ export default function RelatoriosContabeisPage() {
     document.body.removeChild(link)
   }
 
+  // Módulo 1: Gerar Demonstrativo para Assinatura (DRE ou Balanço)
+  const handleGerarDemonstrativoAssinatura = async (tipo: DemonstrativoTipo) => {
+    if (!tenant?.id || !selectedEmpresaId || !selectedCompetencia) {
+      toast({
+        variant: 'destructive',
+        title: 'Seleção necessária',
+        description: 'Selecione a empresa e a competência antes de gerar o demonstrativo.',
+      })
+      return
+    }
+
+    const payload = tipo === 'dre' ? dreData : balancoData
+    if (!payload) {
+      toast({
+        variant: 'destructive',
+        title: 'Dados indisponíveis',
+        description: 'Não há dados calculados para este demonstrativo no período.',
+      })
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const dem = await demonstrativosService.gerarDemonstrativo({
+        tenantId: tenant.id,
+        empresaId: selectedEmpresaId,
+        competencia: selectedCompetencia,
+        tipo,
+        dados: payload,
+      })
+
+      toast({
+        title: 'Demonstrativo congelado!',
+        description: `${tipo.toUpperCase()} congelada em rascunho para assinatura. Você pode enviar ao cliente.`,
+      })
+      loadRelatorios()
+      setViewingDemonstrativo(dem)
+      setModalViewOpen(true)
+    } catch (err) {
+      console.error('Erro ao gerar demonstrativo para assinatura:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar demonstrativo',
+        description: 'Não foi possível congelar os dados para assinatura.',
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Enviar ao cliente
+  const handleEnviarAoCliente = async (id: string) => {
+    setActionLoading(true)
+    try {
+      await demonstrativosService.enviarAoCliente(id)
+      toast({
+        title: 'Demonstrativo enviado!',
+        description:
+          'O cliente receberá uma notificação e e-mail para validar e assinar no Portal.',
+      })
+      loadRelatorios()
+    } catch (err) {
+      console.error('Erro ao enviar demonstrativo:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro no envio',
+        description: 'Falha ao notificar o cliente.',
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -191,9 +279,31 @@ export default function RelatoriosContabeisPage() {
           </p>
         </div>
 
-        {/* Botão de Exportação */}
-        <div className="flex items-center gap-2">
-          {activeTab === 'dre' ? (
+        {/* Ações de Topo: Gerar para Assinatura & Exportações */}
+        <div className="flex flex-wrap items-center gap-2">
+          {activeTab === 'dre' && (
+            <Button
+              onClick={() => handleGerarDemonstrativoAssinatura('dre')}
+              disabled={!dreData || actionLoading}
+              className="gap-2 rounded-xl text-xs font-semibold h-10 bg-[#0FA3A3] hover:bg-[#0C8585] text-white shadow-xs"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Gerar DRE para Assinatura</span>
+            </Button>
+          )}
+
+          {activeTab === 'balanco' && (
+            <Button
+              onClick={() => handleGerarDemonstrativoAssinatura('balanco')}
+              disabled={!balancoData || actionLoading}
+              className="gap-2 rounded-xl text-xs font-semibold h-10 bg-[#0FA3A3] hover:bg-[#0C8585] text-white shadow-xs"
+            >
+              <Scale className="h-4 w-4" />
+              <span>Gerar Balanço para Assinatura</span>
+            </Button>
+          )}
+
+          {activeTab === 'dre' && (
             <Button
               onClick={handleExportDRECSV}
               variant="outline"
@@ -203,7 +313,9 @@ export default function RelatoriosContabeisPage() {
               <Download className="h-4 w-4 text-[#64748B]" />
               <span>Exportar DRE (CSV)</span>
             </Button>
-          ) : (
+          )}
+
+          {activeTab === 'balanco' && (
             <Button
               onClick={handleExportBalancoCSV}
               variant="outline"
@@ -285,6 +397,17 @@ export default function RelatoriosContabeisPage() {
             className="rounded-xl px-6 py-2 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-xs"
           >
             Balanço Patrimonial
+          </TabsTrigger>
+          <TabsTrigger
+            value="demonstrativos"
+            className="rounded-xl px-6 py-2 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-xs flex items-center gap-1.5"
+          >
+            <span>Assinaturas & Envio</span>
+            {demonstrativos.length > 0 && (
+              <Badge className="h-5 px-1.5 bg-slate-200 text-slate-700 text-[10px] font-bold">
+                {demonstrativos.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -706,7 +829,144 @@ export default function RelatoriosContabeisPage() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* ================= ABA 3: DEMONSTRATIVOS PARA ASSINATURA ================= */}
+        <TabsContent value="demonstrativos" className="space-y-6 mt-4">
+          <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b border-[#E2E8F0] py-4 px-6 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold text-[#1A2333]">
+                  Demonstrativos Contábeis Oficiais para Assinatura
+                </CardTitle>
+                <CardDescription className="text-xs text-[#64748B]">
+                  Histórico de DREs e Balanços congelados com tracking de status (Rascunho, Enviado,
+                  Aprovado ou Reprovado)
+                </CardDescription>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] uppercase font-bold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-6">Tipo</th>
+                      <th className="py-3 px-6">Empresa</th>
+                      <th className="py-3 px-6">Competência</th>
+                      <th className="py-3 px-6">Status</th>
+                      <th className="py-3 px-6">Envio / Aprovação</th>
+                      <th className="py-3 px-6 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E2E8F0]">
+                    {demonstrativos.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-[#94A3B8]">
+                          Nenhum demonstrativo gerado para esta empresa e competência.{' '}
+                          <span className="block text-[11px] text-[#64748B] mt-1">
+                            Clique em "Gerar DRE para Assinatura" ou "Gerar Balanço para Assinatura"
+                            acima para congelar os números oficiais.
+                          </span>
+                        </td>
+                      </tr>
+                    ) : (
+                      demonstrativos.map((dem) => {
+                        const statusColors: Record<string, string> = {
+                          rascunho: 'bg-slate-100 text-slate-700',
+                          enviado: 'bg-blue-100 text-blue-700 font-semibold',
+                          aprovado: 'bg-emerald-100 text-emerald-700 font-bold',
+                          reprovado: 'bg-rose-100 text-rose-700 font-bold',
+                        }
+                        const statusLabels: Record<string, string> = {
+                          rascunho: 'Rascunho',
+                          enviado: 'Aguardando Aprovação',
+                          aprovado: 'Aprovado pelo Cliente',
+                          reprovado: 'Reprovado pelo Cliente',
+                        }
+
+                        return (
+                          <tr key={dem.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-3.5 px-6 font-bold uppercase text-[#1A2333]">
+                              {dem.tipo.toUpperCase()}
+                            </td>
+                            <td className="py-3.5 px-6 font-medium text-[#334155]">
+                              {activeEmpresa?.nome_fantasia ||
+                                activeEmpresa?.razao_social ||
+                                'Empresa'}
+                            </td>
+                            <td className="py-3.5 px-6 font-mono text-[#64748B]">
+                              {dem.competencia}
+                            </td>
+                            <td className="py-3.5 px-6">
+                              <Badge
+                                className={cn(
+                                  'text-[11px] py-0.5 px-2.5',
+                                  statusColors[dem.status],
+                                )}
+                              >
+                                {statusLabels[dem.status]}
+                              </Badge>
+                              {dem.status === 'reprovado' && dem.observacoes_cliente && (
+                                <p className="text-[11px] text-rose-600 mt-1 line-clamp-1 italic">
+                                  "{dem.observacoes_cliente}"
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-6 text-[#64748B] text-[11px]">
+                              {dem.status === 'aprovado' && dem.data_aprovacao ? (
+                                <span className="text-emerald-700 font-semibold">
+                                  Aprovado em {formatDatePtBr(dem.data_aprovacao)}
+                                </span>
+                              ) : dem.data_envio ? (
+                                <span>Enviado em {formatDatePtBr(dem.data_envio)}</span>
+                              ) : (
+                                <span className="text-slate-400">Não enviado</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-6 text-right space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setViewingDemonstrativo(dem)
+                                  setModalViewOpen(true)
+                                }}
+                                className="h-8 rounded-lg text-xs font-semibold gap-1 text-[#0FA3A3] hover:text-[#0C8585] border-teal-200"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                                <span>Visualizar / PDF</span>
+                              </Button>
+
+                              {dem.status === 'rascunho' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleEnviarAoCliente(dem.id)}
+                                  disabled={actionLoading}
+                                  className="h-8 rounded-lg text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
+                                >
+                                  Enviar ao Cliente
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Modal de Visualização Formal e Download PDF */}
+      <DemonstrativoModalView
+        open={modalViewOpen}
+        onOpenChange={setModalViewOpen}
+        demonstrativo={viewingDemonstrativo}
+        empresa={activeEmpresa}
+      />
     </div>
   )
 }

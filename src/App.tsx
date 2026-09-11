@@ -29,6 +29,7 @@ import MapeamentoContabilPage from '@/pages/MapeamentoContabil'
 import PatrimonioPage from '@/pages/Patrimonio'
 import FechoMensalPage from '@/pages/FechoMensal'
 import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
+import { ImpostosRetidosPage } from '@/pages/ImpostosRetidos'
 import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import NotFound from '@/pages/NotFound'
@@ -71,6 +72,7 @@ export default function App() {
 
           {/* Módulo Departamento Pessoal (P1) */}
           <Route path="/departamento-pessoal" element={<DepartamentoPessoal />} />
+          <Route path="/impostos-retidos" element={<ImpostosRetidosPage />} />
 
           {/* Módulo Contábil (P1) e Fecho Automático */}
           <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />

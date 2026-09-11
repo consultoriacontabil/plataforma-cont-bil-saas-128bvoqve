@@ -21,11 +21,30 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
 import { notificacoesService } from '@/services/notificacoes'
-import type { Empresa, Documento, ObrigacaoRecord, NotificacaoRecord, DocumentoTipo } from '@/types'
+import { demonstrativosService } from '@/services/demonstrativos'
+import { DemonstrativoModalView } from '@/components/DemonstrativoModalView'
+import type {
+  Empresa,
+  Documento,
+  ObrigacaoRecord,
+  NotificacaoRecord,
+  DocumentoTipo,
+  DemonstrativoRecord,
+} from '@/types'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -34,14 +53,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { formatDatePtBr } from '@/lib/formatters'
 import pb from '@/lib/pocketbase/client'
@@ -61,6 +78,14 @@ export default function PortalClientePage() {
   const [unreadNotifs, setUnreadNotifs] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // Módulo 1: Demonstrativos para aprovação do cliente
+  const [demonstrativos, setDemonstrativos] = useState<DemonstrativoRecord[]>([])
+  const [selectedDem, setSelectedDem] = useState<DemonstrativoRecord | null>(null)
+  const [modalDemOpen, setModalDemOpen] = useState(false)
+  const [approvingDem, setApprovingDem] = useState(false)
+  const [reprovandoModalOpen, setReprovandoModalOpen] = useState(false)
+  const [motivoReprovacao, setMotivoReprovacao] = useState('')
+
   // Upload GED State
   const [uploadTipo, setUploadTipo] = useState<DocumentoTipo>('fatura')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -79,27 +104,30 @@ export default function PortalClientePage() {
       const activeEmpId = selectedEmpresaId || emps[0]?.id
       if (activeEmpId) {
         setSelectedEmpresaId(activeEmpId)
-        const [docs, obs, notifs, fechosRes] = await Promise.all([
+        const [docs, obs, notifs, fechosRes, demsRes] = await Promise.all([
           portalService.getClienteDocumentos(tenant.id, activeEmpId),
           portalService.getClienteObrigacoes(tenant.id, activeEmpId),
           notificacoesService.list(tenant.id, user.id),
           pb
             .collection('fechamento_competencia')
-            .getFullList({
+            .getFullList<{ competencia: string; status: string }>({
               filter: `tenant_id = "${tenant.id}" && empresa = "${activeEmpId}"`,
               sort: '-competencia',
             })
             .catch(() => []),
+          demonstrativosService.list(tenant.id, { empresaId: activeEmpId }).catch(() => []),
         ])
         setDocumentos(docs)
         setObrigacoes(obs)
         setNotificacoes(notifs)
         setFechamentos(
-          fechosRes.map((f) => ({
+          fechosRes.map((f: { competencia: string; status: string }) => ({
             competencia: f.competencia,
             status: f.status,
           })),
         )
+        // Cliente só visualiza demonstrativos da própria empresa (enviado, aprovado ou reprovado)
+        setDemonstrativos(demsRes.filter((d) => d.status !== 'rascunho'))
         setUnreadNotifs(notifs.filter((n) => !n.lida).length)
       }
     } catch (err) {
@@ -206,6 +234,72 @@ export default function PortalClientePage() {
   }
 
   const activeEmpresa = empresas.find((e) => e.id === selectedEmpresaId)
+
+  // Ações de Aprovação / Reprovação pelo Cliente
+  const handleAprovarDemonstrativo = async () => {
+    if (!selectedDem || !user?.id) return
+    setApprovingDem(true)
+    try {
+      await demonstrativosService.aprovarPeloCliente(selectedDem.id, user.id)
+      toast({
+        title: 'Demonstrativo Aprovado com Sucesso!',
+        description: 'Sua assinatura digital foi registrada e o escritório foi notificado.',
+      })
+      setModalDemOpen(false)
+      loadPortalData()
+    } catch (err) {
+      console.error('Erro ao aprovar demonstrativo:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha na aprovação',
+        description: 'Não foi possível gravar a aprovação.',
+      })
+    } finally {
+      setApprovingDem(false)
+    }
+  }
+
+  const handleAbrirReprovacao = () => {
+    setMotivoReprovacao('')
+    setReprovandoModalOpen(true)
+  }
+
+  const handleConfirmarReprovacao = async () => {
+    if (!selectedDem || !user?.id) return
+    if (!motivoReprovacao.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Observação obrigatória',
+        description: 'Por favor, descreva o motivo da reprovação ou inconsistência detectada.',
+      })
+      return
+    }
+
+    setApprovingDem(true)
+    try {
+      await demonstrativosService.reprovarPeloCliente(
+        selectedDem.id,
+        motivoReprovacao.trim(),
+        user.id,
+      )
+      toast({
+        title: 'Demonstrativo Reprovado',
+        description: 'O escritório foi notificado com o seu apontamento para correção.',
+      })
+      setReprovandoModalOpen(false)
+      setModalDemOpen(false)
+      loadPortalData()
+    } catch (err) {
+      console.error('Erro ao reprovar demonstrativo:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha ao reprovar',
+        description: 'Não foi possível registrar o apontamento.',
+      })
+    } finally {
+      setApprovingDem(false)
+    }
+  }
 
   // Cálculos do Dashboard do Cliente (Módulo 3)
   const metricasPortal = useMemo(() => {
@@ -386,6 +480,15 @@ export default function PortalClientePage() {
             <TabsTrigger value="obrigacoes" className="gap-2 text-xs font-semibold rounded-lg">
               <Clock className="h-4 w-4" />
               <span>Obrigações Fiscais ({obrigacoes.length})</span>
+            </TabsTrigger>
+            <TabsTrigger value="demonstrativos" className="gap-2 text-xs font-semibold rounded-lg">
+              <FileSpreadsheet className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Demonstrativos ({demonstrativos.length})</span>
+              {demonstrativos.filter((d) => d.status === 'enviado').length > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EF4444] text-[10px] font-bold text-white shadow-xs">
+                  {demonstrativos.filter((d) => d.status === 'enviado').length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -815,8 +918,186 @@ export default function PortalClientePage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* ================= ABA DEMONSTRATIVOS CONTÁBEIS (MÓDULO 1) ================= */}
+          <TabsContent value="demonstrativos" className="space-y-6 mt-4">
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="text-base font-bold text-[#1A2333]">
+                    Demonstrativos Contábeis para Assinatura (DRE / Balanço)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#64748B]">
+                    Visualize os demonstrativos oficiais gerados pelo escritório, imprima em PDF e
+                    realize a validação formal
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {demonstrativos.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-[#94A3B8]">
+                    Nenhum demonstrativo contábil aguardando assinatura ou disponibilizado para a
+                    empresa.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#E2E8F0]">
+                    {demonstrativos.map((dem) => {
+                      const isEnviado = dem.status === 'enviado'
+                      const isAprovado = dem.status === 'aprovado'
+                      const isReprovado = dem.status === 'reprovado'
+
+                      return (
+                        <div
+                          key={dem.id}
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-4 hover:bg-slate-50/50 transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={cn(
+                                'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                                isAprovado
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : isReprovado
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : 'bg-blue-100 text-blue-700',
+                              )}
+                            >
+                              <FileSpreadsheet className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-[#1A2333]">
+                                  {dem.tipo === 'dre'
+                                    ? 'Demonstração do Resultado (DRE)'
+                                    : 'Balanço Patrimonial'}
+                                </span>
+                                <Badge
+                                  className={cn(
+                                    'text-[10px] font-bold px-2 py-0.5',
+                                    isAprovado && 'bg-emerald-600 text-white',
+                                    isReprovado && 'bg-rose-600 text-white',
+                                    isEnviado && 'bg-blue-600 text-white animate-pulse',
+                                  )}
+                                >
+                                  {isAprovado
+                                    ? 'Aprovado'
+                                    : isReprovado
+                                      ? 'Reprovado'
+                                      : 'Pendente de Assinatura'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-[#64748B] mt-0.5">
+                                Competência:{' '}
+                                <span className="font-mono font-semibold">{dem.competencia}</span>
+                                {dem.data_envio &&
+                                  ` • Enviado em ${formatDatePtBr(dem.data_envio)}`}
+                                {dem.data_aprovacao &&
+                                  ` • Aprovado em ${formatDatePtBr(dem.data_aprovacao)}`}
+                              </p>
+                              {isReprovado && dem.observacoes_cliente && (
+                                <p className="text-xs text-rose-600 mt-1 italic">
+                                  Apontamento: "{dem.observacoes_cliente}"
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedDem(dem)
+                                setModalDemOpen(true)
+                              }}
+                              className="rounded-xl text-xs font-semibold h-9 border-[#E2E8F0] gap-1.5"
+                            >
+                              <Download className="h-4 w-4 text-[#0FA3A3]" />
+                              <span>Visualizar / Baixar PDF</span>
+                            </Button>
+
+                            {isEnviado && (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedDem(dem)
+                                  setModalDemOpen(true)
+                                }}
+                                className="rounded-xl text-xs font-semibold h-9 bg-[#16A34A] hover:bg-[#15803D] text-white shadow-xs"
+                              >
+                                Revisar & Assinar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
+
+      {/* Modal de Visualização Formal e Aprovação */}
+      <DemonstrativoModalView
+        open={modalDemOpen}
+        onOpenChange={setModalDemOpen}
+        demonstrativo={selectedDem}
+        empresa={activeEmpresa}
+        canApprove={selectedDem?.status === 'enviado'}
+        onAprovar={handleAprovarDemonstrativo}
+        onReprovar={handleAbrirReprovacao}
+        approving={approvingDem}
+      />
+
+      {/* Modal para Reprovação com Observação Obrigatória */}
+      <Dialog open={reprovandoModalOpen} onOpenChange={setReprovandoModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-rose-700 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-rose-600" />
+              <span>Reprovar Demonstrativo Contábil</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Informe o motivo da divergência ou apontamento para que o escritório possa ajustar a
+              escrituração.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <Label className="text-xs font-bold text-[#1A2333]">
+              Motivo do Apontamento / Inconsistência *
+            </Label>
+            <Input
+              value={motivoReprovacao}
+              onChange={(e) => setMotivoReprovacao(e.target.value)}
+              placeholder="Ex.: Despesa de aluguel duplicada ou receita não creditada..."
+              className="text-xs rounded-xl h-10"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setReprovandoModalOpen(false)}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmarReprovacao}
+              disabled={approvingDem || !motivoReprovacao.trim()}
+              className="rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {approvingDem ? 'Gravando...' : 'Confirmar Reprovação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -202,6 +202,25 @@ onRecordAfterCreateSuccess(
           record.getString('status') +
           '): ' +
           record.getString('mensagem')
+      } else if (collectionName === 'demonstrativos') {
+        acao = 'Demonstrativo gerado'
+        detalhes =
+          'Gerou demonstrativo ' +
+          record.getString('tipo').toUpperCase() +
+          ' (' +
+          record.getString('competencia') +
+          ') - Status: ' +
+          record.getString('status')
+      } else if (collectionName === 'impostos_retidos') {
+        acao = 'Imposto retido apurado'
+        detalhes =
+          'Apurou ' +
+          record.getString('tipo').toUpperCase() +
+          ' comp. ' +
+          record.getString('competencia') +
+          ' (R$ ' +
+          record.getFloat('valor').toFixed(2) +
+          ')'
       }
 
       log.set('acao', acao)
@@ -233,4 +252,6 @@ onRecordAfterCreateSuccess(
   'extratos_bancarios',
   'integracoes_bancarias',
   'integracoes_logs',
+  'demonstrativos',
+  'impostos_retidos',
 )

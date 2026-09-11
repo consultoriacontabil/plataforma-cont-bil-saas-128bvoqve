@@ -31,6 +31,7 @@ import {
   Wallet,
   TrendingUp,
   Plus,
+  Receipt,
 } from 'lucide-react'
 import {
   Dialog,
@@ -142,6 +143,7 @@ export default function Layout() {
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
     if (path.startsWith('/departamento-pessoal')) return 'Departamento Pessoal (DP)'
+    if (path.startsWith('/impostos-retidos')) return 'Gestão de Impostos Retidos'
     if (path.startsWith('/contabil/lancamentos')) return 'Lançamentos Contábeis'
     if (path.startsWith('/contabil/balancete')) return 'Balancete de Verificação'
     if (path.startsWith('/contabil/mapeamento')) return 'Mapeamento Contábil Automático'
@@ -264,6 +266,7 @@ export default function Layout() {
         },
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
         { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
+        { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
       ],
     },
     {

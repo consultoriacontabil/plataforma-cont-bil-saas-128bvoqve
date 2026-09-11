@@ -188,6 +188,154 @@ onRecordAfterUpdateSuccess(
           notif.set('lida', false)
           $app.save(notif)
         }
+      } else if (collectionName === 'demonstrativos') {
+        const origStatus = record.original().getString('status')
+        const currentStatus = record.getString('status')
+        const empresaId = record.getString('empresa')
+        const comp = record.getString('competencia')
+        const tipoDem = record.getString('tipo').toUpperCase()
+        const obsCliente = record.getString('observacoes_cliente')
+
+        let nomeEmpresa = 'Empresa'
+        try {
+          const empRec = $app.findRecordById('empresas', empresaId)
+          nomeEmpresa = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+        } catch (_) {}
+
+        // 1. Escritório enviou para o cliente -> Notificar clientes com acesso ao portal
+        if (currentStatus === 'enviado' && origStatus !== 'enviado') {
+          try {
+            const acessos = $app.findRecordsByFilter(
+              'portal_acessos',
+              'tenant_id = {:t} && empresa = {:emp} && ativo = true',
+              '',
+              20,
+              0,
+              { t: tenantId, emp: empresaId },
+            )
+            for (let a = 0; a < acessos.length; a++) {
+              const uId = acessos[a].getString('user')
+              const uEmail = acessos[a].getString('email')
+              const uNome = acessos[a].getString('nome_contato')
+
+              if (uId) {
+                const notifClient = new Record(notificacoesCol)
+                notifClient.set('tenant_id', tenantId)
+                notifClient.set('usuario_destino_id', uId)
+                notifClient.set('titulo', 'Demonstrativo ' + tipoDem + ' disponível para aprovação')
+                notifClient.set(
+                  'mensagem',
+                  'O demonstrativo ' +
+                    tipoDem +
+                    ' (' +
+                    comp +
+                    ') de sua empresa foi disponibilizado para assinatura no Portal.',
+                )
+                notifClient.set('tipo', 'sistema')
+                notifClient.set('link', '/portal')
+                notifClient.set('lida', false)
+                $app.save(notifClient)
+              }
+
+              if (uEmail) {
+                sendEmailGraceful(
+                  uEmail,
+                  '[Rumo] Demonstrativo Contábil para Assinatura - ' + tipoDem + ' ' + comp,
+                  '<div style="font-family:sans-serif;color:#1A2333;">' +
+                    '<h2>Rumo Consultoria Contábil</h2>' +
+                    '<p>Olá <b>' +
+                    (uNome || 'Cliente') +
+                    '</b>,</p>' +
+                    '<p>Um novo demonstrativo contábil oficial (<b>' +
+                    tipoDem +
+                    ' ' +
+                    comp +
+                    '</b>) da empresa <b>' +
+                    nomeEmpresa +
+                    '</b> ' +
+                    'está pronto e aguarda sua validação e assinatura no Portal do Cliente.</p>' +
+                    '<p>Acesse o Portal do Cliente para visualizar e aprovar.</p>' +
+                    '</div>',
+                )
+              }
+            }
+          } catch (errDemEnvio) {
+            console.log('[NOTIF] Erro ao notificar envio de demonstrativo:', errDemEnvio)
+          }
+        }
+
+        // 2. Cliente aprovou ou reprovou -> Notificar equipe do escritório (administradores e contadores)
+        if (
+          (currentStatus === 'aprovado' || currentStatus === 'reprovado') &&
+          origStatus === 'enviado'
+        ) {
+          try {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" + tenantId + "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+            const isAprovado = currentStatus === 'aprovado'
+            const tituloStaff = isAprovado
+              ? 'Demonstrativo ' + tipoDem + ' Aprovado pelo Cliente (' + comp + ')'
+              : 'Demonstrativo ' + tipoDem + ' Reprovado com Apontamento (' + comp + ')'
+            const msgStaff = isAprovado
+              ? 'A empresa ' +
+                nomeEmpresa +
+                ' aprovou o demonstrativo ' +
+                tipoDem +
+                ' (' +
+                comp +
+                ').'
+              : 'A empresa ' +
+                nomeEmpresa +
+                ' reprovou o demonstrativo ' +
+                tipoDem +
+                ' (' +
+                comp +
+                '). Motivo: ' +
+                (obsCliente || 'Não detalhado.')
+
+            for (let s = 0; s < staffMembers.length; s++) {
+              const staffUserId = staffMembers[s].getString('user_id')
+              const notifStaff = new Record(notificacoesCol)
+              notifStaff.set('tenant_id', tenantId)
+              notifStaff.set('usuario_destino_id', staffUserId)
+              notifStaff.set('titulo', tituloStaff)
+              notifStaff.set('mensagem', msgStaff)
+              notifStaff.set('tipo', 'sistema')
+              notifStaff.set('link', '/relatorios-contabeis')
+              notifStaff.set('lida', false)
+              $app.save(notifStaff)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo] ' + tituloStaff,
+                    '<div style="font-family:sans-serif;color:#1A2333;">' +
+                      '<h2>Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>' +
+                      msgStaff +
+                      '</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          } catch (errStaffNotif) {
+            console.log(
+              '[NOTIF] Erro ao notificar equipe sobre status de demonstrativo:',
+              errStaffNotif,
+            )
+          }
+        }
       }
     } catch (err) {
       console.log('[NOTIF] Error in notifications hook:', err)
@@ -198,4 +346,5 @@ onRecordAfterUpdateSuccess(
   'documentos',
   'obrigacoes',
   'funcionarios',
+  'demonstrativos',
 )

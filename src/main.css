@@ -322,3 +322,18 @@
     animation: spotlight 2s ease forwards;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print,
+  header,
+  aside,
+  nav,
+  button,
+  [role='dialog'] > div > div:last-child {
+    display: none !important;
+  }
+}

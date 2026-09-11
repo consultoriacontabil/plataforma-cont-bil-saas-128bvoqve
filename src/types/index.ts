@@ -676,3 +676,70 @@ export interface DFCFluxoResultado {
   competencias: FluxoCaixaCompetenciaResumo[]
   itensDetalhados: FluxoCaixaItemProjecao[]
 }
+
+// === Demonstrativos Prontos para Assinatura (Módulo 1) ===
+export type DemonstrativoTipo = 'dre' | 'balanco'
+export type DemonstrativoStatus = 'rascunho' | 'enviado' | 'aprovado' | 'reprovado'
+
+export interface DemonstrativoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  competencia: string
+  tipo: DemonstrativoTipo
+  dados: {
+    titulo?: string
+    receitaBruta?: number
+    deducoes?: number
+    receitaLiquida?: number
+    custos?: number
+    lucroBruto?: number
+    despesasOperacionais?: number
+    resultadoLiquido?: number
+    linhas?: DRELinha[]
+    ativoTotal?: number
+    passivoTotal?: number
+    patrimonioLiquidoTotal?: number
+    passivoMaisPL?: number
+    equilibrado?: boolean
+    diferenca?: number
+    ativoCirculante?: BalancoGrupo['subgrupos'][0]
+    ativoNaoCirculante?: BalancoGrupo['subgrupos'][0]
+    passivoCirculante?: BalancoGrupo['subgrupos'][0]
+    patrimonioLiquido?: BalancoGrupo['subgrupos'][0]
+    observacoesGerais?: string
+  }
+  status: DemonstrativoStatus
+  data_envio?: string
+  data_aprovacao?: string
+  observacoes_cliente?: string
+  aprovado_por?: string
+  gerado_por?: string
+  expand?: {
+    empresa?: Empresa
+    aprovado_por?: User
+    gerado_por?: User
+  }
+}
+
+// === Gestão de Impostos Retidos (Módulo 2) ===
+export type ImpostoRetidoTipo = 'darf_inss' | 'darf_irrf' | 'fgts'
+export type ImpostoRetidoStatus = 'pendente' | 'pago' | 'atrasado'
+
+export interface ImpostoRetidoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  competencia: string
+  tipo: ImpostoRetidoTipo
+  valor: number
+  vencimento: string
+  status: ImpostoRetidoStatus
+  vinculo_folha?: string
+  vinculo_titulo_financeiro?: string
+  lote_contabil?: string
+  pago_em?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    vinculo_titulo_financeiro?: ContaFinanceiraRecord
+  }
+}

@@ -45,4 +45,6 @@ onRecordAfterDeleteSuccess(
   'extratos_bancarios',
   'integracoes_bancarias',
   'integracoes_logs',
+  'demonstrativos',
+  'impostos_retidos',
 )

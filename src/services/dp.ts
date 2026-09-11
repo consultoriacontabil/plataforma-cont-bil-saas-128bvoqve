@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { impostosRetidosService } from '@/services/impostosRetidos'
 import type { Funcionario, FolhaPagamento, EventoDp, FuncionarioStatus, ItemRubrica } from '@/types'
 
 export interface CreateFuncionarioInput {
@@ -170,19 +171,76 @@ export const dpService = {
       totalLiquido += liq
     }
 
+    // Buscar todas as folhas da competência e sincronizar automaticamente os impostos retidos (DP -> Financeiro)
+    try {
+      const allFolhas = await pb.collection('folha_pagamento').getFullList<FolhaPagamento>({
+        filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && competencia = "${competencia}"`,
+      })
+
+      const inssTotal = allFolhas.reduce((acc, cur) => acc + (cur.inss || 0), 0)
+      const irrfTotal = allFolhas.reduce((acc, cur) => acc + (cur.irrf || 0), 0)
+      const fgtsTotal = allFolhas.reduce((acc, cur) => acc + (cur.fgts || 0), 0)
+
+      if (inssTotal > 0 || irrfTotal > 0 || fgtsTotal > 0) {
+        await impostosRetidosService.gerarOuAtualizarImpostosFolha({
+          tenantId,
+          empresaId,
+          competencia,
+          inssTotal,
+          irrfTotal,
+          fgtsTotal,
+          folhaIdRef: `folha-${competencia}`,
+        })
+      }
+    } catch (errImp) {
+      console.warn(
+        'Erro ao disparar geracao automatica de impostos retidos apos calcular folha:',
+        errImp,
+      )
+    }
+
     return { gerados, totalBruto, totalLiquido }
   },
 
   async marcarFolhaPaga(id: string) {
-    return pb.collection('folha_pagamento').update<FolhaPagamento>(id, {
+    const updated = await pb.collection('folha_pagamento').update<FolhaPagamento>(id, {
       status: 'paga',
       pago_em: new Date().toISOString(),
     })
+
+    // Sincronizar impostos retidos decorrentes da folha
+    try {
+      const tenantId = updated.tenant_id
+      const empresaId = updated.empresa
+      const competencia = updated.competencia
+
+      const allFolhas = await pb.collection('folha_pagamento').getFullList<FolhaPagamento>({
+        filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && competencia = "${competencia}"`,
+      })
+
+      const inssTotal = allFolhas.reduce((acc, cur) => acc + (cur.inss || 0), 0)
+      const irrfTotal = allFolhas.reduce((acc, cur) => acc + (cur.irrf || 0), 0)
+      const fgtsTotal = allFolhas.reduce((acc, cur) => acc + (cur.fgts || 0), 0)
+
+      await impostosRetidosService.gerarOuAtualizarImpostosFolha({
+        tenantId,
+        empresaId,
+        competencia,
+        inssTotal,
+        irrfTotal,
+        fgtsTotal,
+        folhaIdRef: updated.id,
+      })
+    } catch (e) {
+      console.warn('Erro ao atualizar impostos retidos ao marcar folha paga:', e)
+    }
+
+    return updated
   },
 
   async marcarLoteFolhaPaga(ids: string[]) {
     const now = new Date().toISOString()
-    return Promise.all(
+    const results = await Promise.all(
       ids.map((id) =>
         pb.collection('folha_pagamento').update<FolhaPagamento>(id, {
           status: 'paga',
@@ -190,6 +248,41 @@ export const dpService = {
         }),
       ),
     )
+
+    // Sincronizar impostos retidos decorrentes para as empresas/competências afetadas
+    try {
+      const pares = new Map<string, { tenantId: string; empresaId: string; competencia: string }>()
+      for (const f of results) {
+        pares.set(`${f.empresa}-${f.competencia}`, {
+          tenantId: f.tenant_id,
+          empresaId: f.empresa,
+          competencia: f.competencia,
+        })
+      }
+
+      for (const par of pares.values()) {
+        const allFolhas = await pb.collection('folha_pagamento').getFullList<FolhaPagamento>({
+          filter: `tenant_id = "${par.tenantId}" && empresa = "${par.empresaId}" && competencia = "${par.competencia}"`,
+        })
+        const inssTotal = allFolhas.reduce((acc, cur) => acc + (cur.inss || 0), 0)
+        const irrfTotal = allFolhas.reduce((acc, cur) => acc + (cur.irrf || 0), 0)
+        const fgtsTotal = allFolhas.reduce((acc, cur) => acc + (cur.fgts || 0), 0)
+
+        await impostosRetidosService.gerarOuAtualizarImpostosFolha({
+          tenantId: par.tenantId,
+          empresaId: par.empresaId,
+          competencia: par.competencia,
+          inssTotal,
+          irrfTotal,
+          fgtsTotal,
+          folhaIdRef: `folha-${par.competencia}`,
+        })
+      }
+    } catch (e) {
+      console.warn('Erro ao sincronizar impostos retidos apos marcar lote pago:', e)
+    }
+
+    return results
   },
 
   // === Eventos de DP ===

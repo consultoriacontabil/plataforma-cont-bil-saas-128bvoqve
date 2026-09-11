@@ -41,6 +41,141 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       }
     }
 
+    // 1.1 Scan for pending impostos_retidos due within 7 days or overdue
+    try {
+      const pendingImpostos = $app.findRecordsByFilter(
+        'impostos_retidos',
+        "status = 'pendente' || status = 'atrasado'",
+        'vencimento ASC',
+        300,
+        0,
+      )
+      console.log('[CRON] Found', pendingImpostos.length, 'impostos retidos to check')
+
+      for (let j = 0; j < pendingImpostos.length; j++) {
+        const imp = pendingImpostos[j]
+        const impTenantId = imp.getString('tenant_id')
+        const impVenc = new Date(imp.getString('vencimento'))
+        const impTipo = imp.getString('tipo').toUpperCase()
+        const impComp = imp.getString('competencia')
+        const impStatus = imp.getString('status')
+        const impValor = imp.getFloat('valor')
+        const impEmpresaId = imp.getString('empresa')
+
+        const diffImpTime = impVenc.getTime() - now.getTime()
+        const diffImpDays = Math.ceil(diffImpTime / (1000 * 60 * 60 * 24))
+
+        if (diffImpDays < 0 && impStatus !== 'atrasado') {
+          try {
+            imp.set('status', 'atrasado')
+            $app.save(imp)
+          } catch (_) {}
+        }
+
+        if (diffImpDays <= 7) {
+          const isImpOverdue = diffImpDays < 0
+          const impNotifTitle = isImpOverdue
+            ? 'Imposto Retido ' + impTipo + ' Vencido (' + impComp + ')'
+            : 'Atenção: ' +
+              impTipo +
+              ' vence em ' +
+              (diffImpDays <= 0 ? 'menos de 24h' : diffImpDays + ' dia(s)')
+
+          const twentyHoursAgoImp = new Date(now.getTime() - 20 * 3600000).toISOString()
+          const existImpNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              impTenantId +
+              "' && titulo = '" +
+              impNotifTitle +
+              "' && created >= '" +
+              twentyHoursAgoImp +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existImpNotif.length === 0) {
+            let nomeEmp = 'Empresa'
+            try {
+              const empRec = $app.findRecordById('empresas', impEmpresaId)
+              nomeEmp = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+            } catch (_) {}
+
+            // Notificar administradores e contadores do tenant
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                impTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const targetStaffUserId = staffMembers[m].getString('user_id')
+              const notifImp = new Record(notificacoesCol)
+              notifImp.set('tenant_id', impTenantId)
+              notifImp.set('usuario_destino_id', targetStaffUserId)
+              notifImp.set('titulo', impNotifTitle)
+              notifImp.set(
+                'mensagem',
+                'A guia de imposto retido ' +
+                  impTipo +
+                  ' da empresa ' +
+                  nomeEmp +
+                  ' (Comp. ' +
+                  impComp +
+                  ', R$ ' +
+                  impValor.toFixed(2) +
+                  ') ' +
+                  (isImpOverdue ? 'está atrasada!' : 'vence em breve.'),
+              )
+              notifImp.set('tipo', isImpOverdue ? 'atrasada' : 'prazo_proximo')
+              notifImp.set('link', '/impostos-retidos')
+              notifImp.set('lida', false)
+              $app.save(notifImp)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', targetStaffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo] ' + impNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;">' +
+                      '<h2>Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de guia de retenção: <b>' +
+                      impTipo +
+                      ' (' +
+                      impComp +
+                      ')</b> da empresa <b>' +
+                      nomeEmp +
+                      '</b> ' +
+                      'no valor de <b>R$ ' +
+                      impValor.toFixed(2) +
+                      '</b> está ' +
+                      (isImpOverdue
+                        ? '<span style="color:#EF4444;font-weight:bold;">VENCIDA</span>.'
+                        : 'próxima do vencimento.') +
+                      '</p>' +
+                      '<p>Acesse o módulo de Impostos Retidos no sistema.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errImp) {
+      console.log('[CRON] Error scanning impostos_retidos:', errImp)
+    }
+
     for (let i = 0; i < pendingObrigacoes.length; i++) {
       const ob = pendingObrigacoes[i]
       const tenantId = ob.getString('tenant_id')

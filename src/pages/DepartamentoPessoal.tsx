@@ -303,7 +303,7 @@ export default function DepartamentoPessoal() {
       } else {
         toast({
           title: 'Folha processada com sucesso!',
-          description: `${res.gerados} colaboradores calculados. Total líquido: R$ ${res.totalLiquido.toFixed(2)}`,
+          description: `${res.gerados} colaboradores calculados. Impostos retidos (DARF/FGTS) gerados automaticamente no Financeiro!`,
         })
       }
       loadData()
@@ -325,7 +325,7 @@ export default function DepartamentoPessoal() {
       await dpService.marcarFolhaPaga(id)
       toast({
         title: 'Folha quitada',
-        description: 'Status atualizado para PAGA.',
+        description: 'Status atualizado para PAGA. Impostos retidos sincronizados.',
       })
       loadData()
     } catch (err) {

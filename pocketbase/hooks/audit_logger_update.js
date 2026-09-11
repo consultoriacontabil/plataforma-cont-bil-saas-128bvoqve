@@ -163,6 +163,24 @@ onRecordAfterUpdateSuccess(
           ' (modo ' +
           record.getString('modo') +
           ')'
+      } else if (collectionName === 'demonstrativos') {
+        acao = 'Atualização de demonstrativo'
+        detalhes =
+          'Demonstrativo ' +
+          record.getString('tipo').toUpperCase() +
+          ' (' +
+          record.getString('competencia') +
+          ') atualizado para status: ' +
+          record.getString('status')
+      } else if (collectionName === 'impostos_retidos') {
+        acao = 'Atualização de imposto retido'
+        detalhes =
+          'Imposto retido ' +
+          record.getString('tipo').toUpperCase() +
+          ' (' +
+          record.getString('competencia') +
+          ') atualizado para status: ' +
+          record.getString('status')
       }
 
       log.set('acao', acao)
@@ -193,4 +211,6 @@ onRecordAfterUpdateSuccess(
   'contas_bancarias',
   'extratos_bancarios',
   'integracoes_bancarias',
+  'demonstrativos',
+  'impostos_retidos',
 )
