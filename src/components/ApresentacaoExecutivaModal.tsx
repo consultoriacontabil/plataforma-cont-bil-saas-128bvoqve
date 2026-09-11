@@ -433,6 +433,14 @@ export function ApresentacaoExecutivaModal({
                 214/2025 e cronograma do ADCT. A recalculação das projeções ocorre em rodadas
                 trimestrais agendadas e os parâmetros normativos são atualizados centralmente
                 conforme novas deliberações do Comitê Gestor do IBS e RFB.
+                {calculada?.parametrosUtilizados?.fonte && (
+                  <span className="block mt-1 font-semibold text-blue-950">
+                    • Fonte Paramétrica Vigente: {calculada.parametrosUtilizados.fonte}
+                    {calculada.parametrosUtilizados.isCustomizado
+                      ? ' (Parâmetros Customizados do Escritório)'
+                      : ''}
+                  </span>
+                )}
               </p>
             </div>
           </div>

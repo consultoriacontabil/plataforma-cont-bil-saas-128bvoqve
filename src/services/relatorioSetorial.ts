@@ -275,8 +275,10 @@ export const relatorioSetorialService = {
    */
   async gerarRankingSetorialCarteira(
     tenantId: string,
-    filtroStatus = "status = 'ativo'",
+    filtroRegime?: RegimeAtual | 'todos',
+    parametrosCustomizados?: any,
   ): Promise<RelatorioSetorialCarteira> {
+    const filtroStatus = 'status = "ativa"'
     // 1. Buscar todas as empresas ativas da carteira
     const empresas = await pb.collection('empresas').getFullList<Empresa>({
       filter: `tenant_id = "${tenantId}"${filtroStatus ? ` && (${filtroStatus})` : ''}`,
@@ -450,7 +452,7 @@ export const relatorioSetorialService = {
         anoBase: 2026,
       }
 
-      const calculada = calcularSimulacaoReforma(inputSimulacao)
+      const calculada = calcularSimulacaoReforma(inputSimulacao, parametrosCustomizados)
       const linha2033 = calculada.tabelaAnual.find((t) => t.ano === 2033)
       const cargaAtualReais = (faturamentoBase * aliqAtual) / 100
       const carga2033Reais = linha2033?.cargaProjetadaIBSCBSReais ?? 0

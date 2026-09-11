@@ -1047,3 +1047,70 @@ export interface SimulacaoReformaRecord extends RecordModel {
     criado_por?: User
   }
 }
+
+// === Módulo Faturamento Recorrente de Honorários ===
+export type StatusFaturamentoRecorrente = 'previsto' | 'faturado' | 'pago' | 'cancelado'
+
+export interface FaturamentoRecorrenteRecord extends RecordModel {
+  tenant_id: string
+  contrato: string
+  empresa: string
+  competencia: string // AAAA-MM
+  valor: number
+  data_vencimento: string
+  status: StatusFaturamentoRecorrente
+  titulo_financeiro?: string
+  motivo_cancelamento?: string
+  notas?: string
+  criado_por?: string
+  expand?: {
+    contrato?: ContratoHonorarioRecord
+    empresa?: Empresa
+    titulo_financeiro?: ContaFinanceiraRecord
+    criado_por?: User
+  }
+}
+
+// === Módulo Parâmetros da Reforma Tributária Versionados ===
+export interface ParametrosReformaConfig {
+  versaoNormativa: string
+  fonte: string
+  aliquotaReferenciaPlena: {
+    cbs: number
+    ibs: number
+    total: number
+  }
+  reducoes: {
+    setoresPrioritarios60: number
+    profissoesRegulamentadas30: number
+    cestaBasicaNacional: number
+  }
+  simplesNacional: {
+    sublimiteTransicional: number
+    tetoMaximoSimples: number
+    descontoTransicaoSimplesSublimite: number
+  }
+  calendarioTransicao: {
+    ano: number
+    descricao: string
+    fase: 'teste' | 'cbs_plena' | 'graduacao' | 'pleno'
+    aliquotaCBS: number
+    aliquotaIBS: number
+    fatorTributosAntigos: number
+    fatorIBSGraduacao: number
+    testeCompensavel?: boolean
+  }[]
+}
+
+export interface ParametrosReformaRecord extends RecordModel {
+  tenant_id: string
+  ativo: boolean
+  versao: number
+  fonte: string
+  descricao_alteracao?: string
+  parametros_json: ParametrosReformaConfig
+  atualizado_por?: string
+  expand?: {
+    atualizado_por?: User
+  }
+}

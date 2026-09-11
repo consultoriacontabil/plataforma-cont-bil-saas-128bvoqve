@@ -264,10 +264,21 @@ export function RankingSetorialTab({
               <Badge className="bg-[#0FA3A3] text-white text-[10px] uppercase font-bold">
                 EC 132 & LC 214
               </Badge>
+              {relatorio.rankingEmpresas[0]?.calculada?.parametrosUtilizados?.isCustomizado && (
+                <Badge className="bg-teal-700 text-white text-[10px] uppercase font-bold">
+                  Parâmetros Customizados
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-[#64748B]">
               Estratificação de risco e oportunidades com base em lançamentos contábeis reais e
               parâmetros legais de transição.
+              {relatorio.rankingEmpresas[0]?.calculada?.parametrosUtilizados?.fonte && (
+                <span className="block text-[11px] text-teal-700 font-semibold mt-0.5">
+                  Fonte normativa adotada:{' '}
+                  {relatorio.rankingEmpresas[0].calculada.parametrosUtilizados.fonte}
+                </span>
+              )}
             </p>
           </div>
         </div>

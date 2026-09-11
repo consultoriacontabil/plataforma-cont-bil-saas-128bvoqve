@@ -24,6 +24,7 @@ import {
   DownloadCloud,
   Check,
   FileSpreadsheet,
+  Sliders,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -81,6 +82,9 @@ import { ComparadorCenariosModal } from '@/components/ComparadorCenariosModal'
 import { ApresentacaoExecutivaModal } from '@/components/ApresentacaoExecutivaModal'
 import { RankingSetorialTab } from '@/components/RankingSetorialTab'
 import { relatorioSetorialService, RelatorioSetorialCarteira } from '@/services/relatorioSetorial'
+import { parametrosReformaService } from '@/services/parametrosReforma'
+import { ParametrosReformaTab } from '@/components/ParametrosReformaTab'
+import type { ParametrosReformaRecord } from '@/types'
 import {
   Tooltip as TooltipUI,
   TooltipContent,
@@ -137,6 +141,13 @@ export default function SimuladorReformaPage() {
   // Relatório Setorial da Carteira
   const [relatorioSetorial, setRelatorioSetorial] = useState<RelatorioSetorialCarteira | null>(null)
   const [loadingSetorial, setLoadingSetorial] = useState(false)
+
+  // Parâmetros Parametrizados da Reforma
+  const [parametroAtivo, setParametroAtivo] = useState<ParametrosReformaRecord | null>(null)
+  const [historicoParametros, setHistoricoParametros] = useState<ParametrosReformaRecord[]>([])
+
+  // Permissão de edição dos parâmetros (apenas Administrador)
+  const canEditParametros = member?.perfil === 'administrador'
 
   // Aba ativa: simulador | ranking_setorial | historico | parametros
   const [activeTab, setActiveTab] = useState<
@@ -223,12 +234,31 @@ export default function SimuladorReformaPage() {
     }
   }
 
+  // Carrega parâmetros customizados do tenant
+  const carregarParametrosReforma = async () => {
+    if (!tenant?.id) return
+    try {
+      const [ativo, hist] = await Promise.all([
+        parametrosReformaService.getAtivo(tenant.id),
+        parametrosReformaService.listHistorico(tenant.id),
+      ])
+      setParametroAtivo(ativo)
+      setHistoricoParametros(hist)
+    } catch (err) {
+      console.error('Erro ao buscar parâmetros da reforma:', err)
+    }
+  }
+
   // Carrega diagnóstico setorial da carteira
-  const carregarRelatorioSetorial = async () => {
+  const carregarRelatorioSetorial = async (customParams?: any) => {
     if (!tenant?.id) return
     setLoadingSetorial(true)
     try {
-      const rel = await relatorioSetorialService.gerarRankingSetorialCarteira(tenant.id)
+      const rel = await relatorioSetorialService.gerarRankingSetorialCarteira(
+        tenant.id,
+        undefined,
+        customParams || parametroAtivo?.parametros_json,
+      )
       setRelatorioSetorial(rel)
     } catch (err) {
       console.error('Erro ao processar relatório setorial:', err)
@@ -243,6 +273,7 @@ export default function SimuladorReformaPage() {
   }
 
   useEffect(() => {
+    carregarParametrosReforma()
     carregarHistorico()
     carregarRelatorioSetorial()
   }, [tenant?.id])
@@ -360,10 +391,10 @@ export default function SimuladorReformaPage() {
     anoBase,
   ])
 
-  // Executa o motor de cálculo da reforma determinístico
+  // Executa o motor de cálculo da reforma determinístico utilizando parâmetros customizados se ativos
   const calculada: SimulacaoCalculada = useMemo(() => {
-    return calcularSimulacaoReforma(simulacaoInput)
-  }, [simulacaoInput])
+    return calcularSimulacaoReforma(simulacaoInput, parametroAtivo?.parametros_json)
+  }, [simulacaoInput, parametroAtivo])
 
   // Dados para os gráficos de comparação
   const dadosGraficoBarras = useMemo(() => {
@@ -609,10 +640,41 @@ export default function SimuladorReformaPage() {
             <span>Cenários Salvos ({historico.length})</span>
           </TabsTrigger>
           <TabsTrigger value="parametros" className="rounded-lg text-xs font-semibold gap-2">
-            <Info className="h-3.5 w-3.5" />
-            <span>Parâmetros Legais Vigentes</span>
+            <Sliders className="h-3.5 w-3.5" />
+            <span>Parâmetros da Reforma</span>
+            {parametroAtivo && (
+              <Badge className="bg-[#0FA3A3] text-white text-[9px] h-4 px-1 rounded-full font-bold">
+                Customizado
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
+
+        {/* Banner de transparência se parâmetros customizados estiverem em vigor */}
+        {parametroAtivo && activeTab !== 'parametros' && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-teal-700 text-white font-bold text-[10px] uppercase">
+                Parâmetros Customizados (v{parametroAtivo.versao})
+              </Badge>
+              <span className="font-semibold">Fonte: {parametroAtivo.fonte}</span>
+              <span className="text-teal-700 text-[11px] hidden sm:inline">
+                • CBS: {parametroAtivo.parametros_json.aliquotaReferenciaPlena.cbs}% | IBS:{' '}
+                {parametroAtivo.parametros_json.aliquotaReferenciaPlena.ibs}% (Total:{' '}
+                {parametroAtivo.parametros_json.aliquotaReferenciaPlena.total}%)
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('parametros')}
+              className="text-teal-900 hover:text-teal-950 hover:bg-teal-100/70 text-xs font-bold h-7"
+            >
+              Configurar
+            </Button>
+          </div>
+        )}
 
         {/* ABA 1: SIMULADOR & ANÁLISE */}
         <TabsContent value="simulador" className="space-y-6">
@@ -1498,97 +1560,17 @@ export default function SimuladorReformaPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA 3: PARÂMETROS LEGAIS VIGENTES */}
+        {/* ABA 4: PARÂMETROS DA REFORMA VERSIONADOS */}
         <TabsContent value="parametros" className="space-y-6">
-          <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
-            <CardHeader className="pb-3 border-b border-slate-100">
-              <CardTitle className="text-base font-bold text-[#1A2333]">
-                Tabela Central de Parâmetros da Transição Tributária
-              </CardTitle>
-              <CardDescription className="text-xs text-[#64748B]">
-                Normas consolidadas pela Emenda Constitucional nº 132/2023 e Lei Complementar nº
-                214/2025.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4 text-xs">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="font-bold text-[#1A2333] block text-sm">
-                    Alíquota de Referência
-                  </span>
-                  <p className="text-2xl font-black text-[#0FA3A3] mt-1">
-                    {PARAMETROS_REFORMA.aliquotaReferenciaPlena.total}%
-                  </p>
-                  <p className="text-[11px] text-[#64748B] mt-1">
-                    CBS (Federal): {PARAMETROS_REFORMA.aliquotaReferenciaPlena.cbs}% <br />
-                    IBS (Estados e Municípios): {PARAMETROS_REFORMA.aliquotaReferenciaPlena.ibs}%
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="font-bold text-[#1A2333] block text-sm">
-                    Reduções e Alíquota Zero
-                  </span>
-                  <p className="text-2xl font-black text-amber-600 mt-1">60% de Redução</p>
-                  <p className="text-[11px] text-[#64748B] mt-1">
-                    Art. 9º EC 132/23: Educação, Saúde, Medicamentos e Insumos Agropecuários. Cesta
-                    básica nacional com alíquota zero.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="font-bold text-[#1A2333] block text-sm">
-                    Simples Nacional (Sublimite)
-                  </span>
-                  <p className="text-2xl font-black text-indigo-600 mt-1">R$ 3,6 Milhões</p>
-                  <p className="text-[11px] text-[#64748B] mt-1">
-                    Redução de 50% no IBS/CBS durante a transição até 2032 para optantes até o
-                    sublimite estadual.
-                  </p>
-                </div>
-              </div>
-
-              {/* Tabela do Cronograma */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden mt-4">
-                <table className="w-full text-left divide-y divide-slate-200">
-                  <thead className="bg-slate-100 font-bold text-[10px] uppercase text-[#64748B]">
-                    <tr>
-                      <th className="py-2.5 px-3">Ano</th>
-                      <th className="py-2.5 px-3">Etapa / Evento Jurídico</th>
-                      <th className="py-2.5 px-3">CBS (%)</th>
-                      <th className="py-2.5 px-3">IBS (%)</th>
-                      <th className="py-2.5 px-3">Tributos Antigos</th>
-                      <th className="py-2.5 px-3">Regra Principal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-[11px]">
-                    {PARAMETROS_REFORMA.calendarioTransicao.map((c) => (
-                      <tr key={c.ano}>
-                        <td className="py-2.5 px-3 font-bold font-mono">{c.ano}</td>
-                        <td className="py-2.5 px-3 font-semibold text-[#1A2333]">{c.descricao}</td>
-                        <td className="py-2.5 px-3 font-mono">{c.aliquotaCBS}%</td>
-                        <td className="py-2.5 px-3 font-mono">{c.aliquotaIBS}%</td>
-                        <td className="py-2.5 px-3 font-mono">
-                          {c.fatorTributosAntigos === 0
-                            ? 'Extintos'
-                            : `${(c.fatorTributosAntigos * 100).toFixed(0)}% mantido`}
-                        </td>
-                        <td className="py-2.5 px-3 text-[#64748B]">
-                          {c.fase === 'teste' &&
-                            'Período teste, recolhimento compensável contra PIS/COFINS'}
-                          {c.fase === 'cbs_plena' &&
-                            'PIS e COFINS extintos; CBS entra em vigor integral'}
-                          {c.fase === 'graduacao' &&
-                            `Graduação de ${c.fatorIBSGraduacao * 100}% do IBS e redução proporcional de ICMS/ISS`}
-                          {c.fase === 'pleno' && 'Extinção completa de ICMS, ISS, PIS e COFINS'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <ParametrosReformaTab
+            parametroAtivo={parametroAtivo}
+            historico={historicoParametros}
+            canEdit={canEditParametros}
+            onReload={() => {
+              carregarParametrosReforma()
+              carregarRelatorioSetorial()
+            }}
+          />
         </TabsContent>
       </Tabs>
 

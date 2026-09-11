@@ -59,17 +59,38 @@ export interface SimulacaoCalculada {
   tabelaAnual: ResultadoAnoTransicao[]
   resumo: ResumoSimulacao
   parametrosUtilizados: {
-    aliquotaReferenciaPlena: typeof PARAMETROS_REFORMA.aliquotaReferenciaPlena
+    aliquotaReferenciaPlena: { cbs: number; ibs: number; total: number }
     reducaoAplicadaPercentual: number
     versaoNormativa: string
+    fonte?: string
+    isCustomizado?: boolean
   }
 }
 
 /**
  * Motor central de cálculo determinístico da Reforma Tributária (IBS/CBS)
  * Segue as regras da EC 132/2023, LC 214/2025 e cronograma 2026-2033.
+ * Suporta parâmetros customizados opcionais (parametrosCustomizados) com fallback para PARAMETROS_REFORMA.
  */
-export function calcularSimulacaoReforma(input: SimulacaoInput): SimulacaoCalculada {
+export function calcularSimulacaoReforma(
+  input: SimulacaoInput,
+  parametrosCustomizados?: {
+    versaoNormativa?: string
+    fonte?: string
+    aliquotaReferenciaPlena?: { cbs: number; ibs: number; total: number }
+    reducoes?: {
+      setoresPrioritarios60: number
+      profissoesRegulamentadas30?: number
+      cestaBasicaNacional?: number
+    }
+    simplesNacional?: {
+      sublimiteTransicional: number
+      tetoMaximoSimples?: number
+      descontoTransicaoSimplesSublimite: number
+    }
+    calendarioTransicao?: ParametrosAnoTransicao[]
+  } | null,
+): SimulacaoCalculada {
   const {
     regimeAtual,
     faturamentoAnual,
@@ -82,6 +103,34 @@ export function calcularSimulacaoReforma(input: SimulacaoInput): SimulacaoCalcul
     permanecerNoSimplesNaTransicao,
   } = input
 
+  const paramsAtivos = {
+    versaoNormativa: parametrosCustomizados?.versaoNormativa || PARAMETROS_REFORMA.versaoNormativa,
+    fonte: parametrosCustomizados?.fonte || PARAMETROS_REFORMA.fonte,
+    aliquotaReferenciaPlena:
+      parametrosCustomizados?.aliquotaReferenciaPlena || PARAMETROS_REFORMA.aliquotaReferenciaPlena,
+    reducoes: {
+      setoresPrioritarios60:
+        parametrosCustomizados?.reducoes?.setoresPrioritarios60 ??
+        PARAMETROS_REFORMA.reducoes.setoresPrioritarios60,
+      profissoesRegulamentadas30:
+        parametrosCustomizados?.reducoes?.profissoesRegulamentadas30 ??
+        PARAMETROS_REFORMA.reducoes.profissoesRegulamentadas30,
+      cestaBasicaNacional:
+        parametrosCustomizados?.reducoes?.cestaBasicaNacional ??
+        PARAMETROS_REFORMA.reducoes.cestaBasicaNacional,
+    },
+    simplesNacional: {
+      sublimiteTransicional:
+        parametrosCustomizados?.simplesNacional?.sublimiteTransicional ??
+        PARAMETROS_REFORMA.simplesNacional.sublimiteTransicional,
+      descontoTransicaoSimplesSublimite:
+        parametrosCustomizados?.simplesNacional?.descontoTransicaoSimplesSublimite ??
+        PARAMETROS_REFORMA.simplesNacional.descontoTransicaoSimplesSublimite,
+    },
+    calendarioTransicao:
+      parametrosCustomizados?.calendarioTransicao || PARAMETROS_REFORMA.calendarioTransicao,
+  }
+
   // Fator de redução de alíquota sobre o IBS/CBS
   let fatorAliquotaIBSCBS = 1.0
 
@@ -92,8 +141,8 @@ export function calcularSimulacaoReforma(input: SimulacaoInput): SimulacaoCalcul
   }
 
   if (reducaoSetorial60) {
-    // Redução de 60% prevista no art. 9º da EC 132/2023 e LC 214/2025
-    fatorAliquotaIBSCBS *= 1 - PARAMETROS_REFORMA.reducoes.setoresPrioritarios60 // 0.40
+    // Redução setorial
+    fatorAliquotaIBSCBS *= 1 - paramsAtivos.reducoes.setoresPrioritarios60
   }
 
   const reducaoPercentualFinal = Math.round((1 - fatorAliquotaIBSCBS) * 100)
@@ -105,20 +154,19 @@ export function calcularSimulacaoReforma(input: SimulacaoInput): SimulacaoCalcul
   // Insumos reais aproximados pelo percentual informado
   const baseInsumos = faturamentoAnual * (percentualCreditosInsumos / 100)
 
-  const tabelaAnual: ResultadoAnoTransicao[] = PARAMETROS_REFORMA.calendarioTransicao.map(
-    (item) => {
-      return calcularAno(
-        item,
-        regimeAtual,
-        faturamentoAnual,
-        baseInsumos,
-        fatorAliquotaIBSCBS,
-        cargaAtualReais,
-        aliquotaAtualEstimada,
-        permanecerNoSimplesNaTransicao,
-      )
-    },
-  )
+  const tabelaAnual: ResultadoAnoTransicao[] = paramsAtivos.calendarioTransicao.map((item) => {
+    return calcularAno(
+      item,
+      regimeAtual,
+      faturamentoAnual,
+      baseInsumos,
+      fatorAliquotaIBSCBS,
+      cargaAtualReais,
+      aliquotaAtualEstimada,
+      permanecerNoSimplesNaTransicao,
+      paramsAtivos.simplesNacional,
+    )
+  })
 
   // Análise de resumo e ponto de virada
   let impactoTotalAcumuladoReais = 0
@@ -173,9 +221,11 @@ export function calcularSimulacaoReforma(input: SimulacaoInput): SimulacaoCalcul
       recomendacoes,
     },
     parametrosUtilizados: {
-      aliquotaReferenciaPlena: PARAMETROS_REFORMA.aliquotaReferenciaPlena,
+      aliquotaReferenciaPlena: paramsAtivos.aliquotaReferenciaPlena,
       reducaoAplicadaPercentual: reducaoPercentualFinal,
-      versaoNormativa: PARAMETROS_REFORMA.versaoNormativa,
+      versaoNormativa: paramsAtivos.versaoNormativa,
+      fonte: paramsAtivos.fonte,
+      isCustomizado: !!parametrosCustomizados,
     },
   }
 }
@@ -189,6 +239,10 @@ function calcularAno(
   cargaAtualReais: number,
   aliquotaAtualEstimada: number,
   permanecerNoSimplesNaTransicao: boolean,
+  simplesCfg?: {
+    sublimiteTransicional: number
+    descontoTransicaoSimplesSublimite: number
+  },
 ): ResultadoAnoTransicao {
   const ano = paramAno.ano
 
@@ -196,16 +250,22 @@ function calcularAno(
   let aliqCBSNominal = paramAno.aliquotaCBS
   let aliqIBSNominal = paramAno.aliquotaIBS
 
-  // No Simples Nacional com faturamento até R$ 3.6M e opção de permanecer no regime transitório:
+  const sublimite =
+    simplesCfg?.sublimiteTransicional ?? PARAMETROS_REFORMA.simplesNacional.sublimiteTransicional
+  const descSimples =
+    simplesCfg?.descontoTransicaoSimplesSublimite ??
+    PARAMETROS_REFORMA.simplesNacional.descontoTransicaoSimplesSublimite
+
+  // No Simples Nacional com faturamento até o sublimite e opção de permanecer no regime transitório:
   const elegivelDescontoSimples =
     regimeAtual === 'simples_nacional' &&
-    faturamentoAnual <= PARAMETROS_REFORMA.simplesNacional.sublimiteTransicional &&
+    faturamentoAnual <= sublimite &&
     permanecerNoSimplesNaTransicao &&
     ano <= 2032
 
   let fatorSimplesTransicao = 1.0
   if (elegivelDescontoSimples) {
-    fatorSimplesTransicao = PARAMETROS_REFORMA.simplesNacional.descontoTransicaoSimplesSublimite // 50%
+    fatorSimplesTransicao = descSimples // ex: 50%
   }
 
   // Alíquota combinada nominal antes de créditos

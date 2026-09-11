@@ -289,7 +289,7 @@ export function RelatorioReformaModal({
             <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl flex items-start gap-2.5 text-xs text-blue-950">
               <Info className="h-4 w-4 text-blue-700 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold">Fundamentação Legal:</span>
+                <span className="font-bold">Fundamentação Legal e Fonte dos Parâmetros:</span>
                 <p className="mt-0.5 text-[11px] text-blue-900 leading-normal">
                   Cálculos elaborados com base na Emenda Constitucional nº 132/2023, Lei
                   Complementar nº 214/2025, com alíquota de referência padrão de{' '}
@@ -297,6 +297,14 @@ export function RelatorioReformaModal({
                   {parametrosUtilizados.aliquotaReferenciaPlena.cbs}% + IBS{' '}
                   {parametrosUtilizados.aliquotaReferenciaPlena.ibs}%) e escalonamento dos arts. 125
                   a 133 do ADCT.
+                  {parametrosUtilizados.fonte && (
+                    <span className="block mt-1 font-semibold text-blue-950">
+                      • Fonte Paramétrica: {parametrosUtilizados.fonte}
+                      {parametrosUtilizados.isCustomizado
+                        ? ' (Parâmetros Customizados do Escritório)'
+                        : ''}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>

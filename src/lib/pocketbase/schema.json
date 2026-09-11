@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T19:45:03.974Z",
+  "generatedAt": "2026-09-11T19:59:24.146Z",
   "collections": [
     {
       "name": "users",
@@ -4015,6 +4015,187 @@
         "CREATE INDEX idx_rank_trim_tenant ON rankings_reforma_trimestral (tenant_id)",
         "CREATE INDEX idx_rank_trim_periodo ON rankings_reforma_trimestral (tenant_id, periodo)",
         "CREATE INDEX idx_rank_trim_created ON rankings_reforma_trimestral (created DESC)"
+      ]
+    },
+    {
+      "name": "faturamentos_recorrentes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "contrato",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contratos_honorarios"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["previsto", "faturado", "pago", "cancelado"]
+        },
+        {
+          "name": "titulo_financeiro",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_financeiras"
+        },
+        {
+          "name": "motivo_cancelamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notas",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_fat_rec_tenant_comp ON faturamentos_recorrentes (tenant_id, competencia)",
+        "CREATE INDEX idx_fat_rec_contrato_comp ON faturamentos_recorrentes (contrato, competencia)",
+        "CREATE INDEX idx_fat_rec_empresa_status ON faturamentos_recorrentes (empresa, status)",
+        "CREATE INDEX idx_fat_rec_created ON faturamentos_recorrentes (created DESC)"
+      ]
+    },
+    {
+      "name": "parametros_reforma",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fonte",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao_alteracao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parametros_json",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "atualizado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_param_reforma_tenant_ativo ON parametros_reforma (tenant_id, ativo)",
+        "CREATE INDEX idx_param_reforma_tenant_versao ON parametros_reforma (tenant_id, versao)",
+        "CREATE INDEX idx_param_reforma_created ON parametros_reforma (created DESC)"
       ]
     }
   ]
