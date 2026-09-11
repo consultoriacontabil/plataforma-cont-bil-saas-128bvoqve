@@ -160,6 +160,33 @@ onRecordAfterCreateSuccess(
           ' (Status: ' +
           record.getString('status') +
           ')'
+      } else if (collectionName === 'contas_financeiras') {
+        acao = 'Título financeiro cadastrado'
+        detalhes =
+          'Título a ' +
+          record.getString('tipo') +
+          ': ' +
+          record.getString('descricao') +
+          ' (R$ ' +
+          record.getFloat('valor').toFixed(2) +
+          ')'
+      } else if (collectionName === 'contas_bancarias') {
+        acao = 'Conta bancária cadastrada'
+        detalhes =
+          'Cadastrou conta ' +
+          record.getString('banco') +
+          ' Ag. ' +
+          record.getString('agencia') +
+          ' C/C ' +
+          record.getString('conta')
+      } else if (collectionName === 'extratos_bancarios') {
+        acao = 'Linha de extrato importada'
+        detalhes =
+          'Extrato: ' +
+          record.getString('descricao') +
+          ' (R$ ' +
+          record.getFloat('valor').toFixed(2) +
+          ')'
       }
 
       log.set('acao', acao)
@@ -186,4 +213,7 @@ onRecordAfterCreateSuccess(
   'ativos',
   'baixas_ativos',
   'fechamento_competencia',
+  'contas_financeiras',
+  'contas_bancarias',
+  'extratos_bancarios',
 )

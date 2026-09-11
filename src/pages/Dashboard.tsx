@@ -31,17 +31,28 @@ import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
+import { tenantService } from '@/services/tenant'
 import { useRealtime } from '@/hooks/use-realtime'
 import { formatRelativeTimePtBr } from '@/lib/formatters'
-import type { Empresa, Documento, Workflow, FiscalRecord, WorkflowActivity } from '@/types'
+import type {
+  Empresa,
+  Documento,
+  Workflow,
+  FiscalRecord,
+  WorkflowActivity,
+  OnboardingChecklistState,
+} from '@/types'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { useToast } from '@/hooks/use-toast'
 
 export default function Dashboard() {
-  const { user, tenant } = useAuth()
+  const { user, tenant, refreshAuth } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { toast } = useToast()
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [documentos, setDocumentos] = useState<Documento[]>([])
@@ -51,9 +62,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   // Onboarding checklist state
-  const [showOnboarding, setShowOnboarding] = useState(
-    Boolean((location.state as { showOnboarding?: boolean })?.showOnboarding),
-  )
+  const [carregandoPlanoPadrao, setCarregandoPlanoPadrao] = useState(false)
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!tenant?.id) return
@@ -196,64 +206,191 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Inline Onboarding Checklist (dismissible) */}
-      {showOnboarding && (
-        <Card className="border border-teal-200 bg-gradient-to-r from-teal-50/70 to-emerald-50/70 p-4 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
-                <h4 className="text-sm font-bold text-[#0B1F3A]">
-                  Checklist de Inicialização do Escritório
-                </h4>
+      {/* Onboarding Guiado (Multi-Escritório / Novo Tenant) */}
+      {(() => {
+        const checklist: OnboardingChecklistState = tenant?.onboarding_checklist || {}
+        const isTenantNovo = empresas.length === 0 || !checklist.ignorado
+        const shouldShow =
+          (isTenantNovo ||
+            Boolean((location.state as { showOnboarding?: boolean })?.showOnboarding)) &&
+          !checklist.ignorado &&
+          !onboardingDismissed
+
+        if (!shouldShow) return null
+
+        const etapas = [
+          {
+            id: 'escritorio_dados',
+            titulo: '1. Completar dados do escritório',
+            descricao: 'Razão social, CNPJ e preferências do escritório.',
+            concluido: Boolean(tenant?.nome && (tenant?.cnpj || checklist.escritorio_dados)),
+            botao: 'Ver Perfil',
+            onClick: () => navigate('/perfil'),
+          },
+          {
+            id: 'primeira_empresa',
+            titulo: '2. Cadastrar primeira empresa cliente',
+            descricao: 'Reutilize o cadastro completo com CNPJ/CEP e regime tributário.',
+            concluido: empresas.length > 0 || Boolean(checklist.primeira_empresa),
+            botao: 'Cadastrar Empresa',
+            onClick: () => navigate('/empresas/nova'),
+          },
+          {
+            id: 'plano_contas',
+            titulo: '3. Configurar plano de contas',
+            descricao: 'Carregue o plano de contas oficial padrão brasileiro com 1 clique.',
+            concluido: Boolean(checklist.plano_contas),
+            botao: 'Carregar Plano Padrão',
+            onClick: async () => {
+              if (!tenant?.id) return
+              setCarregandoPlanoPadrao(true)
+              try {
+                const count = await tenantService.inicializarPlanoContasPadrao(tenant.id)
+                await tenantService.updateOnboarding(tenant.id, { plano_contas: true })
+                await refreshAuth()
+                toast({
+                  title: 'Plano de contas configurado!',
+                  description:
+                    count > 0
+                      ? `${count} contas do plano padrão brasileiro foram configuradas com sucesso.`
+                      : 'O plano de contas padrão já se encontrava inicializado.',
+                })
+              } catch (err) {
+                console.error(err)
+                toast({
+                  variant: 'destructive',
+                  title: 'Erro',
+                  description: 'Não foi possível carregar as contas contábeis.',
+                })
+              } finally {
+                setCarregandoPlanoPadrao(false)
+              }
+            },
+          },
+          {
+            id: 'primeiro_usuario',
+            titulo: '4. Convidar primeiro usuário da equipe',
+            descricao: 'Adicione contadores ou auxiliares para atuar nas rotinas contábeis.',
+            concluido: Boolean(checklist.primeiro_usuario),
+            botao: 'Adicionar Usuário',
+            onClick: () => navigate('/usuarios'),
+          },
+          {
+            id: 'convite_portal',
+            titulo: '5. Enviar convite do Portal do Cliente',
+            descricao: 'Conecte seus clientes empresariais para consulta de guias e tributos.',
+            concluido: Boolean(checklist.convite_portal),
+            botao: 'Portal de Acessos',
+            onClick: () => navigate('/portal/acessos'),
+          },
+        ]
+
+        const concluidas = etapas.filter((e) => e.concluido).length
+        const progresso = Math.round((concluidas / etapas.length) * 100)
+
+        const handlePular = async () => {
+          setOnboardingDismissed(true)
+          if (tenant?.id) {
+            try {
+              await tenantService.updateOnboarding(tenant.id, { ignorado: true })
+              await refreshAuth()
+            } catch {
+              /* intentionally ignored */
+            }
+          }
+        }
+
+        return (
+          <Card className="rounded-3xl border-2 border-teal-500/30 bg-gradient-to-br from-teal-50/60 via-white to-slate-50 p-5 shadow-xs">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-teal-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0FA3A3] text-white shadow-xs">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-[#1A2333]">
+                      Onboarding Guiado do Escritório
+                    </h3>
+                    <Badge className="bg-teal-100 text-teal-800 text-[10px] font-bold">
+                      {concluidas} de {etapas.length} etapas
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[#64748B]">
+                    Configure seu novo ambiente contábil para iniciar as operações com máxima
+                    conformidade.
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-[#64748B]">
-                Complete os passos fundamentais para operar com alta produtividade contábil.
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePular}
+                className="h-7 text-xs text-[#64748B] hover:text-[#1A2333]"
+              >
+                Pular por agora
+              </Button>
             </div>
-            <button
-              onClick={() => setShowOnboarding(false)}
-              className="text-[#94A3B8] hover:text-[#1A2333]"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4 text-xs">
-            <button
-              onClick={() => navigate('/empresas/nova')}
-              className="flex items-center gap-2 rounded-lg bg-white p-3 text-left font-medium shadow-xs hover:border-[#0FA3A3] border border-transparent transition-all"
-            >
-              <CheckCircle2 className="h-4 w-4 text-[#0FA3A3]" />
-              <span>1. Cadastrar 1ª Empresa</span>
-            </button>
+            <div className="mt-3 space-y-3">
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs font-semibold text-[#1A2333]">
+                  <span>Progresso de configuração</span>
+                  <span>{progresso}%</span>
+                </div>
+                <Progress value={progresso} className="h-2 bg-teal-100" />
+              </div>
 
-            <button
-              onClick={() => navigate('/documentos')}
-              className="flex items-center gap-2 rounded-lg bg-white p-3 text-left font-medium shadow-xs hover:border-[#0FA3A3] border border-transparent transition-all"
-            >
-              <CheckCircle2 className="h-4 w-4 text-[#0FA3A3]" />
-              <span>2. Subir Contrato/GED</span>
-            </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
+                {etapas.map((et) => (
+                  <div
+                    key={et.id}
+                    className={`flex flex-col justify-between p-3 rounded-xl border text-xs transition-all ${
+                      et.concluido
+                        ? 'bg-emerald-50/50 border-emerald-200'
+                        : 'bg-white border-[#E2E8F0] shadow-2xs hover:border-teal-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-[#1A2333] text-[11px]">{et.titulo}</span>
+                        {et.concluido ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 text-slate-300" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-[#64748B] line-clamp-2 leading-relaxed">
+                        {et.descricao}
+                      </p>
+                    </div>
 
-            <button
-              onClick={() => navigate('/workflow')}
-              className="flex items-center gap-2 rounded-lg bg-white p-3 text-left font-medium shadow-xs hover:border-[#0FA3A3] border border-transparent transition-all"
-            >
-              <CheckCircle2 className="h-4 w-4 text-[#0FA3A3]" />
-              <span>3. Criar Fluxo de Abertura</span>
-            </button>
-
-            <button
-              onClick={() => navigate('/rumo-agent')}
-              className="flex items-center gap-2 rounded-lg bg-white p-3 text-left font-medium shadow-xs hover:border-[#0FA3A3] border border-transparent transition-all"
-            >
-              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
-              <span>4. Falar com Rumo Agent</span>
-            </button>
-          </div>
-        </Card>
-      )}
+                    <div className="pt-2">
+                      <Button
+                        size="sm"
+                        variant={et.concluido ? 'outline' : 'default'}
+                        onClick={et.onClick}
+                        disabled={carregandoPlanoPadrao && et.id === 'plano_contas'}
+                        className={`w-full h-6 text-[10px] font-semibold rounded-lg ${
+                          et.concluido
+                            ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                            : 'bg-[#0FA3A3] text-white hover:bg-[#0C8585]'
+                        }`}
+                      >
+                        {carregandoPlanoPadrao && et.id === 'plano_contas'
+                          ? 'Carregando...'
+                          : et.concluido
+                            ? 'Concluído'
+                            : et.botao}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )
+      })()}
 
       {/* 4 KPIs Grid (4 col desktop / 2 tablet / 1 mobile) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

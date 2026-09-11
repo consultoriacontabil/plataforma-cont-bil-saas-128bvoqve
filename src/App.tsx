@@ -29,6 +29,7 @@ import MapeamentoContabilPage from '@/pages/MapeamentoContabil'
 import PatrimonioPage from '@/pages/Patrimonio'
 import FechoMensalPage from '@/pages/FechoMensal'
 import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
+import FinanceiroPage from '@/pages/Financeiro'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -55,6 +56,9 @@ export default function App() {
           <Route path="/empresas/nova" element={<EmpresaForm />} />
           <Route path="/empresas/:id" element={<EmpresaDetail />} />
           <Route path="/empresas/:id/editar" element={<EmpresaForm />} />
+
+          {/* Financeiro (P1/P2) */}
+          <Route path="/financeiro" element={<FinanceiroPage />} />
 
           {/* Core Modules */}
           <Route path="/documentos" element={<Documentos />} />

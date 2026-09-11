@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T15:08:13.972Z",
+  "generatedAt": "2026-09-11T15:21:14.447Z",
   "collections": [
     {
       "name": "users",
@@ -99,6 +99,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "onboarding_checklist",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_tenants_created ON tenants (created DESC)"]
@@ -2206,6 +2212,340 @@
       "indexes": [
         "CREATE INDEX idx_chk_itens_fechamento ON fechamento_checklist_itens (fechamento)",
         "CREATE INDEX idx_chk_itens_emp_comp ON fechamento_checklist_itens (tenant_id, empresa, competencia)"
+      ]
+    },
+    {
+      "name": "contas_bancarias",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "banco",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "agencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "conta",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "saldo_inicial",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "saldo_atual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativa",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conta_contabil",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_contas_bancarias_tenant_emp ON contas_bancarias (tenant_id, empresa)",
+        "CREATE INDEX idx_contas_bancarias_created ON contas_bancarias (created DESC)"
+      ]
+    },
+    {
+      "name": "contas_financeiras",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pagar", "receber"]
+        },
+        {
+          "name": "pessoa",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "documento_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "categoria",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_emissao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_pagamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "pago", "atrasado", "cancelado"]
+        },
+        {
+          "name": "conta_bancaria",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_bancarias"
+        },
+        {
+          "name": "lote_contabil_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_contas_fin_tenant_emp_tipo ON contas_financeiras (tenant_id, empresa, tipo)",
+        "CREATE INDEX idx_contas_fin_status ON contas_financeiras (status)",
+        "CREATE INDEX idx_contas_fin_vencimento ON contas_financeiras (data_vencimento)",
+        "CREATE INDEX idx_contas_fin_created ON contas_financeiras (created DESC)"
+      ]
+    },
+    {
+      "name": "extratos_bancarios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "conta_bancaria",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contas_bancarias"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "documento_numero",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_transacao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["credito", "debito"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "conciliado", "ignorado"]
+        },
+        {
+          "name": "titulo_conciliado",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_financeiras"
+        },
+        {
+          "name": "lote_contabil_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conciliado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conciliado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_extratos_tenant_conta ON extratos_bancarios (tenant_id, conta_bancaria)",
+        "CREATE INDEX idx_extratos_emp_status ON extratos_bancarios (empresa, status)",
+        "CREATE INDEX idx_extratos_data ON extratos_bancarios (data DESC)"
       ]
     }
   ]

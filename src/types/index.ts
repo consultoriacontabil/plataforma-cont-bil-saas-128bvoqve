@@ -10,11 +10,21 @@ export interface User extends RecordModel {
   email_notificacoes_prazo?: boolean
 }
 
+export interface OnboardingChecklistState {
+  escritorio_dados?: boolean
+  primeira_empresa?: boolean
+  plano_contas?: boolean
+  primeiro_usuario?: boolean
+  convite_portal?: boolean
+  ignorado?: boolean
+}
+
 export interface Tenant extends RecordModel {
   nome: string
   cnpj?: string
   plano: 'starter' | 'pro' | 'enterprise'
   ativo: boolean
+  onboarding_checklist?: OnboardingChecklistState
 }
 
 export interface TenantMember extends RecordModel {
@@ -507,4 +517,72 @@ export interface BalancoGrupo {
       saldo: number
     }[]
   }[]
+}
+
+// === Módulo Financeiro (P1/P2) ===
+export interface ContaBancariaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  banco: string
+  agencia: string
+  conta: string
+  saldo_inicial: number
+  saldo_atual?: number
+  ativa: boolean
+  conta_contabil?: string
+  expand?: {
+    empresa?: Empresa
+    conta_contabil?: ContaContabil
+  }
+}
+
+export type ContaFinanceiraTipo = 'pagar' | 'receber'
+export type ContaFinanceiraStatus = 'pendente' | 'pago' | 'atrasado' | 'cancelado'
+
+export interface ContaFinanceiraRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  tipo: ContaFinanceiraTipo
+  pessoa: string
+  descricao: string
+  documento_ref?: string
+  categoria?: string
+  valor: number
+  data_emissao: string
+  data_vencimento: string
+  data_pagamento?: string
+  status: ContaFinanceiraStatus
+  conta_bancaria?: string
+  lote_contabil_id?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    categoria?: ContaContabil
+    conta_bancaria?: ContaBancariaRecord
+  }
+}
+
+export type ExtratoTransacaoTipo = 'credito' | 'debito'
+export type ExtratoTransacaoStatus = 'pendente' | 'conciliado' | 'ignorado'
+
+export interface ExtratoBancarioRecord extends RecordModel {
+  tenant_id: string
+  conta_bancaria: string
+  empresa: string
+  data: string
+  descricao: string
+  documento_numero?: string
+  valor: number
+  tipo_transacao: ExtratoTransacaoTipo
+  status: ExtratoTransacaoStatus
+  titulo_conciliado?: string
+  lote_contabil_id?: string
+  conciliado_em?: string
+  conciliado_por?: string
+  expand?: {
+    conta_bancaria?: ContaBancariaRecord
+    empresa?: Empresa
+    titulo_conciliado?: ContaFinanceiraRecord
+    conciliado_por?: User
+  }
 }

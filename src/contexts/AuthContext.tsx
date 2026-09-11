@@ -15,6 +15,7 @@ interface AuthContextType {
   hasPermission: (allowedRoles: UserRole[]) => boolean
   isCliente: boolean
   refreshAuth: () => Promise<void>
+  createEscritorio: (nome: string, cnpj?: string) => Promise<Tenant>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -145,6 +146,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signIn(data.email, data.pass)
   }
 
+  const createEscritorio = async (nome: string, cnpj?: string): Promise<Tenant> => {
+    if (!user) throw new Error('Usuário não autenticado.')
+    const newTenant = await pb.collection('tenants').create<Tenant>({
+      nome: nome.trim(),
+      cnpj: cnpj?.trim() || '',
+      plano: 'starter',
+      ativo: true,
+      onboarding_checklist: {
+        escritorio_dados: true,
+        primeira_empresa: false,
+        plano_contas: false,
+        primeiro_usuario: false,
+        convite_portal: false,
+        ignorado: false,
+      },
+    })
+
+    const newMember = await pb.collection('tenant_members').create<TenantMember>({
+      user_id: user.id,
+      tenant_id: newTenant.id,
+      perfil: 'administrador',
+      status: 'ativo',
+    })
+
+    setTenants((prev) => [...prev, newTenant])
+    setTenant(newTenant)
+    setMember(newMember)
+    localStorage.setItem('rumo_current_tenant_id', newTenant.id)
+
+    return newTenant
+  }
+
   const signOut = () => {
     pb.authStore.clear()
     setUser(null)
@@ -192,6 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasPermission,
         isCliente,
         refreshAuth,
+        createEscritorio,
       }}
     >
       {children}

@@ -40,4 +40,7 @@ onRecordAfterDeleteSuccess(
   'ativos',
   'baixas_ativos',
   'fechamento_competencia',
+  'contas_financeiras',
+  'contas_bancarias',
+  'extratos_bancarios',
 )

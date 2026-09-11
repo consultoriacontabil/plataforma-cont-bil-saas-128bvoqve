@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Compass,
@@ -15,11 +15,14 @@ import {
   Download,
   AlertCircle,
   FileSpreadsheet,
+  LayoutDashboard,
+  Lock,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
 import { notificacoesService } from '@/services/notificacoes'
 import type { Empresa, Documento, ObrigacaoRecord, NotificacaoRecord, DocumentoTipo } from '@/types'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -54,6 +57,7 @@ export default function PortalClientePage() {
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [obrigacoes, setObrigacoes] = useState<ObrigacaoRecord[]>([])
   const [notificacoes, setNotificacoes] = useState<NotificacaoRecord[]>([])
+  const [fechamentos, setFechamentos] = useState<{ competencia: string; status: string }[]>([])
   const [unreadNotifs, setUnreadNotifs] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -75,14 +79,27 @@ export default function PortalClientePage() {
       const activeEmpId = selectedEmpresaId || emps[0]?.id
       if (activeEmpId) {
         setSelectedEmpresaId(activeEmpId)
-        const [docs, obs, notifs] = await Promise.all([
+        const [docs, obs, notifs, fechosRes] = await Promise.all([
           portalService.getClienteDocumentos(tenant.id, activeEmpId),
           portalService.getClienteObrigacoes(tenant.id, activeEmpId),
           notificacoesService.list(tenant.id, user.id),
+          pb
+            .collection('fechamento_competencia')
+            .getFullList({
+              filter: `tenant_id = "${tenant.id}" && empresa = "${activeEmpId}"`,
+              sort: '-competencia',
+            })
+            .catch(() => []),
         ])
         setDocumentos(docs)
         setObrigacoes(obs)
         setNotificacoes(notifs)
+        setFechamentos(
+          fechosRes.map((f) => ({
+            competencia: f.competencia,
+            status: f.status,
+          })),
+        )
         setUnreadNotifs(notifs.filter((n) => !n.lida).length)
       }
     } catch (err) {
@@ -189,6 +206,53 @@ export default function PortalClientePage() {
   }
 
   const activeEmpresa = empresas.find((e) => e.id === selectedEmpresaId)
+
+  // Cálculos do Dashboard do Cliente (Módulo 3)
+  const metricasPortal = useMemo(() => {
+    const entregues = obrigacoes.filter((o) => o.status === 'entregue').length
+    const pendentes = obrigacoes.filter((o) => o.status === 'pendente').length
+    const atrasadas = obrigacoes.filter((o) => o.status === 'atrasada').length
+    const guiasComAnexo = obrigacoes.filter((o) => Boolean(o.anexo)).length
+
+    // Próximas entregas ordenadas por vencimento
+    const now = new Date()
+    const proximas = obrigacoes
+      .filter((o) => o.status !== 'entregue')
+      .sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime())
+      .slice(0, 4)
+
+    // Mini-gráfico de obrigações últimos meses
+    const mesesMap: Record<string, { mes: string; entregues: number; pendentes: number }> = {}
+    obrigacoes.forEach((o) => {
+      const comp = o.competencia || 'Geral'
+      if (!mesesMap[comp]) {
+        mesesMap[comp] = { mes: comp, entregues: 0, pendentes: 0 }
+      }
+      if (o.status === 'entregue') {
+        mesesMap[comp].entregues++
+      } else {
+        mesesMap[comp].pendentes++
+      }
+    })
+
+    const chartData = Object.values(mesesMap).slice(-6)
+    if (chartData.length === 0) {
+      chartData.push({ mes: 'Atual', entregues: 1, pendentes: 0 })
+    }
+
+    // Status do Fechamento Contábil
+    const ultimoFecho = fechamentos[0]
+
+    return {
+      entregues,
+      pendentes,
+      atrasadas,
+      guiasComAnexo,
+      proximas,
+      chartData,
+      ultimoFecho,
+    }
+  }, [obrigacoes, fechamentos])
 
   return (
     <div className="min-h-screen bg-[#F6F7F9] text-[#1A2333]">
@@ -308,9 +372,13 @@ export default function PortalClientePage() {
           </div>
         </div>
 
-        {/* Abas Principais: Documentos e Obrigações */}
-        <Tabs defaultValue="documentos" className="w-full">
+        {/* Abas Principais: Dashboard, Documentos e Obrigações */}
+        <Tabs defaultValue="dashboard" className="w-full">
           <TabsList className="bg-slate-200/60 p-1 rounded-xl h-10 w-full sm:w-auto">
+            <TabsTrigger value="dashboard" className="gap-2 text-xs font-semibold rounded-lg">
+              <LayoutDashboard className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Dashboard do Cliente</span>
+            </TabsTrigger>
             <TabsTrigger value="documentos" className="gap-2 text-xs font-semibold rounded-lg">
               <FileText className="h-4 w-4" />
               <span>Meus Documentos ({documentos.length})</span>
@@ -320,6 +388,187 @@ export default function PortalClientePage() {
               <span>Obrigações Fiscais ({obrigacoes.length})</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* ABA DASHBOARD DO CLIENTE (MÓDULO 3) */}
+          <TabsContent value="dashboard" className="space-y-6 mt-4">
+            {/* 4 Cards de Indicadores do Cliente */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <span className="text-xs font-semibold text-[#64748B]">Obrigações do Mês</span>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-[#0FA3A3]">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-extrabold text-[#1A2333]">
+                    {metricasPortal.entregues} / {obrigacoes.length}
+                  </div>
+                  <p className="mt-1 text-[11px] text-emerald-600 font-medium">
+                    {metricasPortal.atrasadas > 0
+                      ? `${metricasPortal.atrasadas} guia(s) em atraso`
+                      : 'Todas as entregas em dia'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <span className="text-xs font-semibold text-[#64748B]">Documentos Enviados</span>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#3B82F6]">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-extrabold text-[#1A2333]">{documentos.length}</div>
+                  <p className="mt-1 text-[11px] text-[#64748B]">
+                    {documentos.filter((d) => d.status === 'processado').length} classificados pelo
+                    escritório
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <span className="text-xs font-semibold text-[#64748B]">Guias Disponíveis</span>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <Download className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-extrabold text-emerald-600">
+                    {metricasPortal.guiasComAnexo}
+                  </div>
+                  <p className="mt-1 text-[11px] text-[#64748B]">
+                    Comprovantes prontos para download
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-xs bg-slate-900 text-white">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <span className="text-xs font-semibold text-slate-400">Fechamento Mensal</span>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-teal-300">
+                    <Lock className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg font-extrabold text-white capitalize">
+                    {metricasPortal.ultimoFecho
+                      ? `${metricasPortal.ultimoFecho.competencia} - ${metricasPortal.ultimoFecho.status}`
+                      : 'Regular / Em dia'}
+                  </div>
+                  <p className="mt-1 text-[11px] text-teal-300">
+                    {metricasPortal.ultimoFecho?.status === 'aprovado'
+                      ? 'Competência aprovada e selada'
+                      : 'Rotina de fechamento em andamento'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Grid 2 Colunas: Gráfico Histórico + Próximas Entregas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Mini-Gráfico Recharts */}
+              <Card className="rounded-3xl border-[#E2E8F0] shadow-2xs p-5">
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-[#1A2333]">
+                    Obrigações Entregues vs. Pendentes
+                  </h3>
+                  <p className="text-xs text-[#64748B]">
+                    Histórico de conformidade fiscal nos últimos 6 meses
+                  </p>
+                </div>
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={metricasPortal.chartData}>
+                      <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar
+                        dataKey="entregues"
+                        name="Entregues / Pagas"
+                        fill="#0FA3A3"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="pendentes"
+                        name="Pendentes"
+                        fill="#F59E0B"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* Lista Próximas Entregas */}
+              <Card className="rounded-3xl border-[#E2E8F0] shadow-2xs p-5 flex flex-col justify-between">
+                <div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-[#1A2333]">
+                        Próximas Entregas & Vencimentos
+                      </h3>
+                      <p className="text-xs text-[#64748B]">
+                        Tributos e declarações com prazo próximo
+                      </p>
+                    </div>
+                    <Calendar className="h-5 w-5 text-[#94A3B8]" />
+                  </div>
+
+                  <div className="space-y-3">
+                    {metricasPortal.proximas.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-[#94A3B8]">
+                        Nenhuma obrigação pendente de vencimento próximo. Parabéns!
+                      </div>
+                    ) : (
+                      metricasPortal.proximas.map((pr) => (
+                        <div
+                          key={pr.id}
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                        >
+                          <div>
+                            <span className="font-bold text-[#1A2333] block">{pr.tipo}</span>
+                            <span className="text-[11px] text-[#64748B]">
+                              Competência: {pr.competencia}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-semibold text-amber-700 block">
+                              Vence {formatDatePtBr(pr.vencimento)}
+                            </span>
+                            {pr.valor && (
+                              <span className="font-mono text-[11px] text-[#1A2333]">
+                                R$ {pr.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <Button
+                    onClick={() => {
+                      const tabTrig = document.querySelector(
+                        '[data-state="inactive"][value="obrigacoes"]',
+                      ) as HTMLElement
+                      tabTrig?.click()
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-[#0FA3A3] hover:text-[#0C8585] p-0 h-auto font-semibold"
+                  >
+                    Ver todas as obrigações →
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </TabsContent>
 
           {/* ABA DOCUMENTOS (Upload GED Drag and drop + Lista) */}
           <TabsContent value="documentos" className="space-y-6 mt-4">

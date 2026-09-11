@@ -138,6 +138,23 @@ onRecordAfterUpdateSuccess(
           record.getString('competencia') +
           ' alterada para status: ' +
           record.getString('status')
+      } else if (collectionName === 'contas_financeiras') {
+        acao = 'Atualização de título financeiro'
+        detalhes =
+          'Título ' +
+          record.getString('descricao') +
+          ' alterado para status ' +
+          record.getString('status')
+      } else if (collectionName === 'contas_bancarias') {
+        acao = 'Atualização de conta bancária'
+        detalhes = 'Atualizou dados da conta ' + record.getString('banco')
+      } else if (collectionName === 'extratos_bancarios') {
+        acao = 'Conciliação de extrato'
+        detalhes =
+          'Extrato ' +
+          record.getString('descricao') +
+          ' alterado para status ' +
+          record.getString('status')
       }
 
       log.set('acao', acao)
@@ -164,4 +181,7 @@ onRecordAfterUpdateSuccess(
   'ativos',
   'baixas_ativos',
   'fechamento_competencia',
+  'contas_financeiras',
+  'contas_bancarias',
+  'extratos_bancarios',
 )

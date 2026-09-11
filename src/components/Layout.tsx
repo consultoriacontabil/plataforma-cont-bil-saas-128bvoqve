@@ -28,7 +28,19 @@ import {
   CheckSquare,
   PieChart,
   Boxes,
+  Wallet,
+  Plus,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
@@ -51,12 +63,19 @@ import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 
 export default function Layout() {
-  const { user, tenant, tenants, member, signOut, switchTenant } = useAuth()
+  const { user, tenant, tenants, member, signOut, switchTenant, createEscritorio } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { toast } = useToast()
 
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Dialog Criar Novo Escritório
+  const [modalNovoEscritorioOpen, setModalNovoEscritorioOpen] = useState(false)
+  const [nomeNovoEscritorio, setNomeNovoEscritorio] = useState('')
+  const [cnpjNovoEscritorio, setCnpjNovoEscritorio] = useState('')
+  const [criandoEscritorio, setCriandoEscritorio] = useState(false)
 
   // Global search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -116,6 +135,7 @@ export default function Layout() {
     if (path.startsWith('/empresas/')) return 'Detalhes da Empresa'
     if (path.startsWith('/empresas')) return 'Empresas'
     if (path.startsWith('/documentos')) return 'Documentos & GED'
+    if (path.startsWith('/financeiro')) return 'Financeiro & Conciliação'
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
@@ -243,6 +263,10 @@ export default function Layout() {
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
         { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
       ],
+    },
+    {
+      group: 'FINANCEIRO',
+      items: [{ label: 'Contas & Conciliação', to: '/financeiro', icon: Wallet }],
     },
     {
       group: 'CONTÁBIL',
@@ -799,6 +823,19 @@ export default function Layout() {
                   <Users className="h-3.5 w-3.5 text-[#64748B]" />
                   <span>Gerenciar Usuários</span>
                 </DropdownMenuItem>
+                {member?.perfil === 'administrador' && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setNomeNovoEscritorio('')
+                      setCnpjNovoEscritorio('')
+                      setModalNovoEscritorioOpen(true)
+                    }}
+                    className="cursor-pointer text-xs flex items-center gap-2 text-[#0FA3A3] focus:text-[#0FA3A3]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Novo Escritório</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={signOut}
@@ -832,6 +869,88 @@ export default function Layout() {
           </div>
         </footer>
       </div>
+
+      {/* DIÁLOGO: NOVO ESCRITÓRIO (MULTI-TENANT) */}
+      <Dialog open={modalNovoEscritorioOpen} onOpenChange={setModalNovoEscritorioOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#1A2333]">
+              Cadastrar Novo Escritório Contábil
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Crie uma organização independente com isolamento total de dados, empresas e auditoria.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!nomeNovoEscritorio.trim()) return
+              setCriandoEscritorio(true)
+              try {
+                const novo = await createEscritorio(nomeNovoEscritorio, cnpjNovoEscritorio)
+                toast({
+                  title: 'Escritório criado com sucesso!',
+                  description: `Você foi conectado ao tenant ${novo.nome}.`,
+                })
+                setModalNovoEscritorioOpen(false)
+                navigate('/dashboard', { replace: true, state: { showOnboarding: true } })
+              } catch (err) {
+                console.error('Erro ao criar novo escritório:', err)
+                toast({
+                  variant: 'destructive',
+                  title: 'Erro ao criar escritório',
+                  description: 'Não foi possível cadastrar a nova organização.',
+                })
+              } finally {
+                setCriandoEscritorio(false)
+              }
+            }}
+            className="space-y-4 py-2 text-xs"
+          >
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Nome do Escritório / Razão Social *</Label>
+              <Input
+                required
+                value={nomeNovoEscritorio}
+                onChange={(e) => setNomeNovoEscritorio(e.target.value)}
+                placeholder="Ex: Prime Contabilidade & BPO Ltda"
+                className="h-9 rounded-xl border-[#E2E8F0] text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">CNPJ do Escritório (Opcional)</Label>
+              <Input
+                value={cnpjNovoEscritorio}
+                onChange={(e) => setCnpjNovoEscritorio(e.target.value)}
+                placeholder="00.000.000/0001-00"
+                className="h-9 rounded-xl border-[#E2E8F0] text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setModalNovoEscritorioOpen(false)}
+                className="rounded-xl text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={criandoEscritorio || !nomeNovoEscritorio.trim()}
+                className="rounded-xl bg-[#0FA3A3] text-white hover:bg-[#0C8585] text-xs"
+              >
+                {criandoEscritorio ? 'Criando organização...' : 'Criar e Acessar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
