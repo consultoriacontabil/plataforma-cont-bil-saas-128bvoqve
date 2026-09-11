@@ -23,6 +23,7 @@ import {
   GitCompare,
   DownloadCloud,
   Check,
+  FileSpreadsheet,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -77,6 +78,7 @@ import {
 } from '@/lib/reformaTributaria/calculos'
 import { RelatorioReformaModal } from '@/components/RelatorioReformaModal'
 import { ComparadorCenariosModal } from '@/components/ComparadorCenariosModal'
+import { ApresentacaoExecutivaModal } from '@/components/ApresentacaoExecutivaModal'
 import { RankingSetorialTab } from '@/components/RankingSetorialTab'
 import { relatorioSetorialService, RelatorioSetorialCarteira } from '@/services/relatorioSetorial'
 import {
@@ -119,6 +121,7 @@ export default function SimuladorReformaPage() {
 
   // Modal Relatório Imprimível
   const [modalRelatorioOpen, setModalRelatorioOpen] = useState(false)
+  const [modalApresentacaoExecutivaOpen, setModalApresentacaoExecutivaOpen] = useState(false)
 
   // Modal Comparador de Cenários Lado a Lado
   const [modalComparadorOpen, setModalComparadorOpen] = useState(false)
@@ -564,11 +567,23 @@ export default function SimuladorReformaPage() {
           <Button
             type="button"
             size="sm"
-            onClick={() => setModalRelatorioOpen(true)}
+            onClick={() => setModalApresentacaoExecutivaOpen(true)}
             className="gap-2 rounded-xl text-xs font-semibold h-9 bg-[#123B6D] hover:bg-[#0B1F3A] text-white shadow-sm"
+            title="Dossiê formal para reunião executiva com o cliente"
           >
             <Printer className="h-4 w-4" />
-            <span>Relatório para o Cliente</span>
+            <span>Apresentação Executiva</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModalRelatorioOpen(true)}
+            className="gap-2 rounded-xl text-xs font-semibold h-9 border-[#E2E8F0]"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-[#64748B]" />
+            <span>Relatório Completo</span>
           </Button>
         </div>
       </div>
@@ -1334,6 +1349,10 @@ export default function SimuladorReformaPage() {
             loading={loadingSetorial}
             onRecarregar={carregarRelatorioSetorial}
             tenantNome={tenant?.nome}
+            tenantId={tenant?.id}
+            usuarioId={user?.id}
+            canExecute={user?.perfil === 'administrador' || user?.perfil === 'contador'}
+            crcEscritorio="CRC/SP nº 2SP034821/O"
             onAbrirSimulacaoEmpresa={(empresaId) => {
               handleSelecionarEmpresa(empresaId)
               setActiveTab('simulador')
@@ -1662,6 +1681,60 @@ export default function SimuladorReformaPage() {
         onOpenChange={setModalRelatorioOpen}
         calculada={calculada}
         tituloRelatorio={tituloSimulacao || `Parecer Tributário - ${razaoSocial}`}
+      />
+
+      {/* MODAL APRESENTAÇÃO EXECUTIVA INDIVIDUAL */}
+      <ApresentacaoExecutivaModal
+        open={modalApresentacaoExecutivaOpen}
+        onOpenChange={setModalApresentacaoExecutivaOpen}
+        empresa={{
+          empresaId: selectedEmpresaId,
+          razaoSocial: razaoSocial || 'Empresa em Análise',
+          nomeFantasia: empresas.find((e) => e.id === selectedEmpresaId)?.nome_fantasia || '',
+          cnpj: empresas.find((e) => e.id === selectedEmpresaId)?.cnpj || '00.000.000/0001-00',
+          regime: regimeAtual,
+          porte: (empresas.find((e) => e.id === selectedEmpresaId)?.porte as any) || 'demais',
+          setor: setorAtividade,
+          setorNome: SETORES_CONFIG[setorAtividade]?.nome || 'Atividade Geral',
+          cnaeDetectado: empresas.find((e) => e.id === selectedEmpresaId)?.cnae_principal || '',
+          faturamentoBase: faturamentoAnual,
+          origemFaturamento: origemReceitaRealInfo ? 'contabil_real' : 'porte_declarado',
+          origemDescricao: origemReceitaRealInfo
+            ? `Lançamentos Contábeis (${origemReceitaRealInfo.periodo})`
+            : 'Informado Manualmente na Simulação',
+          dadosSuficientes: faturamentoAnual > 0,
+          tratamentoFavorecido: reducaoSetorial60,
+          tratamentoBadge: reducaoSetorial60
+            ? 'Redução 60% (LC 214/25)'
+            : regimeAtual === 'simples_nacional'
+              ? 'Simples 50%'
+              : 'Regime Geral',
+          percentualCreditos: percentualCreditosInsumos,
+          cargaAtualReais: (faturamentoAnual * aliquotaAtualEstimada) / 100,
+          aliquotaAtualEfetiva: aliquotaAtualEstimada,
+          carga2033Reais:
+            calculada.tabelaAnual.find((t) => t.ano === 2033)?.cargaProjetadaIBSCBSReais || 0,
+          aliquota2033Efetiva:
+            faturamentoAnual > 0
+              ? Math.round(
+                  ((calculada.tabelaAnual.find((t) => t.ano === 2033)?.cargaProjetadaIBSCBSReais ||
+                    0) /
+                    faturamentoAnual) *
+                    100 *
+                    10,
+                ) / 10
+              : 0,
+          aliquota2033NominalCombinada:
+            calculada.tabelaAnual.find((t) => t.ano === 2033)?.aliquotaNominalCombinada || 26.5,
+          impacto2033Reais: calculada.tabelaAnual.find((t) => t.ano === 2033)?.diferencaReais || 0,
+          variacao2033Percentual:
+            calculada.tabelaAnual.find((t) => t.ano === 2033)?.diferencaPercentual || 0,
+          impactoAcumuladoReais: calculada.resumo.impactoTotalAcumuladoReais,
+          mediaVariacaoPercentual: calculada.resumo.mediaVariacaoPercentual,
+          calculada: calculada,
+        }}
+        tenantNome={tenant?.nome}
+        crcEscritorio="CRC/SP nº 2SP034821/O"
       />
     </div>
   )

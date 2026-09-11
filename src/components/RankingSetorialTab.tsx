@@ -52,12 +52,18 @@ import type {
 import { relatorioSetorialService } from '@/services/relatorioSetorial'
 import { SETORES_CONFIG, SetorAtividade } from '@/lib/reformaTributaria/parametros'
 import { RelatorioSetorialModal } from './RelatorioSetorialModal'
+import { ApresentacaoExecutivaModal } from './ApresentacaoExecutivaModal'
+import { PainelMonitoramentoTrimestral } from './PainelMonitoramentoTrimestral'
 
 interface RankingSetorialTabProps {
   relatorio: RelatorioSetorialCarteira | null
   loading: boolean
   onRecarregar: () => void
   tenantNome?: string
+  tenantId?: string
+  usuarioId?: string
+  canExecute?: boolean
+  crcEscritorio?: string
   onAbrirSimulacaoEmpresa?: (empresaId: string) => void
 }
 
@@ -66,6 +72,10 @@ export function RankingSetorialTab({
   loading,
   onRecarregar,
   tenantNome,
+  tenantId,
+  usuarioId,
+  canExecute,
+  crcEscritorio,
   onAbrirSimulacaoEmpresa,
 }: RankingSetorialTabProps) {
   // Filtros locais
@@ -78,6 +88,11 @@ export function RankingSetorialTab({
 
   // Modal de impressão do relatório setorial
   const [modalImprimirOpen, setModalImprimirOpen] = useState(false)
+
+  // Modal de apresentação executiva individual ao cliente
+  const [empresaApresentacao, setEmpresaApresentacao] = useState<EmpresaImpactoSetorial | null>(
+    null,
+  )
 
   const formatBRL = (val: number) => {
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -224,6 +239,17 @@ export function RankingSetorialTab({
 
   return (
     <div className="space-y-6">
+      {/* SEÇÃO 1: PAINEL DE MONITORAMENTO TRIMESTRAL */}
+      {tenantId && (
+        <PainelMonitoramentoTrimestral
+          tenantId={tenantId}
+          tenantNome={tenantNome}
+          usuarioId={usuarioId}
+          canExecute={canExecute}
+          onAnaliseConcluida={onRecarregar}
+        />
+      )}
+
       {/* BARRA SUPERIOR DE AÇÕES & ATUALIZAÇÃO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs">
         <div className="flex items-center gap-3">
@@ -739,17 +765,31 @@ export function RankingSetorialTab({
 
                       {/* Ações */}
                       <td className="py-3 px-4 text-center">
-                        {onAbrirSimulacaoEmpresa && (
+                        <div className="flex items-center justify-center gap-1.5">
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            onClick={() => onAbrirSimulacaoEmpresa(empresa.empresaId)}
-                            className="h-7 px-2 text-xs font-semibold text-[#0FA3A3] hover:text-[#0b7d7d] hover:bg-teal-50 rounded-lg"
+                            onClick={() => setEmpresaApresentacao(empresa)}
+                            className="h-7 px-2.5 text-[11px] font-semibold text-[#123B6D] hover:bg-slate-100 border-[#E2E8F0] rounded-lg gap-1"
+                            title="Gerar Dossiê / Apresentação Executiva em PDF"
                           >
-                            Simular
+                            <Printer className="h-3 w-3 text-[#0FA3A3]" />
+                            <span>Apresentação</span>
                           </Button>
-                        )}
+
+                          {onAbrirSimulacaoEmpresa && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onAbrirSimulacaoEmpresa(empresa.empresaId)}
+                              className="h-7 px-2 text-xs font-semibold text-[#0FA3A3] hover:text-[#0b7d7d] hover:bg-teal-50 rounded-lg"
+                            >
+                              Simular
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -766,6 +806,15 @@ export function RankingSetorialTab({
         onOpenChange={setModalImprimirOpen}
         relatorio={relatorio}
         tenantNome={tenantNome}
+      />
+
+      {/* MODAL DE APRESENTAÇÃO EXECUTIVA INDIVIDUAL PARA O CLIENTE */}
+      <ApresentacaoExecutivaModal
+        open={!!empresaApresentacao}
+        onOpenChange={(open) => !open && setEmpresaApresentacao(null)}
+        empresa={empresaApresentacao}
+        tenantNome={tenantNome}
+        crcEscritorio={crcEscritorio}
       />
     </div>
   )

@@ -901,6 +901,40 @@ export interface ContratoHonorarioRecord extends RecordModel {
   }
 }
 
+// === Monitoramento Trimestral do Ranking Setorial da Reforma Tributária ===
+export interface AlertaVariacaoRanking {
+  cnpj: string
+  razaoSocial: string
+  nomeFantasia?: string
+  impactoAnteriorReais: number
+  impactoNovoReais: number
+  diferencaReais: number
+  diferencaPercentual: number
+  tipoVariacao: 'aumento' | 'reducao'
+  causaProvavel: string
+}
+
+export interface RankingTrimestralRecord extends RecordModel {
+  tenant_id: string
+  periodo: string // ex: "2026-T1"
+  ano: number
+  trimestre: number
+  data_execucao?: string
+  executado_por_tipo: 'cron_trimestral' | 'manual_usuario'
+  executado_por?: string
+  total_empresas: number
+  total_suficientes?: number
+  faturamento_total?: number
+  impacto_total_acumulado?: number
+  variacao_media_percentual?: number
+  resultado_json?: Record<string, unknown>
+  alertas_variacao_json?: AlertaVariacaoRanking[]
+  versao_normativa?: string
+  expand?: {
+    executado_por?: User
+  }
+}
+
 // WhatsApp Web Assistant Types
 export type StatusCapturaLead = 'capturado' | 'empresa_criada' | 'empresa_vinculada' | 'descartado'
 
