@@ -10,6 +10,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
+  UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -18,8 +20,22 @@ import {
   EmpresaCertificadoSection,
   type CertificadoFormState,
 } from '@/components/EmpresaCertificadoSection'
+import { CadastroAssistidoModal } from '@/components/CadastroAssistidoModal'
+import { PainelConsistenciaCard } from '@/components/PainelConsistenciaCard'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { maskCnpj, maskCep, maskPhone, isValidCnpj } from '@/lib/formatters'
-import type { Empresa, EmpresaRegime, EmpresaPorte, EmpresaStatus } from '@/types'
+import { validarConsistenciaCadastro } from '@/lib/extracaoDocumentos'
+import { auditService } from '@/services/audit'
+import type { Empresa, EmpresaRegime, EmpresaPorte, EmpresaStatus, AlertaValidacao } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,6 +93,13 @@ export default function EmpresaForm() {
   const [saving, setSaving] = useState(false)
   const [lookingUpCep, setLookingUpCep] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Estado para Cadastro Assistido por Documentos
+  const [assistidoModalOpen, setAssistidoModalOpen] = useState(false)
+  const [confirmarInconsistenciasOpen, setConfirmarInconsistenciasOpen] = useState(false)
+  const [inconsistenciasParaConfirmar, setInconsistenciasParaConfirmar] = useState<
+    AlertaValidacao[]
+  >([])
 
   // Certificado digital state
   const [certData, setCertData] = useState<CertificadoFormState>({
@@ -214,6 +237,11 @@ export default function EmpresaForm() {
     }
   }
 
+  // Validação dinâmica e alertas
+  const alertasAtuais = React.useMemo(() => {
+    return validarConsistenciaCadastro(formData, {})
+  }, [formData])
+
   const validate = () => {
     const errs: Record<string, string> = {}
     if (!formData.razao_social?.trim()) {
@@ -228,13 +256,49 @@ export default function EmpresaForm() {
     return Object.keys(errs).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Focar campo específico
+  const focarCampo = (campo: string) => {
+    const el = document.getElementById(campo)
+    if (el) {
+      el.focus()
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
+
+  // Ação ao aplicar dados do assistente
+  const handleAplicarDadosAssistido = (dadosExtraidos: Partial<Empresa>) => {
+    setFormData((prev) => {
+      const atualizado = { ...prev }
+      Object.entries(dadosExtraidos).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          // Aplicar máscara se for CNPJ ou CEP
+          if (k === 'cnpj') {
+            atualizado.cnpj = maskCnpj(String(v))
+          } else if (k === 'cep') {
+            atualizado.cep = maskCep(String(v))
+          } else if (k === 'telefone') {
+            atualizado.telefone = maskPhone(String(v))
+          } else {
+            ;(atualizado as Record<string, unknown>)[k] = v
+          }
+        }
+      })
+      return atualizado
+    })
+
+    // Se veio CEP preenchido, dispara preenchimento de endereço
+    if (dadosExtraidos.cep) {
+      handleCepChange(dadosExtraidos.cep)
+    }
+  }
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     if (!validate()) {
       toast({
         variant: 'destructive',
         title: 'Verifique o formulário',
-        description: 'Existem campos com preenchimento incorreto.',
+        description: 'Existem campos obrigatórios com preenchimento incorreto.',
       })
       return
     }
@@ -245,6 +309,16 @@ export default function EmpresaForm() {
         title: 'Escritório não selecionado',
         description: 'Faça login novamente para vincular ao tenant.',
       })
+      return
+    }
+
+    // Checar se há inconsistências bloqueantes ou alertas sérios que exigem confirmação explícita
+    const inconsistenciasCriticas = alertasAtuais.filter(
+      (a) => a.severidade === 'bloqueante' || a.categoria === 'inconsistencia',
+    )
+    if (inconsistenciasCriticas.length > 0 && !confirmarInconsistenciasOpen) {
+      setInconsistenciasParaConfirmar(inconsistenciasCriticas)
+      setConfirmarInconsistenciasOpen(true)
       return
     }
 
@@ -263,6 +337,19 @@ export default function EmpresaForm() {
       } else {
         const created = await empresasService.create(payload)
         empresaIdSalva = created.id
+      }
+
+      // Se havia inconsistências confirmadas pelo usuário, registrar na auditoria
+      if (inconsistenciasParaConfirmar.length > 0 && empresaIdSalva) {
+        await auditService.log(
+          tenant.id,
+          member?.user_id || 'system',
+          'Confirmação de inconsistências no cadastro',
+          'empresas',
+          empresaIdSalva,
+          `Usuário optou por salvar com ${inconsistenciasParaConfirmar.length} inconsistência(s): ` +
+            inconsistenciasParaConfirmar.map((i) => i.titulo).join(', '),
+        )
       }
 
       // Persistir dados do Certificado Digital se preenchidos
@@ -352,13 +439,24 @@ export default function EmpresaForm() {
           <Button
             type="button"
             variant="outline"
+            onClick={() => setAssistidoModalOpen(true)}
+            className="gap-2 text-xs h-9 rounded-xl border-[#0FA3A3] text-[#0FA3A3] hover:bg-[#F0FDFA]"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-[#0FA3A3]" />
+            <span className="hidden sm:inline">Preenchimento com Documentos</span>
+            <span className="sm:hidden">Documentos</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => navigate('/empresas')}
             className="text-xs h-9 rounded-xl"
           >
             Cancelar
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={saving}
             className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 shadow-xs"
           >
@@ -377,15 +475,66 @@ export default function EmpresaForm() {
         </div>
       </div>
 
+      {/* Banner / Card para Cadastro Assistido se formulário estiver em branco */}
+      {!formData.razao_social && !formData.cnpj && (
+        <Card className="rounded-2xl border-dashed border-[#0FA3A3]/40 bg-linear-to-r from-[#F0FDFA] to-white p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#0FA3A3]/10 text-[#0FA3A3] flex items-center justify-center shrink-0">
+                <UploadCloud className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-[#1A2333]">
+                  Quer agilizar o preenchimento da empresa?
+                </h3>
+                <p className="text-[11px] text-[#64748B]">
+                  Envie o Cartão CNPJ ou Contrato Social para extrair Razão Social, CNPJ, CNAE,
+                  endereço e sócios automaticamente.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setAssistidoModalOpen(true)}
+              className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-8 px-4 shrink-0 shadow-xs"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Usar Cadastro Assistido</span>
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Painel de Consistência e Alertas Dinâmicos */}
+      <PainelConsistenciaCard
+        alertas={alertasAtuais}
+        onFocarCampo={focarCampo}
+        onAbrirUploadAssistido={() => setAssistidoModalOpen(true)}
+      />
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section 1: Dados Cadastrais */}
         <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
           <CardHeader className="pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-[#0FA3A3]" />
-              <CardTitle className="text-sm font-bold text-[#1A2333]">
-                1. Dados Cadastrais & Tributação
-              </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-[#0FA3A3]" />
+                <CardTitle className="text-sm font-bold text-[#1A2333]">
+                  1. Dados Cadastrais & Tributação
+                </CardTitle>
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setAssistidoModalOpen(true)}
+                className="text-xs h-7 gap-1 text-[#0FA3A3] hover:text-[#0C8585] p-1"
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>Upload de Documentos</span>
+              </Button>
             </div>
             <CardDescription className="text-xs text-[#64748B]">
               Identificação formal da pessoa jurídica e enquadramento fiscal
@@ -797,6 +946,113 @@ export default function EmpresaForm() {
           </Button>
         </div>
       </form>
+
+      {/* Modal do Cadastro Assistido por Documentos */}
+      <CadastroAssistidoModal
+        open={assistidoModalOpen}
+        onOpenChange={setAssistidoModalOpen}
+        formAtual={formData}
+        empresaId={id}
+        tenant={tenant}
+        usuario={member?.expand?.user_id || null}
+        onAplicarDados={handleAplicarDadosAssistido}
+        onFocarCampo={focarCampo}
+      />
+
+      {/* Modal de Confirmação de Inconsistências Bloqueantes / Alertas */}
+      <AlertDialog
+        open={confirmarInconsistenciasOpen}
+        onOpenChange={setConfirmarInconsistenciasOpen}
+      >
+        <AlertDialogContent className="rounded-2xl max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <AlertCircle className="h-5 w-5" />
+              <AlertDialogTitle className="text-base font-bold text-[#1A2333]">
+                Confirmar gravação com inconsistências
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-xs text-[#64748B] space-y-2 pt-2">
+              <p>
+                Foram identificadas{' '}
+                <strong>{inconsistenciasParaConfirmar.length} inconsistência(s)</strong> nos dados
+                informados:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-slate-700 font-medium">
+                {inconsistenciasParaConfirmar.map((inc) => (
+                  <li key={inc.id}>{inc.titulo}</li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-[#64748B] pt-1">
+                Essa ação será registrada no histórico de auditoria do escritório com seu usuário.
+                Deseja salvar mesmo assim?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 pt-2">
+            <AlertDialogCancel className="text-xs h-9 rounded-xl">
+              Voltar e Corrigir
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmarInconsistenciasOpen(false)
+                // Força submissão
+                setSaving(true)
+                const payload: Partial<Empresa> = {
+                  ...formData,
+                  tenant_id: tenant?.id || '',
+                  cnpj: formData.cnpj?.replace(/\D/g, '') || '',
+                  data_abertura: formData.data_abertura
+                    ? `${formData.data_abertura} 00:00:00`
+                    : undefined,
+                }
+                const salvarExec = async () => {
+                  try {
+                    let empresaIdSalva = id
+                    if (isEditing && id) {
+                      await empresasService.update(id, payload)
+                    } else {
+                      const created = await empresasService.create(payload)
+                      empresaIdSalva = created.id
+                    }
+
+                    if (empresaIdSalva && tenant?.id) {
+                      await auditService.log(
+                        tenant.id,
+                        member?.user_id || 'system',
+                        'Confirmação de inconsistências no cadastro',
+                        'empresas',
+                        empresaIdSalva,
+                        `Usuário confirmou salvamento com ${inconsistenciasParaConfirmar.length} inconsistência(s): ` +
+                          inconsistenciasParaConfirmar.map((i) => i.titulo).join(', '),
+                      )
+                    }
+
+                    toast({
+                      title: isEditing ? 'Empresa atualizada!' : 'Empresa cadastrada!',
+                      description: 'Gravado com registro de auditoria das inconsistências aceitas.',
+                    })
+                    navigate(`/empresas/${empresaIdSalva}`)
+                  } catch (err) {
+                    console.error(err)
+                    toast({
+                      variant: 'destructive',
+                      title: 'Erro ao persistir',
+                      description: 'Não foi possível gravar os dados da empresa.',
+                    })
+                  } finally {
+                    setSaving(false)
+                  }
+                }
+                salvarExec()
+              }}
+              className="text-xs h-9 rounded-xl bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Confirmar e Salvar Assim Mesmo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

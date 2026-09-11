@@ -934,3 +934,58 @@ export interface WhatsAppTemplateRecord extends RecordModel {
   conteudo: string
   ativo: boolean
 }
+
+// === Módulo Cadastro Assistido por Documentos ===
+export type DocumentoCadastroTipo =
+  | 'cartao_cnpj'
+  | 'contrato_social'
+  | 'ficha_cadastral'
+  | 'cpf_socio'
+  | 'comprovante_endereco'
+  | 'declaracao_ir'
+  | 'outro'
+
+export interface SocioExtraido {
+  nome: string
+  cpf?: string
+  qualificacao?: string
+  participacao?: string
+}
+
+export interface CampoExtraidoItem {
+  campo: string
+  rotulo: string
+  valor: string
+  valorOriginal?: string
+  origemDoc: string
+  confianca: 'alta' | 'media' | 'baixa'
+  status: 'aceito' | 'rejeitado' | 'editado'
+}
+
+export type AlertaSeveridade = 'bloqueante' | 'inconsistencia' | 'ausencia' | 'atencao'
+
+export interface AlertaValidacao {
+  id: string
+  severidade: AlertaSeveridade
+  categoria: 'inconsistencia' | 'ausencia' | 'atencao'
+  campoRelacionado?: string
+  titulo: string
+  mensagem: string
+  sugestao?: string
+}
+
+export interface EmpresaCadastroAssistidoRecord extends RecordModel {
+  tenant_id: string
+  empresa?: string
+  arquivo_nome?: string
+  arquivo?: string
+  tipo_documento?: DocumentoCadastroTipo
+  campos_extraidos?: Record<string, unknown>
+  alertas?: AlertaValidacao[]
+  acoes?: Record<string, unknown>
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    criado_por?: User
+  }
+}

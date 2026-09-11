@@ -261,6 +261,12 @@ onRecordAfterCreateSuccess(
           record.getString('emissor') +
           ') - Titular: ' +
           record.getString('titular')
+      } else if (collectionName === 'empresa_cadastro_assistido') {
+        acao = 'Cadastro assistido por documentos'
+        detalhes =
+          'Processou documento ' +
+          (record.getString('arquivo_nome') || 'avulso') +
+          ' para extração e pré-preenchimento cadastral'
       }
 
       log.set('acao', acao)
@@ -298,4 +304,5 @@ onRecordAfterCreateSuccess(
   'assinaturas_demonstrativos',
   'contratos_honorarios',
   'certificados_digitais',
+  'empresa_cadastro_assistido',
 )
