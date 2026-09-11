@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:13:27.595Z",
+  "generatedAt": "2026-09-11T16:51:24.279Z",
   "collections": [
     {
       "name": "users",
@@ -2981,6 +2981,131 @@
         "CREATE INDEX idx_imp_tipo_status ON impostos_retidos (tipo, status)",
         "CREATE INDEX idx_imp_vencimento ON impostos_retidos (vencimento)",
         "CREATE INDEX idx_imp_created ON impostos_retidos (created DESC)"
+      ]
+    },
+    {
+      "name": "pre_lancamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "documento",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "documentos"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "debito_sugerido",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "credito_sugerido",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plano_contas"
+        },
+        {
+          "name": "valor_sugerido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "historico_sugerido",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "confianca",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "aceito", "rejeitado", "convertido"]
+        },
+        {
+          "name": "motivo_rejeicao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lote_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_processamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "processado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pre_lanc_tenant_emp_comp ON pre_lancamentos (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_pre_lanc_status ON pre_lancamentos (status)",
+        "CREATE INDEX idx_pre_lanc_confianca ON pre_lancamentos (confianca)",
+        "CREATE INDEX idx_pre_lanc_doc ON pre_lancamentos (documento)",
+        "CREATE INDEX idx_pre_lanc_created ON pre_lancamentos (created DESC)"
       ]
     }
   ]

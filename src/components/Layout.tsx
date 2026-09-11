@@ -145,6 +145,7 @@ export default function Layout() {
     if (path.startsWith('/departamento-pessoal')) return 'Departamento Pessoal (DP)'
     if (path.startsWith('/impostos-retidos')) return 'Gestão de Impostos Retidos'
     if (path.startsWith('/contabil/lancamentos')) return 'Lançamentos Contábeis'
+    if (path.startsWith('/contabil/pre-lancamento')) return 'Pré-Lançamento Inteligente'
     if (path.startsWith('/contabil/balancete')) return 'Balancete de Verificação'
     if (path.startsWith('/contabil/mapeamento')) return 'Mapeamento Contábil Automático'
     if (path.startsWith('/patrimonio')) return 'Patrimônio & Gestão de Ativos'
@@ -281,6 +282,7 @@ export default function Layout() {
       items: [
         { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
         { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
+        { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },
         { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
         { label: 'DRE & Balanço', to: '/relatorios-contabeis', icon: PieChart },
         { label: 'Patrimônio (Ativos)', to: '/patrimonio', icon: Boxes },

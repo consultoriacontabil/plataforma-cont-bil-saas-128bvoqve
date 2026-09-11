@@ -47,4 +47,5 @@ onRecordAfterDeleteSuccess(
   'integracoes_logs',
   'demonstrativos',
   'impostos_retidos',
+  'pre_lancamentos',
 )

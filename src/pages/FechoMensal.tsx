@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CheckSquare,
   Lock,
@@ -16,6 +17,7 @@ import {
   UserCheck,
   Search,
   Filter,
+  Bot,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -51,6 +53,7 @@ import { cn } from '@/lib/utils'
 export default function FechoMensalPage() {
   const { tenant, member, user } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [empresas, setEmpresas] = useState<Empresa[]>([])
@@ -265,6 +268,22 @@ export default function FechoMensalPage() {
 
         {/* Status e Ações de Fechamento */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Botão Atalho: Perguntar ao Rumo Agent o que falta */}
+          <Button
+            onClick={() => {
+              const empresaNome =
+                activeEmpresa?.nome_fantasia || activeEmpresa?.razao_social || 'a empresa'
+              const pergunta = `O que falta para fechar a competência ${selectedCompetencia} da empresa ${empresaNome}?`
+              navigate(`/rumo-agent?q=${encodeURIComponent(pergunta)}`)
+            }}
+            variant="outline"
+            className="gap-2 rounded-xl text-xs font-semibold h-10 border-[#0FA3A3] text-[#0FA3A3] hover:bg-teal-50 shadow-xs"
+            title="Abrir Rumo Agent com diagnóstico inteligente desta competência"
+          >
+            <Bot className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Perguntar ao Rumo Agent o que falta</span>
+          </Button>
+
           {fechamento?.status === 'fechado' ? (
             <div className="flex items-center gap-2">
               <Badge className="bg-emerald-100 text-[#16A34A] border-emerald-300 text-xs py-1 px-3 flex items-center gap-1.5 font-bold">

@@ -13,9 +13,11 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
+import { fechoMensalService } from '@/services/fechoMensal'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
 import type { AgentConversationRecord, AgentMessageRecord } from '@/types'
@@ -41,15 +43,16 @@ interface SourceInfo {
 }
 
 const PROMPT_CHIPS = [
+  'O que falta para fechar a competência 09/2026 da empresa Inovatech?',
+  'Quais documentos e pré-lançamentos estão pendentes no GED?',
   'Resumo da situação fiscal da empresa Inovatech',
-  'Quais documentos estão pendentes no GED?',
   'Crie um workflow de abertura de empresa',
-  'Qual o limite de tamanho de arquivos no GED?',
 ]
 
 export default function RumoAgentPage() {
   const { user, tenant } = useAuth()
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
 
   const [conversations, setConversations] = useState<AgentConversationRecord[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
@@ -96,6 +99,14 @@ export default function RumoAgentPage() {
   useEffect(() => {
     loadConversations()
   }, [loadConversations])
+
+  // Preencher pergunta vinda por query param (ex: via botão Fecho Mensal)
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q && q.trim()) {
+      setInputMessage(q.trim())
+    }
+  }, [searchParams])
 
   // Load messages for active conversation
   const loadMessages = useCallback(async (convId: string) => {
@@ -299,16 +310,50 @@ export default function RumoAgentPage() {
       } else if (
         lower.includes('fecho') ||
         lower.includes('fechamento') ||
+        lower.includes('fechar') ||
         lower.includes('checklist') ||
+        lower.includes('competência') ||
+        lower.includes('competencia') ||
         lower.includes('dre') ||
         lower.includes('balanco')
       ) {
-        fallbackReply =
-          'Consultando o módulo de Fecho Mensal e Demonstrações Contábeis:\n\n' +
-          '• Competência 08/2026: Fechada e aprovada oficialmente pela controladoria para Inovatech Soluções Digitais.\n' +
-          '• Competência 09/2026: Em andamento (checklist com conciliação bancária, folha e obrigações fiscais).\n' +
-          '• Relatórios Regulatórios: DRE e Balanço Patrimonial estruturados estão disponíveis para visualização e exportação CSV em conformidade com as NBC TG / CFC.\n\n' +
-          '[Ver fonte: Módulo Fecho Mensal & Relatórios]'
+        const compTarget = lower.includes('10/2026')
+          ? '10/2026'
+          : lower.includes('08/2026')
+            ? '08/2026'
+            : '09/2026'
+        const isCompFechada = compTarget === '08/2026'
+
+        if (isCompFechada) {
+          fallbackReply =
+            `### Checklist de Fechamento Contábil — Inovatech Soluções Digitais (Comp. ${compTarget})\n\n` +
+            '✅ **TODOS OS ITENS FORAM CONCLUÍDOS COM SUCESSO:**\n' +
+            '• [OK] Movimentação Bancária e Conciliação (100% conciliado)\n' +
+            '• [OK] Faturamento e Notas Fiscais (Emitidas e escrituradas)\n' +
+            '• [OK] Apuração de Impostos (DAS e retenções recolhidas)\n' +
+            '• [OK] Folha de Pagamento & Encargos (Provisão e pagamento contabilizados)\n' +
+            '• [OK] Pré-Lançamentos do GED (Todos convertidos)\n' +
+            '• [OK] Depreciação do Imobilizado (Quotas calculadas e lançadas)\n' +
+            '• [OK] Balancete e Fechamento (Zeramento e conferência realizados)\n\n' +
+            `🎉 **A competência ${compTarget} está totalmente encerrada e aprovada oficialmente.**\n` +
+            'Demonstrativos gerados (DRE e Balanço) já assinados digitalmente.\n\n' +
+            '[Ver fonte: fechamento_competencia]'
+        } else {
+          fallbackReply =
+            `### Checklist de Fechamento Contábil — Inovatech Soluções Digitais (Comp. ${compTarget})\n\n` +
+            '⚠️ **BLOQUEIOS CRÍTICOS IDENTIFICADOS:**\n' +
+            '• [BLOQUEADO] Guia DAS Simples Nacional pendente de apuração e transmissão no módulo Fiscal (exige regularização imediata)\n\n' +
+            '📋 **ITENS PENDENTES DE CONCLUSÃO:**\n' +
+            '• [PENDENTE] 1 sugestão de pré-lançamento de alta confiança aguardando validação no módulo Pré-Lançamento (NFSe Lote)\n' +
+            '• [PENDENTE] Relatório contábil DRE e Balanço aguardando emissão final para assinatura da diretoria\n\n' +
+            '✅ **ETAPAS JÁ CONCLUÍDAS:**\n' +
+            '• [OK] Conciliação bancária de extrato Santander (Saldo batendo com conta 1.1.1.02)\n' +
+            '• [OK] Folha de pagamento e encargos da competência já calculados no DP\n' +
+            '• [OK] Impostos retidos (ISS/INSS) conferidos na escrituração fiscal\n' +
+            '• [OK] Depreciação linear do patrimônio imobilizado processada\n\n' +
+            '👉 **Orientação:** Para realizar o encerramento no módulo Fecho Mensal, aprove a sugestão no Pré-Lançamento Inteligente e transmita o DAS no Fiscal.\n\n' +
+            '[Ver fonte: fechamento_checklist_itens]'
+        }
       } else if (lower.includes('abertura') || lower.includes('workflow')) {
         fallbackReply =
           'Para o processo de abertura de empresa, os procedimentos recomendados são:\n\n' +

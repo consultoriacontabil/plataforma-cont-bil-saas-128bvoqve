@@ -26,6 +26,7 @@ import DepartamentoPessoal from '@/pages/DepartamentoPessoal'
 import PortalClientePage from '@/pages/PortalCliente'
 import PortalAcessosPage from '@/pages/PortalAcessos'
 import MapeamentoContabilPage from '@/pages/MapeamentoContabil'
+import PreLancamentoPage from '@/pages/PreLancamento'
 import PatrimonioPage from '@/pages/Patrimonio'
 import FechoMensalPage from '@/pages/FechoMensal'
 import RelatoriosContabeisPage from '@/pages/RelatoriosContabeis'
@@ -76,6 +77,7 @@ export default function App() {
 
           {/* Módulo Contábil (P1) e Fecho Automático */}
           <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />
+          <Route path="/contabil/pre-lancamento" element={<PreLancamentoPage />} />
           <Route path="/contabil/balancete" element={<Balancete />} />
           <Route path="/contabil/mapeamento" element={<MapeamentoContabilPage />} />
 

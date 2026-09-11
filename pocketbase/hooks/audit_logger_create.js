@@ -221,6 +221,15 @@ onRecordAfterCreateSuccess(
           ' (R$ ' +
           record.getFloat('valor').toFixed(2) +
           ')'
+      } else if (collectionName === 'pre_lancamentos') {
+        acao = 'Sugestão de pré-lançamento gerada'
+        detalhes =
+          'Pré-lançamento sugerido (confiança ' +
+          record.getInt('confianca') +
+          '%) no valor de R$ ' +
+          record.getFloat('valor_sugerido').toFixed(2) +
+          ' comp. ' +
+          record.getString('competencia')
       }
 
       log.set('acao', acao)
@@ -254,4 +263,5 @@ onRecordAfterCreateSuccess(
   'integracoes_logs',
   'demonstrativos',
   'impostos_retidos',
+  'pre_lancamentos',
 )

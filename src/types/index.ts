@@ -743,3 +743,43 @@ export interface ImpostoRetidoRecord extends RecordModel {
     vinculo_titulo_financeiro?: ContaFinanceiraRecord
   }
 }
+
+// === Módulo Pré-Lançamento Inteligente ===
+export type PreLancamentoStatus = 'pendente' | 'aceito' | 'rejeitado' | 'convertido'
+
+export interface PreLancamentoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  documento?: string
+  competencia: string
+  debito_sugerido?: string
+  credito_sugerido?: string
+  valor_sugerido: number
+  historico_sugerido: string
+  confianca: number
+  status: PreLancamentoStatus
+  motivo_rejeicao?: string
+  lote_id?: string
+  data_processamento?: string
+  processado_por?: string
+  expand?: {
+    empresa?: Empresa
+    documento?: Documento
+    debito_sugerido?: ContaContabil
+    credito_sugerido?: ContaContabil
+    processado_por?: User
+  }
+}
+
+export interface AnalisarDocumentosInput {
+  tenantId: string
+  empresaId?: string
+  competencia?: string
+}
+
+export interface AnalisarDocumentosResultado {
+  analisados: number
+  novasSugestoes: number
+  altaConfianca: number
+  ignoradosOuExistentes: number
+}

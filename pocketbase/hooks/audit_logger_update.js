@@ -181,6 +181,14 @@ onRecordAfterUpdateSuccess(
           record.getString('competencia') +
           ') atualizado para status: ' +
           record.getString('status')
+      } else if (collectionName === 'pre_lancamentos') {
+        acao = 'Atualização de pré-lançamento'
+        detalhes =
+          'Pré-lançamento alterado para status ' +
+          record.getString('status') +
+          ' (R$ ' +
+          record.getFloat('valor_sugerido').toFixed(2) +
+          ')'
       }
 
       log.set('acao', acao)
@@ -213,4 +221,5 @@ onRecordAfterUpdateSuccess(
   'integracoes_bancarias',
   'demonstrativos',
   'impostos_retidos',
+  'pre_lancamentos',
 )
