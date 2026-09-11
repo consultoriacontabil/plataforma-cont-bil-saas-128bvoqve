@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T18:20:40.998Z",
+  "generatedAt": "2026-09-11T18:30:55.228Z",
   "collections": [
     {
       "name": "users",
@@ -1017,6 +1017,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "exige_certificado",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -3551,6 +3557,109 @@
       "indexes": [
         "CREATE INDEX idx_wa_tpl_tenant_cat ON whatsapp_templates (tenant_id, categoria)",
         "CREATE INDEX idx_wa_tpl_created ON whatsapp_templates (created DESC)"
+      ]
+    },
+    {
+      "name": "certificados_digitais",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["a1", "a3"]
+        },
+        {
+          "name": "titular",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero_serie",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "emissor",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "validade",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo_pfx",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "senha",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ativo", "expirado", "revogado"]
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_certificados_tenant_emp ON certificados_digitais (tenant_id, empresa)",
+        "CREATE INDEX idx_certificados_validade ON certificados_digitais (validade ASC)",
+        "CREATE INDEX idx_certificados_status ON certificados_digitais (status)",
+        "CREATE INDEX idx_certificados_created ON certificados_digitais (created DESC)"
       ]
     }
   ]

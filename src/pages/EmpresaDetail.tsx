@@ -22,8 +22,11 @@ import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
+import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
+import { ShieldCheck, ShieldAlert, ShieldX, KeyRound, Download, AlertCircle } from 'lucide-react'
+import pb from '@/lib/pocketbase/client'
 import { maskCnpj, formatDatePtBr } from '@/lib/formatters'
-import type { Empresa, Documento, Workflow, FiscalRecord } from '@/types'
+import type { Empresa, Documento, Workflow, FiscalRecord, CertificadoDigitalRecord } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -45,6 +48,7 @@ export default function EmpresaDetail() {
   const { toast } = useToast()
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
+  const [certificado, setCertificado] = useState<CertificadoDigitalRecord | null>(null)
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
@@ -62,14 +66,16 @@ export default function EmpresaDetail() {
       setEmpresa(emp)
 
       // Fetch related data
-      const [docs, wfs, fisc] = await Promise.all([
+      const [docs, wfs, fisc, cert] = await Promise.all([
         documentosService.list(tenant.id, `empresa_id = "${id}"`),
         workflowService.list(tenant.id, `empresa_id = "${id}"`),
         fiscalService.list(tenant.id, `empresa_id = "${id}"`),
+        certificadosService.getByEmpresa(id),
       ])
       setDocumentos(docs)
       setWorkflows(wfs)
       setFiscalList(fisc)
+      setCertificado(cert)
     } catch (err) {
       console.error('Error loading empresa details:', err)
       toast({
@@ -178,12 +184,21 @@ export default function EmpresaDetail() {
         </div>
       </div>
 
-      {/* Tabs Layout: Visão Geral, Documentos, Workflows, Fiscal, Integrações */}
+      {/* Tabs Layout: Visão Geral, Certificado Digital, Documentos, Workflows, Fiscal, Integrações */}
       <Tabs defaultValue="visao_geral" className="space-y-6">
         <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full justify-start overflow-x-auto">
           <TabsTrigger value="visao_geral" className="rounded-lg text-xs font-semibold gap-2">
             <Building2 className="h-4 w-4" />
             <span>Visão Geral</span>
+          </TabsTrigger>
+          <TabsTrigger value="certificado" className="rounded-lg text-xs font-semibold gap-2">
+            <KeyRound className="h-4 w-4" />
+            <span>
+              Certificado Digital{' '}
+              {certificado && (
+                <span className="ml-1 inline-block h-2 w-2 rounded-full bg-teal-500" />
+              )}
+            </span>
           </TabsTrigger>
           <TabsTrigger value="documentos" className="rounded-lg text-xs font-semibold gap-2">
             <FileText className="h-4 w-4" />
@@ -202,7 +217,6 @@ export default function EmpresaDetail() {
             <span>Integrações</span>
           </TabsTrigger>
         </TabsList>
-
         {/* Tab 1: Visão Geral */}
         <TabsContent value="visao_geral" className="space-y-6">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -312,7 +326,167 @@ export default function EmpresaDetail() {
           )}
         </TabsContent>
 
-        {/* Tab 2: Documentos */}
+        {/* Tab 2: Certificado Digital */}
+        <TabsContent value="certificado" className="space-y-6">
+          {certificado ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-xs md:col-span-2">
+                <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-bold text-[#1A2333]">
+                      Certificado Digital e-CNPJ ({certificado.tipo.toUpperCase()})
+                    </CardTitle>
+                    <p className="text-xs text-[#64748B] mt-0.5">
+                      Utilizado para assinatura de declarações e consultas fiscais da empresa
+                    </p>
+                  </div>
+                  {(() => {
+                    const saude = certificadosService.calcularSaude(certificado)
+                    if (saude.saude === 'valido') {
+                      return (
+                        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold gap-1.5 py-1 px-3">
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>Certificado OK ({saude.diasRestantes}d)</span>
+                        </Badge>
+                      )
+                    }
+                    if (saude.saude === 'proximo_vencimento') {
+                      return (
+                        <Badge className="bg-amber-50 text-amber-800 border border-amber-300 text-xs font-semibold gap-1.5 py-1 px-3 animate-pulse">
+                          <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Vence em {saude.diasRestantes} dias</span>
+                        </Badge>
+                      )
+                    }
+                    return (
+                      <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs font-semibold gap-1.5 py-1 px-3">
+                        <ShieldX className="h-3.5 w-3.5 text-red-600" />
+                        <span>Expirado</span>
+                      </Badge>
+                    )
+                  })()}
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-[#64748B]">Titular / e-CNPJ:</span>
+                      <p className="font-semibold text-[#1A2333] mt-0.5">{certificado.titular}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#64748B]">Autoridade Certificadora (Emissor):</span>
+                      <p className="font-semibold text-[#1A2333] mt-0.5">{certificado.emissor}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#64748B]">Data de Validade:</span>
+                      <p className="font-semibold text-[#1A2333] mt-0.5">
+                        {formatDatePtBr(certificado.validade)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[#64748B]">Número de Série:</span>
+                      <p className="font-mono text-[#1A2333] mt-0.5">
+                        {certificado.numero_serie || 'Não informado'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[#64748B]">Tipo / Formato:</span>
+                      <p className="font-semibold text-[#1A2333] uppercase mt-0.5">
+                        {certificado.tipo} (
+                        {certificado.tipo === 'a1'
+                          ? 'Arquivo .pfx em nuvem'
+                          : 'Smartcard / Token físico'}
+                        )
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[#64748B]">Status de Registro:</span>
+                      <p className="font-semibold text-[#1A2333] capitalize mt-0.5">
+                        {certificado.status}
+                      </p>
+                    </div>
+                  </div>
+
+                  {certificado.observacoes && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <span className="text-[#64748B]">Observações:</span>
+                      <p className="text-[#1A2333] mt-0.5">{certificado.observacoes}</p>
+                    </div>
+                  )}
+
+                  {certificado.arquivo_pfx && (
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <KeyRound className="h-4 w-4 text-[#0FA3A3]" />
+                        <span className="font-mono text-xs text-[#1A2333]">
+                          {certificado.arquivo_pfx}
+                        </span>
+                      </div>
+                      <a
+                        href={pb.files.getURL(certificado, certificado.arquivo_pfx)}
+                        download
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0FA3A3] hover:underline"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Baixar Arquivo .pfx</span>
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Card de Boas Práticas e Ação de Edição */}
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+                <CardHeader className="pb-3 border-b border-slate-100">
+                  <CardTitle className="text-sm font-bold text-[#1A2333]">
+                    Segurança & Gestão
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4 text-xs text-[#64748B]">
+                  <p>
+                    A plataforma utiliza o certificado digital para verificação de pendências no
+                    e-CAC, emissão de NFS-e e validação de declarações no SPED e DCTFWeb.
+                  </p>
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-amber-900 text-[11px] leading-relaxed">
+                    <b>Aviso de Privacidade:</b> A senha e os arquivos de chave privada A1 são de
+                    uso restrito à equipe técnica contábil autorizada.
+                  </div>
+                  <Button
+                    onClick={() => navigate(`/empresas/${empresa.id}/editar`)}
+                    className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    <span>Atualizar / Substituir Certificado</span>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-xs p-8 text-center">
+              <div className="max-w-md mx-auto space-y-3">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <h3 className="text-sm font-bold text-[#1A2333]">
+                  Nenhum Certificado Digital Cadastrado
+                </h3>
+                <p className="text-xs text-[#64748B]">
+                  Esta empresa ainda não possui certificado digital A1 ou A3 cadastrado. Sem o
+                  certificado, algumas obrigações fiscais (como SPED, EFD e DCTFWeb) não poderão ser
+                  transmitidas diretamente pelo sistema.
+                </p>
+                <Button
+                  onClick={() => navigate(`/empresas/${empresa.id}/editar`)}
+                  className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>Cadastrar Certificado Agora</span>
+                </Button>
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Tab 3: Documentos */}
         <TabsContent value="documentos">
           <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
             <CardContent className="p-4">

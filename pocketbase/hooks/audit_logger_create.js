@@ -252,6 +252,15 @@ onRecordAfterCreateSuccess(
           '" (valor mensal: R$ ' +
           record.getFloat('valor_mensal').toFixed(2) +
           ')'
+      } else if (collectionName === 'certificados_digitais') {
+        acao = 'Upload de Certificado Digital'
+        detalhes =
+          'Cadastrado certificado ' +
+          record.getString('tipo').toUpperCase() +
+          ' (' +
+          record.getString('emissor') +
+          ') - Titular: ' +
+          record.getString('titular')
       }
 
       log.set('acao', acao)
@@ -288,4 +297,5 @@ onRecordAfterCreateSuccess(
   'pre_lancamentos',
   'assinaturas_demonstrativos',
   'contratos_honorarios',
+  'certificados_digitais',
 )

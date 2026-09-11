@@ -24,12 +24,22 @@ import { useAuth } from '@/contexts/AuthContext'
 import { obrigacoesService } from '@/services/obrigacoes'
 import { empresasService } from '@/services/empresas'
 import { usersService } from '@/services/users'
+import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
+import {
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  KeyRound,
+  ShieldQuestion,
+  FileWarning,
+} from 'lucide-react'
 import type {
   ObrigacaoRecord,
   Empresa,
   TenantMember,
   ObrigacaoTipo,
   ObrigacaoStatus,
+  CertificadoDigitalRecord,
 } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,14 +91,20 @@ export default function Obrigacoes() {
   const [obrigacoes, setObrigacoes] = useState<ObrigacaoRecord[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [members, setMembers] = useState<TenantMember[]>([])
+  const [certificadosMap, setCertificadosMap] = useState<Record<string, CertificadoDigitalRecord>>(
+    {},
+  )
   const [loading, setLoading] = useState(true)
 
   // Filters
   const [search, setSearch] = useState('')
   const [filterEmpresa, setFilterEmpresa] = useState<string>('todas')
+  const [filterExigeCertificado, setFilterExigeCertificado] = useState<string>('todos')
   const [filterTipo, setFilterTipo] = useState<string>('todos')
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [generatingFecho, setGeneratingFecho] = useState(false)
+  const [regularidadeModalOpen, setRegularidadeModalOpen] = useState(false)
+  const [empresaRegularidadeId, setEmpresaRegularidadeId] = useState<string>('')
 
   // Calendar State
   const [currentDate, setCurrentDate] = useState<Date>(new Date())
@@ -108,6 +124,7 @@ export default function Obrigacoes() {
   const [formValor, setFormValor] = useState('')
   const [formObservacoes, setFormObservacoes] = useState('')
   const [formAnexoFile, setFormAnexoFile] = useState<File | null>(null)
+  const [formExigeCertificado, setFormExigeCertificado] = useState(false)
 
   const canEdit = member?.perfil === 'administrador' || member?.perfil === 'contador'
 
@@ -115,14 +132,23 @@ export default function Obrigacoes() {
     if (!tenant?.id) return
     setLoading(true)
     try {
-      const [obs, emps, mems] = await Promise.all([
+      const [obs, emps, mems, certs] = await Promise.all([
         obrigacoesService.list(tenant.id),
         empresasService.list(tenant.id),
         usersService.listMembers(tenant.id),
+        certificadosService.list(tenant.id),
       ])
       setObrigacoes(obs)
       setEmpresas(emps)
       setMembers(mems)
+
+      const certMap: Record<string, CertificadoDigitalRecord> = {}
+      certs.forEach((c) => {
+        if (c.empresa && !certMap[c.empresa]) {
+          certMap[c.empresa] = c
+        }
+      })
+      setCertificadosMap(certMap)
     } catch (err) {
       console.error('Erro ao carregar obrigações:', err)
       toast({
@@ -142,7 +168,8 @@ export default function Obrigacoes() {
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingObrigacao(null)
-    setFormEmpresaId(empresas[0]?.id || '')
+    const defaultEmpresa = empresas[0]?.id || ''
+    setFormEmpresaId(defaultEmpresa)
     setFormTipo('DAS')
     const now = new Date()
     const m = String(now.getMonth() + 1).padStart(2, '0')
@@ -154,6 +181,7 @@ export default function Obrigacoes() {
     setFormValor('')
     setFormObservacoes('')
     setFormAnexoFile(null)
+    setFormExigeCertificado(false)
     setIsModalOpen(true)
   }
 
@@ -169,6 +197,7 @@ export default function Obrigacoes() {
     setFormValor(ob.valor !== undefined && ob.valor !== null ? String(ob.valor) : '')
     setFormObservacoes(ob.observacoes || '')
     setFormAnexoFile(null)
+    setFormExigeCertificado(Boolean(ob.exige_certificado))
     setIsModalOpen(true)
   }
 
@@ -190,6 +219,7 @@ export default function Obrigacoes() {
       if (formValor) formData.append('valor', String(parseFloat(formValor) || 0))
       if (formObservacoes) formData.append('observacoes', formObservacoes.trim())
       if (formAnexoFile) formData.append('anexo', formAnexoFile)
+      formData.append('exige_certificado', formExigeCertificado ? 'true' : 'false')
 
       if (formStatus === 'entregue' && (!editingObrigacao || !editingObrigacao.data_entrega)) {
         formData.append('data_entrega', new Date().toISOString())
@@ -262,6 +292,8 @@ export default function Obrigacoes() {
   const filteredObrigacoes = useMemo(() => {
     return obrigacoes.filter((ob) => {
       if (filterEmpresa !== 'todas' && ob.empresa_id !== filterEmpresa) return false
+      if (filterExigeCertificado === 'sim' && !ob.exige_certificado) return false
+      if (filterExigeCertificado === 'nao' && ob.exige_certificado) return false
       if (filterTipo !== 'todos' && ob.tipo !== filterTipo) return false
       if (filterStatus !== 'todos' && ob.status !== filterStatus) return false
       if (search.trim()) {
@@ -278,7 +310,7 @@ export default function Obrigacoes() {
       }
       return true
     })
-  }, [obrigacoes, filterEmpresa, filterTipo, filterStatus, search])
+  }, [obrigacoes, filterEmpresa, filterExigeCertificado, filterTipo, filterStatus, search])
 
   // Overview metrics
   const stats = useMemo(() => {
@@ -308,8 +340,30 @@ export default function Obrigacoes() {
       }
     })
 
-    return { atrasadas, proximas, entregues, pendentes }
-  }, [obrigacoes])
+    // Calcular empresas com pendências de regularidade (certificado expirado ou expirando + obrigações que exigem certificado)
+    let empresasComAlertaRegularidade = 0
+    empresas.forEach((emp) => {
+      const cert = certificadosMap[emp.id]
+      const saude = certificadosService.calcularSaude(cert)
+      const temObrigacoesExigentes = obrigacoes.some(
+        (o) =>
+          o.empresa_id === emp.id &&
+          o.exige_certificado &&
+          o.status !== 'entregue' &&
+          o.status !== 'cancelada',
+      )
+      if (
+        (saude.saude === 'expirado' ||
+          saude.saude === 'inexistente' ||
+          saude.saude === 'proximo_vencimento') &&
+        temObrigacoesExigentes
+      ) {
+        empresasComAlertaRegularidade++
+      }
+    })
+
+    return { atrasadas, proximas, entregues, pendentes, empresasComAlertaRegularidade }
+  }, [obrigacoes, empresas, certificadosMap])
 
   // Calendar Logic (Month navigation)
   const currentYear = currentDate.getFullYear()
@@ -445,12 +499,27 @@ export default function Obrigacoes() {
             Módulo de Obrigações Fiscais
           </h2>
           <p className="text-xs text-[#64748B]">
-            Calendário de vencimentos contábeis e fiscais com alertas automáticos e lembretes
-            diários
+            Calendário de vencimentos contábeis e fiscais com validação de Certificado Digital
+            (e-CNPJ) e lembretes diários
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
+          {/* Botão de Painel de Regularidade */}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEmpresaRegularidadeId(
+                filterEmpresa !== 'todas' ? filterEmpresa : empresas[0]?.id || '',
+              )
+              setRegularidadeModalOpen(true)
+            }}
+            className="gap-1.5 rounded-xl border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100 text-xs font-semibold h-9 shadow-2xs"
+          >
+            <ShieldAlert className="h-4 w-4 text-amber-600" />
+            <span>Regularidade Fiscal ({stats.empresasComAlertaRegularidade})</span>
+          </Button>
+
           {/* View Mode Toggle */}
           <div className="inline-flex rounded-xl border border-[#E2E8F0] bg-white p-1 shadow-2xs">
             <button
@@ -541,7 +610,22 @@ export default function Obrigacoes() {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
+        <Card className="rounded-2xl border-amber-200 bg-amber-50/40 shadow-2xs hover:shadow-xs transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider">
+                Alerta Regularidade
+              </p>
+              <p className="text-2xl font-bold text-amber-900 mt-0.5">
+                {stats.empresasComAlertaRegularidade} emp.
+              </p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              <ShieldAlert className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
         <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs hover:shadow-xs transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
@@ -659,10 +743,23 @@ export default function Obrigacoes() {
               </SelectContent>
             </Select>
 
+            {/* Filter Exige Certificado */}
+            <Select value={filterExigeCertificado} onValueChange={setFilterExigeCertificado}>
+              <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0]">
+                <SelectValue placeholder="Exigência de Certificado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos (Com e Sem Certificado)</SelectItem>
+                <SelectItem value="sim">Exige Certificado Digital</SelectItem>
+                <SelectItem value="nao">Não exige Certificado</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Clear filters */}
             {(search ||
               filterEmpresa !== 'todas' ||
               filterTipo !== 'todos' ||
+              filterExigeCertificado !== 'todos' ||
               filterStatus !== 'todos') && (
               <Button
                 variant="ghost"
@@ -671,6 +768,7 @@ export default function Obrigacoes() {
                   setSearch('')
                   setFilterEmpresa('todas')
                   setFilterTipo('todos')
+                  setFilterExigeCertificado('todos')
                   setFilterStatus('todos')
                 }}
                 className="h-9 text-xs text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626]"
@@ -821,8 +919,9 @@ export default function Obrigacoes() {
                 <tr>
                   <th className="px-4 py-3">Obrigação / Competência</th>
                   <th className="px-4 py-3">Empresa</th>
+                  <th className="px-4 py-3">Certificado Digital</th>
                   <th className="px-4 py-3">Vencimento</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Status Guia</th>
                   <th className="px-4 py-3">Responsável</th>
                   <th className="px-4 py-3">Valor (R$)</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -831,7 +930,7 @@ export default function Obrigacoes() {
               <tbody className="divide-y divide-slate-100">
                 {filteredObrigacoes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-xs text-[#94A3B8]">
+                    <td colSpan={8} className="py-8 text-center text-xs text-[#94A3B8]">
                       Nenhuma obrigação fiscal encontrada com os filtros selecionados.
                     </td>
                   </tr>
@@ -848,6 +947,9 @@ export default function Obrigacoes() {
                       ob.expand?.responsavel_id?.email ||
                       'Não atribuído'
 
+                    const empCert = certificadosMap[ob.empresa_id]
+                    const saude = certificadosService.calcularSaude(empCert)
+
                     return (
                       <tr key={ob.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-4 py-3.5">
@@ -856,6 +958,16 @@ export default function Obrigacoes() {
                               {ob.tipo}
                             </span>
                             <span>{ob.competencia}</span>
+                            {ob.exige_certificado && (
+                              <Badge
+                                variant="outline"
+                                className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] gap-1 py-0 px-1.5"
+                                title="Esta obrigação exige certificado digital para transmissão"
+                              >
+                                <KeyRound className="h-2.5 w-2.5" />
+                                <span>Exige Certificado</span>
+                              </Badge>
+                            )}
                           </div>
                           {ob.observacoes && (
                             <p className="text-[11px] text-[#64748B] truncate max-w-xs mt-0.5">
@@ -868,6 +980,33 @@ export default function Obrigacoes() {
                             <Building2 className="h-3.5 w-3.5 text-[#0FA3A3] shrink-0" />
                             <span className="truncate max-w-[180px]">{empName}</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          {ob.exige_certificado ? (
+                            saude.saude === 'valido' ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
+                                <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                                <span>Válido ({saude.diasRestantes}d)</span>
+                              </Badge>
+                            ) : saude.saude === 'proximo_vencimento' ? (
+                              <Badge className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] gap-1 animate-pulse">
+                                <ShieldAlert className="h-3 w-3 text-amber-600" />
+                                <span>Vence em {saude.diasRestantes}d</span>
+                              </Badge>
+                            ) : saude.saude === 'expirado' ? (
+                              <Badge className="bg-red-50 text-red-700 border-red-200 text-[10px] gap-1">
+                                <ShieldX className="h-3 w-3 text-red-600" />
+                                <span>Expirado</span>
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-50 text-red-700 border-red-200 text-[10px] gap-1">
+                                <ShieldQuestion className="h-3 w-3 text-red-600" />
+                                <span>Não possui</span>
+                              </Badge>
+                            )
+                          ) : (
+                            <span className="text-[11px] text-[#94A3B8]">Não requerido</span>
+                          )}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap font-semibold">{vencStr}</td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
@@ -960,7 +1099,28 @@ export default function Obrigacoes() {
             <div className="grid grid-cols-2 gap-3">
               {/* Empresa */}
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs font-semibold text-[#1A2333]">Empresa *</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-[#1A2333]">Empresa *</Label>
+                  {formEmpresaId &&
+                    (() => {
+                      const cert = certificadosMap[formEmpresaId]
+                      const saude = certificadosService.calcularSaude(cert)
+                      return (
+                        <span className="text-[11px] text-[#64748B] flex items-center gap-1">
+                          Certificado:{' '}
+                          {saude.saude === 'valido' ? (
+                            <b className="text-emerald-700">OK ({saude.diasRestantes}d)</b>
+                          ) : saude.saude === 'proximo_vencimento' ? (
+                            <b className="text-amber-700">Vence em {saude.diasRestantes}d</b>
+                          ) : saude.saude === 'expirado' ? (
+                            <b className="text-red-700">Expirado</b>
+                          ) : (
+                            <b className="text-red-600">Não cadastrado</b>
+                          )}
+                        </span>
+                      )
+                    })()}
+                </div>
                 <Select value={formEmpresaId} onValueChange={setFormEmpresaId} required>
                   <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0]">
                     <SelectValue placeholder="Selecione a empresa" />
@@ -974,6 +1134,44 @@ export default function Obrigacoes() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Alerta de Certificado para esta obrigação */}
+              {formEmpresaId &&
+                formExigeCertificado &&
+                (() => {
+                  const cert = certificadosMap[formEmpresaId]
+                  const saude = certificadosService.calcularSaude(cert)
+                  if (saude.saude === 'expirado' || saude.saude === 'inexistente') {
+                    return (
+                      <div className="col-span-2 rounded-xl bg-red-50 border border-red-200 p-2.5 text-[11px] text-red-900 flex items-start gap-2">
+                        <ShieldX className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <b>Atenção: Empresa sem Certificado Digital válido!</b>
+                          <p className="mt-0.5 text-red-700">
+                            Esta obrigação exige certificado digital para entrega. O certificado
+                            atual está {saude.label.toLowerCase()}. Providencie o upload antes da
+                            transmissão fiscal.
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  if (saude.saude === 'proximo_vencimento') {
+                    return (
+                      <div className="col-span-2 rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
+                        <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <b>Aviso de Vencimento do Certificado:</b>
+                          <p className="mt-0.5 text-amber-800">
+                            O certificado desta empresa vence em {saude.diasRestantes} dias.
+                            Verifique se a transmissão será realizada antes do vencimento.
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
 
               {/* Tipo */}
               <div className="space-y-1.5">
@@ -1080,6 +1278,27 @@ export default function Obrigacoes() {
                 />
               </div>
 
+              {/* Checkbox: Exige Certificado Digital */}
+              <div className="col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="chk_exige_cert"
+                  checked={formExigeCertificado}
+                  onChange={(e) => setFormExigeCertificado(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-[#0FA3A3] focus:ring-[#0FA3A3] mt-0.5 cursor-pointer"
+                />
+                <label htmlFor="chk_exige_cert" className="text-xs cursor-pointer select-none">
+                  <span className="font-semibold text-[#1A2333]">
+                    Esta obrigação fiscal exige Certificado Digital (e-CNPJ)
+                  </span>
+                  <p className="text-[11px] text-[#64748B] mt-0.5">
+                    Marque para declarações federais/estaduais transmitidas via procuração ou
+                    assinatura digital (ex: SPED, EFD, DCTFWeb, e-CAC). O sistema alertará se o
+                    certificado estiver vencendo ou expirado.
+                  </p>
+                </label>
+              </div>
+
               {/* Anexo */}
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs font-semibold text-[#1A2333]">
@@ -1134,6 +1353,185 @@ export default function Obrigacoes() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Painel de Regularidade da Empresa */}
+      <Dialog open={regularidadeModalOpen} onOpenChange={setRegularidadeModalOpen}>
+        <DialogContent className="max-w-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-600" />
+              <span>Painel de Regularidade Fiscal & Certificado Digital</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Diagnóstico cruzado entre a saúde do certificado e as obrigações que exigem assinatura
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Seletor de Empresa para Auditoria */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#1A2333]">Filtrar Empresa</Label>
+              <Select value={empresaRegularidadeId} onValueChange={setEmpresaRegularidadeId}>
+                <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0]">
+                  <SelectValue placeholder="Selecione uma empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nome_fantasia || e.razao_social}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {empresaRegularidadeId &&
+              (() => {
+                const emp = empresas.find((e) => e.id === empresaRegularidadeId)
+                const cert = certificadosMap[empresaRegularidadeId]
+                const saude = certificadosService.calcularSaude(cert)
+
+                const pendenciasExigentes = obrigacoes.filter(
+                  (o) =>
+                    o.empresa_id === empresaRegularidadeId &&
+                    o.exige_certificado &&
+                    o.status !== 'entregue' &&
+                    o.status !== 'cancelada',
+                )
+
+                return (
+                  <div className="space-y-4">
+                    {/* Status do Certificado */}
+                    <div
+                      className={cn(
+                        'rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3',
+                        saude.saude === 'valido'
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-900'
+                          : saude.saude === 'proximo_vencimento'
+                            ? 'bg-amber-50/60 border-amber-300 text-amber-900'
+                            : 'bg-red-50/60 border-red-200 text-red-900',
+                      )}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {saude.saude === 'valido' ? (
+                            <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                          ) : saude.saude === 'proximo_vencimento' ? (
+                            <ShieldAlert className="h-5 w-5 text-amber-600" />
+                          ) : (
+                            <ShieldX className="h-5 w-5 text-red-600" />
+                          )}
+                          <h4 className="font-bold text-sm">
+                            {emp?.nome_fantasia || emp?.razao_social}
+                          </h4>
+                        </div>
+                        <p className="text-xs">
+                          {cert
+                            ? `Certificado ${cert.tipo.toUpperCase()} (${cert.emissor}) • Validade: ${new Date(cert.validade).toLocaleDateString('pt-BR')}`
+                            : 'Nenhum certificado digital cadastrado para esta empresa'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className={cn(
+                            'text-xs font-semibold py-1 px-3',
+                            saude.saude === 'valido'
+                              ? 'bg-emerald-600 text-white'
+                              : saude.saude === 'proximo_vencimento'
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-red-600 text-white',
+                          )}
+                        >
+                          {saude.label}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setRegularidadeModalOpen(false)
+                            window.location.href = `/empresas/${empresaRegularidadeId}/editar`
+                          }}
+                          className="text-xs h-8 rounded-xl bg-white"
+                        >
+                          Gerenciar Certificado
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Lista de Obrigações Pendentes que Exigem Certificado */}
+                    <div>
+                      <h5 className="text-xs font-bold text-[#1A2333] mb-2 flex items-center justify-between">
+                        <span>
+                          Obrigações que Exigem Certificado ({pendenciasExigentes.length})
+                        </span>
+                        {pendenciasExigentes.length > 0 && saude.saude !== 'valido' && (
+                          <span className="text-[11px] text-red-600 font-semibold">
+                            ⚠️ Risco de bloqueio na transmissão
+                          </span>
+                        )}
+                      </h5>
+
+                      {pendenciasExigentes.length === 0 ? (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center text-xs text-[#64748B]">
+                          Não há obrigações exigentes de certificado pendentes para esta empresa.
+                          Tudo regular!
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-56 overflow-y-auto">
+                          {pendenciasExigentes.map((ob) => (
+                            <div
+                              key={ob.id}
+                              className="flex items-center justify-between rounded-xl border border-slate-200 p-2.5 text-xs bg-white"
+                            >
+                              <div>
+                                <p className="font-semibold text-[#1A2333]">
+                                  {ob.tipo} — Competência {ob.competencia}
+                                </p>
+                                <p className="text-[11px] text-[#64748B]">
+                                  Vencimento:{' '}
+                                  {new Date(ob.vencimento).toLocaleDateString('pt-BR', {
+                                    timeZone: 'UTC',
+                                  })}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {getStatusBadge(ob.status, ob.vencimento)}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setRegularidadeModalOpen(false)
+                                    handleOpenEdit(ob)
+                                  }}
+                                  className="h-7 text-xs rounded-lg"
+                                >
+                                  Ver Guia
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRegularidadeModalOpen(false)}
+              className="rounded-xl border-[#E2E8F0] text-xs"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

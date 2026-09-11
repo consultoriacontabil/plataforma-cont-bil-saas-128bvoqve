@@ -50,4 +50,5 @@ onRecordAfterDeleteSuccess(
   'pre_lancamentos',
   'assinaturas_demonstrativos',
   'contratos_honorarios',
+  'certificados_digitais',
 )

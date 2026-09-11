@@ -11,6 +11,163 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
 
     const notificacoesCol = $app.findCollectionByNameOrId('notificacoes')
 
+    // 1.0 Scan for certificados_digitais expiring within 30 days or already expired
+    try {
+      const activeCertificados = $app.findRecordsByFilter(
+        'certificados_digitais',
+        "status = 'ativo'",
+        'validade ASC',
+        300,
+        0,
+      )
+      console.log(
+        '[CRON] Found',
+        activeCertificados.length,
+        'active certificados digitais to check',
+      )
+
+      for (let c = 0; c < activeCertificados.length; c++) {
+        const cert = activeCertificados[c]
+        const certTenantId = cert.getString('tenant_id')
+        const certEmpresaId = cert.getString('empresa')
+        const certValidadeStr = cert.getString('validade')
+        const certTipo = cert.getString('tipo').toUpperCase()
+        const certEmissor = cert.getString('emissor')
+        const certTitular = cert.getString('titular')
+
+        if (!certValidadeStr) continue
+        const certValidade = new Date(certValidadeStr)
+        const diffCertTime = certValidade.getTime() - now.getTime()
+        const diffCertDays = Math.ceil(diffCertTime / (1000 * 60 * 60 * 24))
+
+        const isCertExpired = diffCertDays <= 0
+        const isExpiringSoon = diffCertDays > 0 && diffCertDays <= 30
+
+        if (isCertExpired) {
+          try {
+            cert.set('status', 'expirado')
+            $app.save(cert)
+          } catch (_) {}
+        }
+
+        if (isCertExpired || isExpiringSoon) {
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', certEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          const certNotifTitle = isCertExpired
+            ? 'Certificado Digital Vencido - ' + empNome
+            : 'Certificado Digital Vence em ' + diffCertDays + ' dias - ' + empNome
+
+          const certNotifMsg = isCertExpired
+            ? 'O certificado digital ' +
+              certTipo +
+              ' (' +
+              certEmissor +
+              ') da empresa ' +
+              empNome +
+              ' expirou em ' +
+              certValidade.toLocaleDateString('pt-BR') +
+              '. Renove imediatamente para evitar bloqueios em obrigações fiscais (SPED/e-CAC/DCTFWeb).'
+            : 'O certificado digital ' +
+              certTipo +
+              ' (' +
+              certEmissor +
+              ') da empresa ' +
+              empNome +
+              ' vencerá em ' +
+              diffCertDays +
+              ' dia(s) (validade: ' +
+              certValidade.toLocaleDateString('pt-BR') +
+              '). Inicie o processo de renovação.'
+
+          // Prevenir flood: checar se já notificou nas últimas 24h
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 3600000).toISOString()
+          const existCertNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              certTenantId +
+              "' && titulo = '" +
+              certNotifTitle +
+              "' && created >= '" +
+              twentyFourHoursAgo +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existCertNotif.length === 0) {
+            // Notificar administradores e contadores do tenant
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                certTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              15,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifCert = new Record(notificacoesCol)
+              notifCert.set('tenant_id', certTenantId)
+              notifCert.set('usuario_destino_id', staffUserId)
+              notifCert.set('titulo', certNotifTitle)
+              notifCert.set('mensagem', certNotifMsg)
+              notifCert.set('tipo', isCertExpired ? 'atrasada' : 'prazo_proximo')
+              notifCert.set('link', '/empresas/' + certEmpresaId + '/editar')
+              notifCert.set('lida', false)
+              $app.save(notifCert)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo] ' + certNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de Certificado Digital:</p>' +
+                      '<div style="background:' +
+                      (isCertExpired ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isCertExpired ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isCertExpired ? '⚠️ CERTIFICADO DIGITAL VENCIDO' : '⏳ VENCIMENTO PRÓXIMO') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Titular:</b> ' +
+                      certTitular +
+                      '<br/><b>Tipo:</b> ' +
+                      certTipo +
+                      ' (' +
+                      certEmissor +
+                      ')<br/><b>Validade:</b> ' +
+                      certValidade.toLocaleDateString('pt-BR') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse a ficha da empresa no sistema para atualizar o certificado e manter a entrega regular das obrigações acessórias.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errCert) {
+      console.log('[CRON] Error scanning certificados_digitais:', errCert)
+    }
+
     // 1. Scan for pending or in_progress obrigacoes due within 7 days or overdue
     const pendingObrigacoes = $app.findRecordsByFilter(
       'obrigacoes',

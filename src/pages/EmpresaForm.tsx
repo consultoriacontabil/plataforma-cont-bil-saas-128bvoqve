@@ -13,6 +13,11 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
+import { certificadosService } from '@/services/certificados'
+import {
+  EmpresaCertificadoSection,
+  type CertificadoFormState,
+} from '@/components/EmpresaCertificadoSection'
 import { maskCnpj, maskCep, maskPhone, isValidCnpj } from '@/lib/formatters'
 import type { Empresa, EmpresaRegime, EmpresaPorte, EmpresaStatus } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -62,14 +67,30 @@ const BRAZIL_UFS = [
 export default function EmpresaForm() {
   const { id } = useParams<{ id: string }>()
   const isEditing = Boolean(id)
-  const { tenant } = useAuth()
+  const { tenant, member } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
+
+  const canEditCertificado = member?.perfil === 'administrador' || member?.perfil === 'contador'
 
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
   const [lookingUpCep, setLookingUpCep] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Certificado digital state
+  const [certData, setCertData] = useState<CertificadoFormState>({
+    tipo: 'a1',
+    titular: '',
+    numero_serie: '',
+    emissor: '',
+    validade: '',
+    senha: '',
+    status: 'ativo',
+    observacoes: '',
+    arquivoFile: null,
+    arquivoNomeAtual: '',
+  })
 
   // Form state
   const [formData, setFormData] = useState<Partial<Empresa>>({
@@ -125,6 +146,28 @@ export default function EmpresaForm() {
           observacoes: data.observacoes || '',
           status: data.status || 'ativo',
         })
+
+        // Buscar certificado existente da empresa
+        try {
+          const cert = await certificadosService.getByEmpresa(id)
+          if (cert) {
+            setCertData({
+              id: cert.id,
+              tipo: cert.tipo || 'a1',
+              titular: cert.titular || '',
+              numero_serie: cert.numero_serie || '',
+              emissor: cert.emissor || '',
+              validade: cert.validade ? cert.validade.split('T')[0] : '',
+              senha: cert.senha || '',
+              status: cert.status || 'ativo',
+              observacoes: cert.observacoes || '',
+              arquivoFile: null,
+              arquivoNomeAtual: cert.arquivo_pfx || '',
+            })
+          }
+        } catch (certErr) {
+          console.error('Erro ao buscar certificado da empresa:', certErr)
+        }
       } catch (err) {
         toast({
           variant: 'destructive',
@@ -214,21 +257,53 @@ export default function EmpresaForm() {
         data_abertura: formData.data_abertura ? `${formData.data_abertura} 00:00:00` : undefined,
       }
 
+      let empresaIdSalva = id
       if (isEditing && id) {
         await empresasService.update(id, payload)
-        toast({
-          title: 'Empresa atualizada!',
-          description: 'Os dados cadastrais foram salvos com sucesso.',
-        })
-        navigate(`/empresas/${id}`)
       } else {
         const created = await empresasService.create(payload)
-        toast({
-          title: 'Empresa cadastrada!',
-          description: 'A nova empresa já está ativa no seu escritório.',
-        })
-        navigate(`/empresas/${created.id}`)
+        empresaIdSalva = created.id
       }
+
+      // Persistir dados do Certificado Digital se preenchidos
+      if (empresaIdSalva && certData.validade && certData.emissor && canEditCertificado) {
+        try {
+          const certFormData = new FormData()
+          certFormData.append('tenant_id', tenant.id)
+          certFormData.append('empresa', empresaIdSalva)
+          certFormData.append('tipo', certData.tipo)
+          certFormData.append(
+            'titular',
+            certData.titular ||
+              `${formData.razao_social?.toUpperCase()}:${formData.cnpj?.replace(/\D/g, '')}`,
+          )
+          if (certData.numero_serie) certFormData.append('numero_serie', certData.numero_serie)
+          certFormData.append('emissor', certData.emissor)
+          certFormData.append('validade', new Date(`${certData.validade}T12:00:00Z`).toISOString())
+          if (certData.senha) certFormData.append('senha', certData.senha)
+          certFormData.append('status', certData.status)
+          if (certData.observacoes) certFormData.append('observacoes', certData.observacoes)
+          if (certData.arquivoFile) {
+            certFormData.append('arquivo_pfx', certData.arquivoFile)
+          }
+
+          await certificadosService.save(certData.id || null, certFormData)
+        } catch (certSaveErr) {
+          console.error('Erro ao salvar certificado digital:', certSaveErr)
+          toast({
+            variant: 'destructive',
+            title: 'Aviso sobre o Certificado',
+            description:
+              'A empresa foi salva, mas ocorreu uma falha ao gravar o certificado digital.',
+          })
+        }
+      }
+
+      toast({
+        title: isEditing ? 'Empresa atualizada!' : 'Empresa cadastrada!',
+        description: 'Os dados cadastrais e certificado foram gravados com sucesso.',
+      })
+      navigate(`/empresas/${empresaIdSalva}`)
     } catch (err: unknown) {
       console.error('Error saving empresa:', err)
       const msg = err instanceof Error ? err.message : 'Erro ao persistir cadastro.'
@@ -663,6 +738,35 @@ export default function EmpresaForm() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Section 4: Certificado Digital (A1 / A3) */}
+        <EmpresaCertificadoSection
+          empresaId={id}
+          razaoSocial={formData.razao_social}
+          cnpj={formData.cnpj}
+          canEdit={canEditCertificado}
+          formState={certData}
+          onChange={setCertData}
+          onDeleteCertificado={
+            certData.id
+              ? async () => {
+                  await certificadosService.delete(certData.id!)
+                  setCertData({
+                    tipo: 'a1',
+                    titular: '',
+                    numero_serie: '',
+                    emissor: '',
+                    validade: '',
+                    senha: '',
+                    status: 'ativo',
+                    observacoes: '',
+                    arquivoFile: null,
+                    arquivoNomeAtual: '',
+                  })
+                }
+              : undefined
+          }
+        />
 
         {/* Submit Actions Bottom */}
         <div className="flex items-center justify-end gap-3 pt-2">

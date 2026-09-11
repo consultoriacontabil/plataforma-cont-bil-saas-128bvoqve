@@ -220,6 +220,13 @@ onRecordAfterUpdateSuccess(
           record.getString('titulo') +
           '" atualizado para status: ' +
           record.getString('status')
+      } else if (collectionName === 'certificados_digitais') {
+        acao = 'Atualização de Certificado Digital'
+        detalhes =
+          'Atualizado certificado ' +
+          record.getString('tipo').toUpperCase() +
+          ' da empresa - Status: ' +
+          record.getString('status')
       }
 
       log.set('acao', acao)
@@ -255,4 +262,5 @@ onRecordAfterUpdateSuccess(
   'pre_lancamentos',
   'assinaturas_demonstrativos',
   'contratos_honorarios',
+  'certificados_digitais',
 )

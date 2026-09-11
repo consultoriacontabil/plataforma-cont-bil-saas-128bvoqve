@@ -215,9 +215,31 @@ export interface ObrigacaoRecord extends RecordModel {
   observacoes?: string
   anexo?: string
   data_entrega?: string
+  exige_certificado?: boolean
   expand?: {
     empresa_id?: Empresa
     responsavel_id?: User
+  }
+}
+
+// === Módulo Certificado Digital ===
+export type TipoCertificadoDigital = 'a1' | 'a3'
+export type StatusCertificadoDigital = 'ativo' | 'expirado' | 'revogado'
+
+export interface CertificadoDigitalRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  tipo: TipoCertificadoDigital
+  titular: string
+  numero_serie?: string
+  emissor: string
+  validade: string
+  arquivo_pfx?: string
+  senha?: string
+  status: StatusCertificadoDigital
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
   }
 }
 

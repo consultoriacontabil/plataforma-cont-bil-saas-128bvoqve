@@ -14,8 +14,10 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
+import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
+import { ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
 import { maskCnpj } from '@/lib/formatters'
-import type { Empresa, EmpresaStatus } from '@/types'
+import type { Empresa, EmpresaStatus, CertificadoDigitalRecord } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +45,9 @@ export default function Empresas() {
   const { toast } = useToast()
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [certificadosMap, setCertificadosMap] = useState<Record<string, CertificadoDigitalRecord>>(
+    {},
+  )
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'todos' | EmpresaStatus>('todos')
@@ -57,8 +62,18 @@ export default function Empresas() {
     if (!tenant?.id) return
     try {
       setLoading(true)
-      const res = await empresasService.list(tenant.id)
+      const [res, certs] = await Promise.all([
+        empresasService.list(tenant.id),
+        certificadosService.list(tenant.id),
+      ])
       setEmpresas(res)
+      const map: Record<string, CertificadoDigitalRecord> = {}
+      certs.forEach((c) => {
+        if (c.empresa && !map[c.empresa]) {
+          map[c.empresa] = c
+        }
+      })
+      setCertificadosMap(map)
     } catch (err) {
       console.error('Error loading empresas:', err)
       toast({
@@ -129,6 +144,49 @@ export default function Empresas() {
       default:
         return <Badge variant="outline">{status}</Badge>
     }
+  }
+
+  const renderCertificadoBadge = (empresaId: string) => {
+    const cert = certificadosMap[empresaId]
+    const saude: CertificadoSaudeInfo = certificadosService.calcularSaude(cert)
+
+    if (saude.saude === 'valido') {
+      return (
+        <Badge
+          variant="outline"
+          className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
+        >
+          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+          <span>Certificado OK</span>
+        </Badge>
+      )
+    }
+
+    if (saude.saude === 'proximo_vencimento') {
+      return (
+        <Badge
+          variant="outline"
+          className="border-amber-300 bg-amber-50 text-amber-800 text-[10px] font-semibold flex items-center gap-1 w-fit animate-pulse"
+        >
+          <ShieldAlert className="h-3 w-3 text-amber-600" />
+          <span>Vence em {saude.diasRestantes}d</span>
+        </Badge>
+      )
+    }
+
+    if (saude.saude === 'expirado') {
+      return (
+        <Badge
+          variant="outline"
+          className="border-red-200 bg-red-50 text-red-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
+        >
+          <ShieldX className="h-3 w-3 text-red-600" />
+          <span>Expirado</span>
+        </Badge>
+      )
+    }
+
+    return <span className="text-[11px] text-[#94A3B8]">Sem certificado</span>
   }
 
   const getRegimeBadge = (regime?: string) => {
@@ -219,6 +277,7 @@ export default function Empresas() {
                 <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
                   <th className="py-3.5 px-4">Empresa</th>
                   <th className="py-3.5 px-4">CNPJ</th>
+                  <th className="py-3.5 px-4">Certificado Digital</th>
                   <th className="py-3.5 px-4">Regime Tributário</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Ações</th>
@@ -227,13 +286,13 @@ export default function Empresas() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#64748B]">
+                    <td colSpan={6} className="py-12 text-center text-[#64748B]">
                       Carregando cadastro de empresas...
                     </td>
                   </tr>
                 ) : paginatedEmpresas.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#94A3B8]">
+                    <td colSpan={6} className="py-12 text-center text-[#94A3B8]">
                       Nenhuma empresa encontrada com os filtros selecionados.
                     </td>
                   </tr>
@@ -266,6 +325,7 @@ export default function Empresas() {
                           </div>
                         </td>
                         <td className="py-3 px-4 font-mono text-[#64748B]">{maskCnpj(emp.cnpj)}</td>
+                        <td className="py-3 px-4">{renderCertificadoBadge(emp.id)}</td>
                         <td className="py-3 px-4">{getRegimeBadge(emp.regime_tributario)}</td>
                         <td className="py-3 px-4">{getStatusBadge(emp.status)}</td>
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
