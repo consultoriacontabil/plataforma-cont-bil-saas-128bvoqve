@@ -20,6 +20,8 @@ import RumoAgentPage from '@/pages/RumoAgent'
 import Perfil from '@/pages/Perfil'
 import Obrigacoes from '@/pages/Obrigacoes'
 import Relatorios from '@/pages/Relatorios'
+import LancamentosContabeis from '@/pages/LancamentosContabeis'
+import Balancete from '@/pages/Balancete'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -53,6 +55,11 @@ export default function App() {
           <Route path="/workflow/:id" element={<WorkflowPage />} />
           <Route path="/obrigacoes" element={<Obrigacoes />} />
           <Route path="/fiscal" element={<Fiscal />} />
+
+          {/* Módulo Contábil (P1) */}
+          <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />
+          <Route path="/contabil/balancete" element={<Balancete />} />
+
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/integracoes" element={<Integracoes />} />
 

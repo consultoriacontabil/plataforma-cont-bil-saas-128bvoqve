@@ -30,4 +30,6 @@ onRecordAfterDeleteSuccess(
   'fiscal',
   'tenant_members',
   'obrigacoes',
+  'lancamentos_contabeis',
+  'plano_contas',
 )

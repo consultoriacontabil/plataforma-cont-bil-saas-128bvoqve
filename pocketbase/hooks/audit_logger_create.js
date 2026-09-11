@@ -22,6 +22,8 @@ onRecordAfterCreateSuccess(
         userId = record.getString('usuario_upload_id')
       } else if (record.has('criado_por_id') && record.getString('criado_por_id')) {
         userId = record.getString('criado_por_id')
+      } else if (record.has('criado_por') && record.getString('criado_por')) {
+        userId = record.getString('criado_por')
       } else if (record.has('user_id') && record.getString('user_id')) {
         userId = record.getString('user_id')
       }
@@ -74,6 +76,25 @@ onRecordAfterCreateSuccess(
           ' (competência ' +
           record.getString('competencia') +
           ')'
+      } else if (collectionName === 'lancamentos_contabeis') {
+        acao = 'Lançamento contábil criado'
+        detalhes =
+          'Registrou lançamento de R$ ' +
+          record.getFloat('valor').toFixed(2) +
+          ' (' +
+          record.getString('tipo').toUpperCase() +
+          ') na competência ' +
+          record.getString('competencia')
+      } else if (collectionName === 'plano_contas') {
+        acao = 'Conta contábil criada'
+        detalhes =
+          'Cadastrou conta ' +
+          record.getString('codigo') +
+          ' - ' +
+          record.getString('nome') +
+          ' (' +
+          record.getString('tipo') +
+          ')'
       }
 
       log.set('acao', acao)
@@ -90,4 +111,6 @@ onRecordAfterCreateSuccess(
   'fiscal',
   'tenant_members',
   'obrigacoes',
+  'lancamentos_contabeis',
+  'plano_contas',
 )

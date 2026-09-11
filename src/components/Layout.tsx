@@ -23,6 +23,8 @@ import {
   Clock,
   AlertTriangle,
   X,
+  BookOpen,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -114,6 +116,8 @@ export default function Layout() {
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
+    if (path.startsWith('/contabil/lancamentos')) return 'Lançamentos Contábeis'
+    if (path.startsWith('/contabil/balancete')) return 'Balancete de Verificação'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
@@ -228,6 +232,13 @@ export default function Layout() {
           badge: obrigacoesBadgeCount > 0 ? obrigacoesBadgeCount : undefined,
         },
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
+      ],
+    },
+    {
+      group: 'CONTÁBIL',
+      items: [
+        { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
+        { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
       ],
     },
     {

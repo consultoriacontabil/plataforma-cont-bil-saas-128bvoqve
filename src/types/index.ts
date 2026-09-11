@@ -227,3 +227,59 @@ export interface NotificacaoRecord extends RecordModel {
   link?: string
   lida: boolean
 }
+
+// === Módulo Contábil (P1) ===
+export type ContaTipo = 'ativo' | 'passivo' | 'patrimonio' | 'receita' | 'despesa'
+
+export interface ContaContabil extends RecordModel {
+  tenant_id: string
+  codigo: string
+  nome: string
+  tipo: ContaTipo
+  nivel: number
+  pai?: string
+  ativa: boolean
+  expand?: {
+    pai?: ContaContabil
+  }
+}
+
+export type LancamentoTipo = 'debito' | 'credito'
+export type LancamentoStatus = 'rascunho' | 'confirmado'
+
+export interface LancamentoContabil extends RecordModel {
+  tenant_id: string
+  empresa: string
+  data: string
+  tipo: LancamentoTipo
+  conta_contabil: string
+  contrapartida?: string
+  valor: number
+  historico: string
+  documento?: string
+  competencia: string
+  status: LancamentoStatus
+  lote_id?: string
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    conta_contabil?: ContaContabil
+    contrapartida?: ContaContabil
+    documento?: Documento
+    criado_por?: User
+  }
+}
+
+export interface BalanceteItem {
+  id: string
+  codigo: string
+  nome: string
+  tipo: ContaTipo
+  nivel: number
+  pai?: string
+  isSintetica: boolean
+  saldoAnterior: number
+  debitos: number
+  creditos: number
+  saldoAtual: number
+}

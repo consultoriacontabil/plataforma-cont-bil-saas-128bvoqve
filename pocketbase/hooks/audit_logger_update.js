@@ -22,6 +22,8 @@ onRecordAfterUpdateSuccess(
         userId = record.getString('usuario_upload_id')
       } else if (record.has('criado_por_id') && record.getString('criado_por_id')) {
         userId = record.getString('criado_por_id')
+      } else if (record.has('criado_por') && record.getString('criado_por')) {
+        userId = record.getString('criado_por')
       } else if (record.has('user_id') && record.getString('user_id')) {
         userId = record.getString('user_id')
       }
@@ -80,6 +82,18 @@ onRecordAfterUpdateSuccess(
           record.getString('competencia') +
           ') para status ' +
           record.getString('status')
+      } else if (collectionName === 'lancamentos_contabeis') {
+        acao = 'Atualização de lançamento contábil'
+        detalhes =
+          'Alterou lançamento (' +
+          record.getString('status') +
+          ') de R$ ' +
+          record.getFloat('valor').toFixed(2) +
+          ' na competência ' +
+          record.getString('competencia')
+      } else if (collectionName === 'plano_contas') {
+        acao = 'Atualização de conta contábil'
+        detalhes = 'Alterou conta ' + record.getString('codigo') + ' - ' + record.getString('nome')
       }
 
       log.set('acao', acao)
@@ -96,4 +110,6 @@ onRecordAfterUpdateSuccess(
   'fiscal',
   'tenant_members',
   'obrigacoes',
+  'lancamentos_contabeis',
+  'plano_contas',
 )
