@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   Lock,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
@@ -29,6 +30,10 @@ import { assinaturasService } from '@/services/assinaturas'
 import { ContratoModalView } from '@/components/ContratoModalView'
 import { AssinarContratoModal } from '@/components/AssinarContratoModal'
 import { RecusarContratoModal } from '@/components/RecusarContratoModal'
+import { simuladorReformaService } from '@/services/simuladorReforma'
+import { RelatorioReformaModal } from '@/components/RelatorioReformaModal'
+import { calcularSimulacaoReforma } from '@/lib/reformaTributaria/calculos'
+import type { SimulacaoReformaRecord } from '@/types'
 import type {
   Empresa,
   Documento,
@@ -91,6 +96,12 @@ export default function PortalClientePage() {
   const [selectedDem, setSelectedDem] = useState<DemonstrativoRecord | null>(null)
   const [modalDemOpen, setModalDemOpen] = useState(false)
   const [approvingDem, setApprovingDem] = useState(false)
+
+  // Módulo Simulador da Reforma Tributária compartilhado
+  const [simulacoesReforma, setSimulacoesReforma] = useState<SimulacaoReformaRecord[]>([])
+  const [modalRelatorioReformaOpen, setModalRelatorioReformaOpen] = useState(false)
+  const [selectedSimulacaoCalculada, setSelectedSimulacaoCalculada] = useState<any>(null)
+  const [selectedSimulacaoTitulo, setSelectedSimulacaoTitulo] = useState('')
   const [reprovandoModalOpen, setReprovandoModalOpen] = useState(false)
   const [motivoReprovacao, setMotivoReprovacao] = useState('')
 
@@ -122,7 +133,7 @@ export default function PortalClientePage() {
       const activeEmpId = selectedEmpresaId || emps[0]?.id
       if (activeEmpId) {
         setSelectedEmpresaId(activeEmpId)
-        const [docs, obs, notifs, fechosRes, demsRes, contratosRes, assinaturasRes] =
+        const [docs, obs, notifs, fechosRes, demsRes, contratosRes, assinaturasRes, simReformaRes] =
           await Promise.all([
             portalService.getClienteDocumentos(tenant.id, activeEmpId),
             portalService.getClienteObrigacoes(tenant.id, activeEmpId),
@@ -139,6 +150,13 @@ export default function PortalClientePage() {
             assinaturasService
               .list(tenant.id, { empresaId: activeEmpId, tipoDocumento: 'contrato_honorarios' })
               .catch(() => []),
+            pb
+              .collection('simulacoes_reforma')
+              .getFullList<SimulacaoReformaRecord>({
+                filter: `tenant_id = "${tenant.id}" && empresa = "${activeEmpId}" && compartilhado_portal = true`,
+                sort: '-created',
+              })
+              .catch(() => []),
           ])
         setDocumentos(docs)
         setObrigacoes(obs)
@@ -154,6 +172,7 @@ export default function PortalClientePage() {
         setAssinaturasContratos(assinaturasRes)
         // Cliente só visualiza demonstrativos da própria empresa (enviado, aprovado ou reprovado)
         setDemonstrativos(demsRes.filter((d) => d.status !== 'rascunho'))
+        setSimulacoesReforma(simReformaRes)
         setUnreadNotifs(notifs.filter((n) => !n.lida).length)
       }
     } catch (err) {
@@ -524,6 +543,10 @@ export default function PortalClientePage() {
                   {contratos.filter((c) => c.status === 'enviado').length}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="reforma" className="gap-2 text-xs font-semibold rounded-lg">
+              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Reforma Tributária (IBS/CBS)</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1226,8 +1249,123 @@ export default function PortalClientePage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ABA REFORMA TRIBUTÁRIA (IBS / CBS) - COMPARTILHADA COM O CLIENTE */}
+          <TabsContent value="reforma" className="space-y-6 mt-4">
+            <Card className="rounded-3xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
+              <CardHeader className="p-5 border-b border-[#E2E8F0] bg-slate-50/60">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-[#0FA3A3]" />
+                      <span>Estudos de Impacto da Reforma Tributária (IBS / CBS)</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-[#64748B]">
+                      Cenários e pareceres elaborados pela equipe da Rumo Consultoria para sua
+                      empresa (EC 132/23 e LC 214/25).
+                    </CardDescription>
+                  </div>
+                  <Badge className="bg-[#0FA3A3] text-white text-[10px] uppercase font-bold w-fit">
+                    Transição 2026–2033
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-6">
+                {simulacoesReforma.length === 0 ? (
+                  <div className="py-12 text-center space-y-2">
+                    <FileText className="h-8 w-8 text-[#94A3B8] mx-auto opacity-50" />
+                    <p className="text-sm font-semibold text-[#1A2333]">
+                      Nenhum estudo compartilhado no momento
+                    </p>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Seu contador está preparando as simulações de transição para o novo IVA Dual
+                      (IBS/CBS). Assim que liberado pelo escritório, o parecer completo aparecerá
+                      aqui.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {simulacoesReforma.map((sim) => {
+                      const resJson = sim.resultado_json as any
+                      const inputsJson = sim.inputs_json as any
+                      return (
+                        <div
+                          key={sim.id}
+                          className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-[#0FA3A3]/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-[#1A2333]">{sim.titulo}</h4>
+                              <Badge variant="outline" className="text-[10px] uppercase">
+                                {sim.regime_atual.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-[#64748B]">
+                              Faturamento Base: R${' '}
+                              {sim.faturamento_anual.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                              })}{' '}
+                              • Alíquota Atual: {sim.aliquota_atual_estimada}%
+                            </p>
+                            {resJson?.recomendacaoPrincipal && (
+                              <p className="text-[11px] text-[#0FA3A3] font-medium pt-1">
+                                Parecer: {resJson.recomendacaoPrincipal}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-[#94A3B8]">
+                              Elaborado em: {new Date(sim.created).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                // Recalcula ou remonta o objeto calculada
+                                const inputs: any = inputsJson || {
+                                  razaoSocial: sim.razao_social || activeEmpresa?.razao_social,
+                                  regimeAtual: sim.regime_atual,
+                                  faturamentoAnual: sim.faturamento_anual,
+                                  percentualCreditosInsumos: sim.percentual_creditos || 15,
+                                  setorAtividade: sim.setor_atividade || 'servicos_geral',
+                                  reducaoSetorial60: !!sim.reducao_setorial_60,
+                                  vendeCestaBasica: !!sim.vende_cesta_basica,
+                                  percentualCestaBasica: 0,
+                                  aliquotaAtualEstimada: sim.aliquota_atual_estimada,
+                                  permanecerNoSimplesNaTransicao: true,
+                                  anoBase: 2026,
+                                }
+                                const calc = calcularSimulacaoReforma(inputs)
+                                setSelectedSimulacaoCalculada(calc)
+                                setSelectedSimulacaoTitulo(sim.titulo)
+                                setModalRelatorioReformaOpen(true)
+                              }}
+                              className="rounded-xl text-xs font-semibold h-9 px-4 bg-[#123B6D] hover:bg-[#0B1F3A] text-white gap-1.5"
+                            >
+                              <FileText className="h-4 w-4" />
+                              <span>Ver Parecer Completo (PDF)</span>
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
+
+      {/* Modal de Relatório da Reforma para o Cliente */}
+      <RelatorioReformaModal
+        open={modalRelatorioReformaOpen}
+        onOpenChange={setModalRelatorioReformaOpen}
+        calculada={selectedSimulacaoCalculada}
+        tituloRelatorio={selectedSimulacaoTitulo}
+      />
 
       {/* Modal de Visualização Formal e Aprovação */}
       <DemonstrativoModalView

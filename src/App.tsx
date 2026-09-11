@@ -36,6 +36,7 @@ import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
 import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
+import SimuladorReformaPage from '@/pages/SimuladorReforma'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/workflow/:id" element={<WorkflowPage />} />
           <Route path="/obrigacoes" element={<Obrigacoes />} />
           <Route path="/fiscal" element={<Fiscal />} />
+          <Route path="/simulador-reforma" element={<SimuladorReformaPage />} />
 
           {/* Módulo Departamento Pessoal (P1) */}
           <Route path="/departamento-pessoal" element={<DepartamentoPessoal />} />

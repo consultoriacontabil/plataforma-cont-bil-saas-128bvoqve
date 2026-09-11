@@ -142,6 +142,7 @@ export default function Layout() {
     if (path.startsWith('/financeiro')) return 'Financeiro & Conciliação'
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
+    if (path.startsWith('/simulador-reforma')) return 'Simulador da Reforma Tributária (IBS/CBS)'
     if (path.startsWith('/fiscal')) return 'Controle Fiscal'
     if (path.startsWith('/departamento-pessoal')) return 'Departamento Pessoal (DP)'
     if (path.startsWith('/impostos-retidos')) return 'Gestão de Impostos Retidos'
@@ -267,6 +268,18 @@ export default function Layout() {
           to: '/obrigacoes',
           icon: Clock,
           badge: obrigacoesBadgeCount > 0 ? obrigacoesBadgeCount : undefined,
+        },
+        {
+          label: 'Simulador Reforma',
+          to: '/simulador-reforma',
+          icon: Sparkles,
+          badge: 'NOVO',
+          allowedRoles: ['admin', 'contador', 'consultor'] as (
+            | 'admin'
+            | 'contador'
+            | 'consultor'
+            | 'cliente'
+          )[],
         },
         { label: 'Fiscal', to: '/fiscal', icon: Calculator },
         { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },

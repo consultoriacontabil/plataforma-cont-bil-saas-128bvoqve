@@ -989,3 +989,27 @@ export interface EmpresaCadastroAssistidoRecord extends RecordModel {
     criado_por?: User
   }
 }
+
+// === Módulo Simulador da Reforma Tributária (IBS/CBS - EC 132/23 e LC 214/25) ===
+export interface SimulacaoReformaRecord extends RecordModel {
+  tenant_id: string
+  empresa?: string
+  titulo: string
+  razao_social?: string
+  cnpj?: string
+  regime_atual: 'simples_nacional' | 'lucro_presumido' | 'lucro_real'
+  setor_atividade: string
+  faturamento_anual: number
+  aliquota_atual_estimada: number
+  percentual_creditos?: number
+  reducao_setorial_60?: boolean
+  vende_cesta_basica?: boolean
+  inputs_json?: Record<string, unknown>
+  resultado_json?: Record<string, unknown>
+  compartilhado_portal?: boolean
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    criado_por?: User
+  }
+}

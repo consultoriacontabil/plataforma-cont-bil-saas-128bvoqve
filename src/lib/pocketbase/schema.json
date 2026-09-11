@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T18:38:52.984Z",
+  "generatedAt": "2026-09-11T19:11:26.155Z",
   "collections": [
     {
       "name": "users",
@@ -3758,6 +3758,138 @@
         "CREATE INDEX idx_empresa_cad_assistido_tenant ON empresa_cadastro_assistido (tenant_id)",
         "CREATE INDEX idx_empresa_cad_assistido_empresa ON empresa_cadastro_assistido (empresa)",
         "CREATE INDEX idx_empresa_cad_assistido_created ON empresa_cadastro_assistido (created DESC)"
+      ]
+    },
+    {
+      "name": "simulacoes_reforma",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "razao_social",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regime_atual",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["simples_nacional", "lucro_presumido", "lucro_real"]
+        },
+        {
+          "name": "setor_atividade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "faturamento_anual",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "aliquota_atual_estimada",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "percentual_creditos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reducao_setorial_60",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vende_cesta_basica",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inputs_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "compartilhado_portal",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sim_reforma_tenant ON simulacoes_reforma (tenant_id)",
+        "CREATE INDEX idx_sim_reforma_empresa ON simulacoes_reforma (empresa)",
+        "CREATE INDEX idx_sim_reforma_created ON simulacoes_reforma (created DESC)"
       ]
     }
   ]
