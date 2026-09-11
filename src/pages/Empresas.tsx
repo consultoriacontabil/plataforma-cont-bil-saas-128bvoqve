@@ -16,7 +16,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
 import { certidoesService, ecacService } from '@/services/regularidade'
-import { ShieldCheck, ShieldAlert, ShieldX, FileCheck2, Inbox, AlertTriangle } from 'lucide-react'
+import { ModalImportacaoEmpresas } from '@/components/ModalImportacaoEmpresas'
+import {
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  FileCheck2,
+  Inbox,
+  AlertTriangle,
+  FileSpreadsheet,
+} from 'lucide-react'
 import { maskCnpj } from '@/lib/formatters'
 import type {
   Empresa,
@@ -62,6 +71,13 @@ export default function Empresas() {
   const [statusFilter, setStatusFilter] = useState<'todos' | EmpresaStatus>('todos')
   const [page, setPage] = useState(1)
   const perPage = 12
+
+  // Modal de Importação em Lote para Migração
+  const [importacaoModalOpen, setImportacaoModalOpen] = useState(false)
+
+  // Permissão de escrita / migração (Administrador ou Contador)
+  const { member } = useAuth()
+  const podeImportarMigracao = member?.perfil === 'administrador' || member?.perfil === 'contador'
 
   // Close/deactivate confirmation modal
   const [empresaToClose, setEmpresaToClose] = useState<Empresa | null>(null)
@@ -304,13 +320,26 @@ export default function Empresas() {
             Gerenciamento de pessoas jurídicas atendidas pelo escritório
           </p>
         </div>
-        <Button
-          onClick={() => navigate('/empresas/nova')}
-          className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Nova Empresa</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {podeImportarMigracao && (
+            <Button
+              variant="outline"
+              onClick={() => setImportacaoModalOpen(true)}
+              className="gap-2 rounded-xl border-[#0FA3A3] text-[#0FA3A3] hover:bg-[#F0FDFA] font-semibold text-xs h-10 shadow-xs"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>Importar Empresas (Migração)</span>
+            </Button>
+          )}
+
+          <Button
+            onClick={() => navigate('/empresas/nova')}
+            className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Nova Empresa</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters Bar: Search & Status Chips */}
@@ -489,6 +518,18 @@ export default function Empresas() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de Importação em Lote para Migração */}
+      {tenant?.id && (
+        <ModalImportacaoEmpresas
+          open={importacaoModalOpen}
+          onOpenChange={setImportacaoModalOpen}
+          tenantId={tenant.id}
+          onImportacaoSucesso={() => {
+            loadEmpresas()
+          }}
+        />
+      )}
 
       {/* Confirmation Modal to Encerrar */}
       <Dialog open={Boolean(empresaToClose)} onOpenChange={() => setEmpresaToClose(null)}>

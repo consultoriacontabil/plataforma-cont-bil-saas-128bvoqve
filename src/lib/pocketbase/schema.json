@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T21:19:27.276Z",
+  "generatedAt": "2026-09-11T22:58:01.473Z",
   "collections": [
     {
       "name": "users",
@@ -5399,6 +5399,100 @@
         "CREATE INDEX idx_rfb_logs_empresa ON rfb_sync_logs (empresa, created DESC)",
         "CREATE INDEX idx_rfb_logs_tenant ON rfb_sync_logs (tenant_id)",
         "CREATE INDEX idx_rfb_logs_created ON rfb_sync_logs (created DESC)"
+      ]
+    },
+    {
+      "name": "empresas_migracoes_lote",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "usuario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "nome_arquivo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "modo_duplicidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["atualizar", "pular"]
+        },
+        {
+          "name": "total_linhas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_importadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_atualizadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_puladas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_erros",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "relatorio_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_emp_migr_tenant ON empresas_migracoes_lote (tenant_id)",
+        "CREATE INDEX idx_emp_migr_created ON empresas_migracoes_lote (created DESC)"
       ]
     }
   ]

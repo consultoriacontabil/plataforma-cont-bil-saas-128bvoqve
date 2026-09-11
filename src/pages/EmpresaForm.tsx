@@ -24,6 +24,10 @@ import {
 import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
 import { CadastroAssistidoModal } from '@/components/CadastroAssistidoModal'
 import { PainelConsistenciaCard } from '@/components/PainelConsistenciaCard'
+import { ModalRevisaoCnpjPublico } from '@/components/ModalRevisaoCnpjPublico'
+import { consultarCnpjPublico, type DadosConsultaPublicaCnpj } from '@/services/consultaCnpjPublico'
+import { Globe } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,6 +99,14 @@ export default function EmpresaForm() {
   const [saving, setSaving] = useState(false)
   const [lookingUpCep, setLookingUpCep] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Estado para Busca Automática por CNPJ (APIs públicas)
+  const [buscandoCnpjPublico, setBuscandoCnpjPublico] = useState(false)
+  const [modalRevisaoCnpjOpen, setModalRevisaoCnpjOpen] = useState(false)
+  const [resultadoCnpjPublico, setResultadoCnpjPublico] = useState<DadosConsultaPublicaCnpj | null>(
+    null,
+  )
+  const [badgeFonteCnpj, setBadgeFonteCnpj] = useState<string | null>(null)
 
   // Estado para Cadastro Assistido por Documentos
   const [assistidoModalOpen, setAssistidoModalOpen] = useState(false)
@@ -268,6 +280,81 @@ export default function EmpresaForm() {
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
+  }
+
+  // Consulta automática por CNPJ em fontes públicas
+  const handleConsultarCnpjPublico = async () => {
+    const clean = (formData.cnpj || '').replace(/\D/g, '')
+    if (clean.length !== 14) {
+      toast({
+        variant: 'destructive',
+        title: 'Informe o CNPJ',
+        description: 'Digite os 14 dígitos do CNPJ no campo correspondente para consultar.',
+      })
+      focarCampo('cnpj')
+      return
+    }
+
+    if (!isValidCnpj(clean)) {
+      toast({
+        variant: 'destructive',
+        title: 'CNPJ inválido',
+        description: 'Os dígitos verificadores do CNPJ estão incorretos.',
+      })
+      focarCampo('cnpj')
+      return
+    }
+
+    setBuscandoCnpjPublico(true)
+    try {
+      const res = await consultarCnpjPublico(clean)
+      if (res.sucesso === true) {
+        setResultadoCnpjPublico(res)
+        setModalRevisaoCnpjOpen(true)
+        toast({
+          title: 'Dados localizados!',
+          description: `Empresa encontrada na base oficial (${res.fonte}). Revise os campos antes de aplicar.`,
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Falha na consulta pública',
+          description: res.mensagem,
+        })
+      }
+    } catch (err: unknown) {
+      console.error('Erro na consulta CNPJ:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro na requisição',
+        description:
+          'Não foi possível consultar as bases públicas no momento. Tente novamente mais tarde.',
+      })
+    } finally {
+      setBuscandoCnpjPublico(false)
+    }
+  }
+
+  // Ação ao confirmar os campos da consulta pública
+  const handleAplicarDadosCnpjPublico = (
+    dadosParaAplicar: Partial<Empresa>,
+    badgeFonte: string,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      ...dadosParaAplicar,
+    }))
+    setBadgeFonteCnpj(badgeFonte)
+
+    // Se o CEP foi aplicado, dispara busca de logradouro se faltar
+    if (dadosParaAplicar.cep && !dadosParaAplicar.logradouro) {
+      handleCepChange(dadosParaAplicar.cep)
+    }
+
+    toast({
+      title: 'Dados públicos aplicados!',
+      description: 'O formulário foi pré-preenchido. Revise os campos e clique em Salvar Empresa.',
+    })
   }
 
   // Focar campo específico
@@ -453,6 +540,23 @@ export default function EmpresaForm() {
           <Button
             type="button"
             variant="outline"
+            onClick={handleConsultarCnpjPublico}
+            disabled={buscandoCnpjPublico}
+            className="gap-2 text-xs h-9 rounded-xl border-blue-400 text-blue-700 hover:bg-blue-50 font-semibold"
+            title="Buscar dados completos por APIs públicas da Receita Federal e BrasilAPI"
+          >
+            {buscandoCnpjPublico ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+            ) : (
+              <Globe className="h-3.5 w-3.5 text-blue-600" />
+            )}
+            <span className="hidden sm:inline">Buscar dados pelo CNPJ</span>
+            <span className="sm:hidden">Buscar CNPJ</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => setAssistidoModalOpen(true)}
             className="gap-2 text-xs h-9 rounded-xl border-[#0FA3A3] text-[#0FA3A3] hover:bg-[#F0FDFA]"
           >
@@ -537,18 +641,44 @@ export default function EmpresaForm() {
                 <CardTitle className="text-sm font-bold text-[#1A2333]">
                   1. Dados Cadastrais & Tributação
                 </CardTitle>
+                {badgeFonteCnpj && (
+                  <Badge
+                    variant="outline"
+                    className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-semibold"
+                  >
+                    {badgeFonteCnpj}
+                  </Badge>
+                )}
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setAssistidoModalOpen(true)}
-                className="text-xs h-7 gap-1 text-[#0FA3A3] hover:text-[#0C8585] p-1"
-              >
-                <Sparkles className="h-3 w-3" />
-                <span>Upload de Documentos</span>
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleConsultarCnpjPublico}
+                  disabled={buscandoCnpjPublico}
+                  className="text-xs h-7 gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-1"
+                >
+                  {buscandoCnpjPublico ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Globe className="h-3 w-3" />
+                  )}
+                  <span>Buscar por CNPJ</span>
+                </Button>
+                <span className="text-slate-300">|</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAssistidoModalOpen(true)}
+                  className="text-xs h-7 gap-1 text-[#0FA3A3] hover:text-[#0C8585] p-1"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span>Upload de Documentos</span>
+                </Button>
+              </div>
             </div>
             <CardDescription className="text-xs text-[#64748B]">
               Identificação formal da pessoa jurídica e enquadramento fiscal
@@ -586,9 +716,24 @@ export default function EmpresaForm() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="cnpj" className="text-xs font-semibold text-[#1A2333]">
-                CNPJ (com validação) *
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="cnpj" className="text-xs font-semibold text-[#1A2333]">
+                  CNPJ (com validação) *
+                </Label>
+                <button
+                  type="button"
+                  onClick={handleConsultarCnpjPublico}
+                  disabled={buscandoCnpjPublico}
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-blue-50 transition-colors"
+                >
+                  {buscandoCnpjPublico ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Globe className="h-3 w-3" />
+                  )}
+                  <span>Buscar dados pelo CNPJ</span>
+                </button>
+              </div>
               <Input
                 id="cnpj"
                 required
@@ -596,7 +741,7 @@ export default function EmpresaForm() {
                 onChange={(e) => setFormData({ ...formData, cnpj: maskCnpj(e.target.value) })}
                 placeholder="00.000.000/0001-00"
                 className="h-10 text-xs font-mono rounded-xl border-[#E2E8F0]"
-              />
+              />{' '}
               {errors.cnpj && <p className="text-[11px] text-[#EF4444]">{errors.cnpj}</p>}
             </div>
 
@@ -982,6 +1127,15 @@ export default function EmpresaForm() {
           </Button>
         </div>
       </form>
+
+      {/* Modal de Revisão da Consulta Pública por CNPJ */}
+      <ModalRevisaoCnpjPublico
+        open={modalRevisaoCnpjOpen}
+        onOpenChange={setModalRevisaoCnpjOpen}
+        resultadoConsulta={resultadoCnpjPublico}
+        formAtual={formData}
+        onAplicarDados={handleAplicarDadosCnpjPublico}
+      />
 
       {/* Modal do Cadastro Assistido por Documentos */}
       <CadastroAssistidoModal
