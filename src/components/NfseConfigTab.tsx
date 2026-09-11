@@ -124,6 +124,9 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
   const [msgAprovacao, setMsgAprovacao] = useState<string>(config?.msg_aprovacao || '')
   const [msgRejeicao, setMsgRejeicao] = useState<string>(config?.msg_rejeicao || '')
   const [msgNotaEmitida, setMsgNotaEmitida] = useState<string>(config?.msg_nota_emitida || '')
+  const [prazoDiasCancelamento, setPrazoDiasCancelamento] = useState<number>(
+    config?.prazo_dias_cancelamento || 30,
+  )
 
   const [salvando, setSalvando] = useState(false)
   const [testandoEvo, setTestandoEvo] = useState(false)
@@ -219,6 +222,7 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           msg_rejeicao: msgRejeicao.trim(),
           msg_nota_emitida: msgNotaEmitida.trim(),
           telefone_suporte: telefoneSuporte.trim(),
+          prazo_dias_cancelamento: prazoDiasCancelamento,
           ativo,
         },
         currentUserId,
@@ -1079,7 +1083,7 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
         </CardHeader>
 
         <CardContent className="pt-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-[#1A2333]">
                 Empresa Prestadora Padrão
@@ -1114,6 +1118,25 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
               />
               <p className="text-[11px] text-[#94A3B8]">
                 Exibido quando o bot precisa transferir para atendimento de um contador.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1A2333]">
+                Prazo Municipal Cancelamento (Dias)
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                value={prazoDiasCancelamento}
+                onChange={(e) => setPrazoDiasCancelamento(Number(e.target.value) || 30)}
+                placeholder="Ex: 30"
+                className="text-xs h-9 font-mono"
+                disabled={!canEdit}
+              />
+              <p className="text-[11px] text-[#94A3B8]">
+                Limite de dias para aviso de prazo extemporâneo no modal de cancelamento.
               </p>
             </div>
           </div>

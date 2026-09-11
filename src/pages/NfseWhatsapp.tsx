@@ -26,6 +26,8 @@ import {
   ExternalLink,
   ChevronRight,
   Info,
+  Ban,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -64,6 +66,7 @@ import { NfseRejeicaoModal } from '@/components/NfseRejeicaoModal'
 import { NfseChatLogModal } from '@/components/NfseChatLogModal'
 import { NfseVisualizadorModal } from '@/components/NfseVisualizadorModal'
 import { NfseConfigTab } from '@/components/NfseConfigTab'
+import { NfseCancelamentoModal } from '@/components/NfseCancelamentoModal'
 
 export default function NfseWhatsappPage() {
   const { tenant, user } = useAuth()
@@ -83,9 +86,25 @@ export default function NfseWhatsappPage() {
   const [statusFiltro, setStatusFiltro] = useState<string>('todos')
   const [buscaTexto, setBuscaTexto] = useState<string>('')
 
+  // Filtro de Histórico por Status
+  const [statusHistoricoFiltro, setStatusHistoricoFiltro] = useState<string>('todos')
+
   // Modais
   const [solicitacaoParaAprovar, setSolicitacaoParaAprovar] =
     useState<NfseSolicitacaoRecord | null>(null)
+  const [dadosSubstituicao, setDadosSubstituicao] = useState<{
+    notaSubstituidaId: string
+    numeroNotaOriginal: number
+    empresaId: string
+    tomadorNome: string
+    tomadorDocumento: string
+    tomadorEmail?: string
+    tomadorEndereco?: string
+    descricaoServicos: string
+    codigoServico?: string
+    valorServicos: number
+    aliquotaIss?: number
+  } | null>(null)
   const [modalAprovarOpen, setModalAprovarOpen] = useState(false)
 
   const [solicitacaoParaRejeitar, setSolicitacaoParaRejeitar] =
@@ -97,6 +116,9 @@ export default function NfseWhatsappPage() {
 
   const [notaParaVisualizar, setNotaParaVisualizar] = useState<NfseNotaEmitidaRecord | null>(null)
   const [modalDanfseOpen, setModalDanfseOpen] = useState(false)
+
+  const [notaParaCancelar, setNotaParaCancelar] = useState<NfseNotaEmitidaRecord | null>(null)
+  const [modalCancelarOpen, setModalCancelarOpen] = useState(false)
 
   const canEmit = user?.perfil === 'administrador' || user?.perfil === 'contador'
 
@@ -142,7 +164,12 @@ export default function NfseWhatsappPage() {
   ).length
   const comErro = solicitacoes.filter((s) => s.status === 'erro_emissao').length
   const totalEmitidas = notasEmitidas.length
-  const valorTotalEmitido = notasEmitidas.reduce((acc, n) => acc + (n.valor_servicos || 0), 0)
+  const totalCanceladas = notasEmitidas.filter((n) => n.status === 'cancelada').length
+  const totalSubstituidas = notasEmitidas.filter((n) => n.status === 'substituida').length
+  // Valor emitido líquido considera apenas notas com status 'emitida'
+  const valorTotalEmitidoLiquido = notasEmitidas
+    .filter((n) => n.status === 'emitida')
+    .reduce((acc, n) => acc + (n.valor_servicos || 0), 0)
 
   // Filtragem da Fila
   const solicitacoesFiltradas = useMemo(() => {
@@ -165,6 +192,32 @@ export default function NfseWhatsappPage() {
     empresas.forEach((emp) => map.set(emp.id, emp))
     return map
   }, [empresas])
+
+  // Filtragem do Histórico por Status
+  const notasEmitidasFiltradas = useMemo(() => {
+    return notasEmitidas.filter((nota) => {
+      if (statusHistoricoFiltro === 'todos') return true
+      return nota.status === statusHistoricoFiltro
+    })
+  }, [notasEmitidas, statusHistoricoFiltro])
+
+  // Função para acionar o fluxo de substituição
+  const handleIniciarSubstituicao = (notaOriginal: NfseNotaEmitidaRecord) => {
+    setDadosSubstituicao({
+      notaSubstituidaId: notaOriginal.id,
+      numeroNotaOriginal: notaOriginal.numero_nota,
+      empresaId: notaOriginal.empresa,
+      tomadorNome: notaOriginal.tomador_nome,
+      tomadorDocumento: notaOriginal.tomador_documento,
+      tomadorEmail: notaOriginal.tomador_email,
+      descricaoServicos: notaOriginal.discriminacao_servicos,
+      codigoServico: notaOriginal.codigo_servico_municipal,
+      valorServicos: notaOriginal.valor_servicos,
+      aliquotaIss: notaOriginal.aliquota_iss,
+    })
+    setSolicitacaoParaAprovar(null)
+    setModalAprovarOpen(true)
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -348,22 +401,30 @@ export default function NfseWhatsappPage() {
         <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
-              Notas Emitidas
+              Notas Fiscais
             </CardTitle>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <FileCheck className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{totalEmitidas}</div>
-            <p className="text-[11px] text-[#94A3B8] mt-1">Com XML e DANFSE gerados</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-emerald-600">
+                {notasEmitidas.filter((n) => n.status === 'emitida').length}
+              </span>
+              <span className="text-xs text-[#64748B]">autorizadas</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-[#64748B] mt-1">
+              <span>{totalCanceladas} canceladas</span>
+              {totalSubstituidas > 0 && <span>• {totalSubstituidas} substituídas</span>}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
-              Valor Total Emitido
+              Faturamento Líquido (Emitido)
             </CardTitle>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <DollarSign className="h-4 w-4" />
@@ -371,9 +432,12 @@ export default function NfseWhatsappPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#1A2333]">
-              {valorTotalEmitido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {valorTotalEmitidoLiquido.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              })}
             </div>
-            <p className="text-[11px] text-[#94A3B8] mt-1">Competência atual</p>
+            <p className="text-[11px] text-[#94A3B8] mt-1">Exclui notas canceladas/substituídas</p>
           </CardContent>
         </Card>
       </div>
@@ -666,27 +730,50 @@ export default function NfseWhatsappPage() {
 
         {/* ABA 2: HISTÓRICO DE NOTAS EMITIDAS */}
         <TabsContent value="historico" className="space-y-4 pt-2">
-          <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden">
-            <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-bold text-[#1A2333]">
-                  Notas Fiscais de Serviço Emitidas (Etapas 5 e 6)
-                </CardTitle>
-                <CardDescription className="text-xs text-[#64748B]">
-                  Documentos gerados com layout nacional ABRASF, XML completo e DANFSE para
-                  impressão.
-                </CardDescription>
-              </div>
-              <Badge variant="outline" className="text-xs bg-slate-50">
-                Total: {notasEmitidas.length} notas
-              </Badge>
-            </CardHeader>
+          {/* Barra de Filtros do Histórico */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+            <div>
+              <h3 className="text-sm font-bold text-[#1A2333]">
+                Histórico & Gestão do Ciclo de Vida da NFS-e
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Acompanhamento de emissões, cancelamentos municipais/Gov.br e notas substitutas.
+              </p>
+            </div>
 
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#64748B] font-medium hidden sm:inline">Status:</span>
+              <Select value={statusHistoricoFiltro} onValueChange={setStatusHistoricoFiltro}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue placeholder="Filtrar status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos" className="text-xs">
+                    Todos ({notasEmitidas.length})
+                  </SelectItem>
+                  <SelectItem value="emitida" className="text-xs text-emerald-700 font-semibold">
+                    Autorizadas ({notasEmitidas.filter((n) => n.status === 'emitida').length})
+                  </SelectItem>
+                  <SelectItem value="cancelada" className="text-xs text-rose-700 font-semibold">
+                    Canceladas ({totalCanceladas})
+                  </SelectItem>
+                  <SelectItem value="substituida" className="text-xs text-indigo-700 font-semibold">
+                    Substituídas ({totalSubstituidas})
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
-                    <TableHead className="text-xs font-bold text-[#1A2333] w-28">Nº Nota</TableHead>
+                    <TableHead className="text-xs font-bold text-[#1A2333] w-32">
+                      Nº Nota / Provedor
+                    </TableHead>
+                    <TableHead className="text-xs font-bold text-[#1A2333] w-28">Status</TableHead>
                     <TableHead className="text-xs font-bold text-[#1A2333] w-36">
                       Emissão / Comp.
                     </TableHead>
@@ -702,31 +789,98 @@ export default function NfseWhatsappPage() {
                     <TableHead className="text-xs font-bold text-[#1A2333] text-right">
                       ISS / Líquido
                     </TableHead>
-                    <TableHead className="text-xs font-bold text-[#1A2333] text-right w-44">
-                      Documentos
+                    <TableHead className="text-xs font-bold text-[#1A2333] text-right w-52">
+                      Ações Fiscais
                     </TableHead>
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
-                  {notasEmitidas.length === 0 ? (
+                  {notasEmitidasFiltradas.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-12 text-center text-xs text-[#94A3B8]">
-                        Nenhuma nota fiscal emitida até o momento.
+                      <TableCell colSpan={8} className="py-12 text-center text-xs text-[#94A3B8]">
+                        Nenhuma nota fiscal encontrada para o filtro selecionado.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    notasEmitidas.map((nota) => {
+                    notasEmitidasFiltradas.map((nota) => {
                       const emp = empresaMap.get(nota.empresa)
+                      const isCancelada = nota.status === 'cancelada'
+                      const isSubstituida = nota.status === 'substituida'
+                      const isAutorizada = nota.status === 'emitida'
+
+                      const provedorEtiqueta =
+                        nota.provedor_usado === 'betha'
+                          ? 'Betha (Curitiba)'
+                          : nota.provedor_usado === 'ginfes'
+                            ? 'Ginfes (Campinas)'
+                            : 'Gov.br Nacional'
+
                       return (
-                        <TableRow key={nota.id} className="hover:bg-slate-50/70 transition-colors">
+                        <TableRow
+                          key={nota.id}
+                          className={`hover:bg-slate-50/70 transition-colors ${
+                            isCancelada
+                              ? 'bg-rose-50/30 text-slate-500'
+                              : isSubstituida
+                                ? 'bg-indigo-50/30'
+                                : ''
+                          }`}
+                        >
                           <TableCell className="align-middle">
-                            <span className="font-bold text-xs text-[#0284C7] font-mono">
+                            <span
+                              className={`font-bold text-xs font-mono ${
+                                isCancelada
+                                  ? 'line-through text-rose-700'
+                                  : isSubstituida
+                                    ? 'text-indigo-700'
+                                    : 'text-[#0284C7]'
+                              }`}
+                            >
                               Nº {nota.numero_nota}
                             </span>
                             <div className="text-[10px] text-[#94A3B8] font-mono">
                               Cód: {nota.codigo_verificacao}
                             </div>
+                            <div className="text-[9px] font-semibold text-slate-600 mt-0.5">
+                              {provedorEtiqueta}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="align-middle">
+                            {isAutorizada && (
+                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                                Autorizada
+                              </Badge>
+                            )}
+
+                            {isCancelada && (
+                              <div className="space-y-1">
+                                <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] flex items-center gap-1 w-fit">
+                                  <Ban className="h-3 w-3" />
+                                  Cancelada
+                                </Badge>
+                                {nota.data_cancelamento && (
+                                  <div className="text-[9px] text-rose-700">
+                                    Em: {formatDatePtBr(nota.data_cancelamento)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {isSubstituida && (
+                              <div className="space-y-1">
+                                <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px] flex items-center gap-1 w-fit">
+                                  <ArrowRightLeft className="h-3 w-3" />
+                                  Substituída
+                                </Badge>
+                                {nota.nota_substituta_id && (
+                                  <div className="text-[9px] text-indigo-700 font-mono">
+                                    Subst. gerada
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </TableCell>
 
                           <TableCell className="align-middle">
@@ -740,7 +894,7 @@ export default function NfseWhatsappPage() {
 
                           <TableCell className="align-middle">
                             <div className="text-xs font-medium text-[#1A2333]">
-                              {emp?.razao_social || 'Inovatech Soluções'}
+                              {emp?.razao_social || 'Empresa Prestadora'}
                             </div>
                             <div className="text-[10px] text-[#64748B]">
                               {emp?.cnpj ? maskCnpj(emp.cnpj) : '—'}
@@ -754,17 +908,31 @@ export default function NfseWhatsappPage() {
                             <div className="text-[10px] text-[#64748B] font-mono">
                               {nota.tomador_documento}
                             </div>
+                            {isCancelada && nota.motivo_cancelamento && (
+                              <div
+                                className="text-[10px] text-rose-800 italic mt-1 bg-rose-50/80 p-1 rounded border border-rose-200 line-clamp-2"
+                                title={nota.motivo_cancelamento}
+                              >
+                                Motivo: {nota.motivo_cancelamento}
+                              </div>
+                            )}
                           </TableCell>
 
                           <TableCell className="align-middle text-right font-bold text-xs text-[#1A2333]">
-                            {nota.valor_servicos.toLocaleString('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                            })}
+                            <span className={isCancelada ? 'line-through text-slate-400' : ''}>
+                              {nota.valor_servicos.toLocaleString('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              })}
+                            </span>
                           </TableCell>
 
                           <TableCell className="align-middle text-right">
-                            <div className="text-xs font-bold text-[#0FA3A3]">
+                            <div
+                              className={`text-xs font-bold ${
+                                isCancelada ? 'line-through text-slate-400' : 'text-[#0FA3A3]'
+                              }`}
+                            >
                               {nota.valor_liquido.toLocaleString('pt-BR', {
                                 style: 'currency',
                                 currency: 'BRL',
@@ -779,7 +947,7 @@ export default function NfseWhatsappPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell className="align-middle text-right space-x-1.5">
+                          <TableCell className="align-middle text-right space-x-1.5 whitespace-nowrap">
                             <Button
                               variant="outline"
                               size="sm"
@@ -787,11 +955,43 @@ export default function NfseWhatsappPage() {
                                 setNotaParaVisualizar(nota)
                                 setModalDanfseOpen(true)
                               }}
-                              className="h-8 px-2.5 text-xs text-[#0FA3A3] border-[#0FA3A3]/30 hover:bg-[#0FA3A3]/10 gap-1"
+                              className="h-8 px-2 text-xs text-[#0FA3A3] border-[#0FA3A3]/30 hover:bg-[#0FA3A3]/10 gap-1"
+                              title="Visualizar DANFSE e XML"
                             >
                               <Eye className="h-3.5 w-3.5" />
                               DANFSE
                             </Button>
+
+                            {/* Botão de Cancelamento: visível para Contador e Administrador em notas autorizadas */}
+                            {canEmit && isAutorizada && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setNotaParaCancelar(nota)
+                                  setModalCancelarOpen(true)
+                                }}
+                                className="h-8 px-2 text-xs text-rose-600 border-rose-300 hover:bg-rose-50 gap-1"
+                                title="Cancelar nota fiscal no provedor"
+                              >
+                                <Ban className="h-3.5 w-3.5" />
+                                Cancelar
+                              </Button>
+                            )}
+
+                            {/* Se nota foi cancelada por erro de emissão mas ainda não foi substituída, permitir emitir substituta */}
+                            {canEmit && isCancelada && !nota.nota_substituta_id && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleIniciarSubstituicao(nota)}
+                                className="h-8 px-2 text-xs text-indigo-700 border-indigo-300 hover:bg-indigo-50 gap-1"
+                                title="Emitir nota substituta pré-preenchida"
+                              >
+                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                                Substituir
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       )
@@ -821,11 +1021,29 @@ export default function NfseWhatsappPage() {
       {/* Modais Operacionais */}
       <NfseAprovacaoModal
         solicitacao={solicitacaoParaAprovar}
+        dadosSubstituicao={dadosSubstituicao}
         empresas={empresas}
         config={config}
         open={modalAprovarOpen}
-        onOpenChange={setModalAprovarOpen}
+        onOpenChange={(val) => {
+          setModalAprovarOpen(val)
+          if (!val) setDadosSubstituicao(null)
+        }}
+        onSuccess={() => {
+          setDadosSubstituicao(null)
+          loadData(true)
+        }}
+        currentUserId={user?.id}
+      />
+
+      <NfseCancelamentoModal
+        nota={notaParaCancelar}
+        empresa={notaParaCancelar ? empresaMap.get(notaParaCancelar.empresa) : undefined}
+        config={config}
+        open={modalCancelarOpen}
+        onOpenChange={setModalCancelarOpen}
         onSuccess={() => loadData(true)}
+        onSubstituir={(notaOrig) => handleIniciarSubstituicao(notaOrig)}
         currentUserId={user?.id}
       />
 

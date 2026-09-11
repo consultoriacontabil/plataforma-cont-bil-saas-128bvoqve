@@ -1186,6 +1186,7 @@ export interface NfseConfigRecord extends RecordModel {
   msg_rejeicao?: string
   msg_nota_emitida?: string
   telefone_suporte?: string
+  prazo_dias_cancelamento?: number
   ativo: boolean
   expand?: {
     empresa_padrao?: Empresa
@@ -1277,11 +1278,23 @@ export interface NfseNotaEmitidaRecord extends RecordModel {
   whatsapp_enviado_em?: string
   emitido_por?: string
   motivo_cancelamento?: string
+  codigo_cancelamento?: string
+  data_cancelamento?: string
+  cancelado_por?: string
+  protocolo_cancelamento?: string
+  xml_cancelamento?: string
+  ged_cancelamento_doc_id?: string
+  nota_substituta_id?: string
+  nota_substituida_id?: string
   expand?: {
     empresa?: Empresa
     solicitacao?: NfseSolicitacaoRecord
     certificado_usado?: CertificadoDigitalRecord
     titulo_financeiro?: ContaFinanceiraRecord
     emitido_por?: User
+    cancelado_por?: User
+    ged_cancelamento_doc_id?: Documento
+    nota_substituta_id?: NfseNotaEmitidaRecord
+    nota_substituida_id?: NfseNotaEmitidaRecord
   }
 }

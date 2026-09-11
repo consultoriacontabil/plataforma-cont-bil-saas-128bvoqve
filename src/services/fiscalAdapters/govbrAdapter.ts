@@ -274,6 +274,148 @@ export class GovBrFiscalAdapter implements NfseFiscalAdapter {
 </DPS>`
   }
 
+  /**
+   * Transmite evento de cancelamento da DPS/NFS-e no Padrão Nacional (Gov.br)
+   */
+  async cancelar(
+    payload: import('./types').NfseCancelamentoPayload,
+  ): Promise<import('./types').NfseCancelamentoResult> {
+    const cred = payload.credenciais
+    const apiUrl = (cred?.apiUrl || this.defaultApiUrl).trim()
+    const cleanUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
+    const agoraIso = new Date().toISOString()
+
+    const xmlEvento = this.gerarXmlEventoCancelamentoGovBr(payload)
+
+    // Se houver credenciais reais cadastradas, tentar transmissão HTTP real
+    if (cred?.clientId && cred?.clientSecret) {
+      try {
+        const chaveAcesso = payload.chaveAcesso || payload.numeroNota.toString()
+        const endpointCancelamento = `${cleanUrl}/api/v1/nfse/${chaveAcesso}/eventos`
+
+        const resp = await fetch(endpointCancelamento, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/xml',
+            Accept: 'application/json',
+            'X-Client-Id': cred.clientId,
+            Authorization: `Bearer ${btoa(`${cred.clientId}:${cred.clientSecret}`)}`,
+          },
+          body: xmlEvento,
+        })
+
+        if (resp.ok) {
+          const dados = await resp.json()
+          const protocolo = dados.protocolo || dados.nProt || `PROT-CANC-GOV-${Date.now()}`
+
+          return {
+            sucesso: true,
+            modo: 'governacional_real',
+            numeroNota: payload.numeroNota,
+            codigoVerificacao: payload.codigoVerificacao,
+            protocoloCancelamento: protocolo,
+            dataHoraCancelamento: dados.dhProcessamento || agoraIso,
+            xmlCancelamento: dados.xmlRetorno || xmlEvento,
+            mensagemRetorno: 'Cancelamento homologado com sucesso no Emissor Nacional Gov.br!',
+            rawResponse: dados,
+          }
+        } else {
+          const erroTexto = await resp.text()
+          let parsedError: Record<string, unknown> = {}
+          try {
+            parsedError = JSON.parse(erroTexto)
+          } catch {
+            /* ignored */
+          }
+
+          const motivoRejeicao =
+            (parsedError.mensagem as string) ||
+            (parsedError.error as string) ||
+            `Erro HTTP ${resp.status} no cancelamento Gov.br: ${erroTexto.slice(0, 300)}`
+
+          return {
+            sucesso: false,
+            modo: 'governacional_real',
+            numeroNota: payload.numeroNota,
+            codigoVerificacao: payload.codigoVerificacao,
+            dataHoraCancelamento: agoraIso,
+            xmlCancelamento: xmlEvento,
+            mensagemRetorno: motivoRejeicao,
+            rawResponse: parsedError,
+            erroRejeicao: {
+              codigo: String(resp.status),
+              mensagem: motivoRejeicao,
+              correcaoSugerida:
+                resp.status === 401
+                  ? 'Verifique as credenciais Gov.br do emissor.'
+                  : resp.status === 422
+                    ? 'O prazo de cancelamento ou regras do convênio municipal podem ter expirado.'
+                    : 'Verifique se a nota já foi cancelada ou se há retenção de ISS consolidada.',
+            },
+          }
+        }
+      } catch (errRede: unknown) {
+        const errMsg = errRede instanceof Error ? errRede.message : String(errRede)
+        return {
+          sucesso: false,
+          modo: 'governacional_real',
+          numeroNota: payload.numeroNota,
+          codigoVerificacao: payload.codigoVerificacao,
+          dataHoraCancelamento: agoraIso,
+          xmlCancelamento: '',
+          mensagemRetorno: `Falha de rede ao conectar com Emissor Nacional (${cleanUrl}): ${errMsg}`,
+          erroRejeicao: {
+            codigo: 'GOVBR_NETWORK_ERROR',
+            mensagem: errMsg,
+            correcaoSugerida:
+              'Certifique-se de que o servidor Gov.br está acessível e tente novamente.',
+          },
+        }
+      }
+    }
+
+    // Fallback: Modo Simulação Controlada (honesto, com layout de evento oficial)
+    const protocoloSimulado = `PROT-CANC-GOV-SIM-${Date.now()}`
+    return {
+      sucesso: true,
+      modo: 'simulacao',
+      numeroNota: payload.numeroNota,
+      codigoVerificacao: payload.codigoVerificacao,
+      protocoloCancelamento: protocoloSimulado,
+      dataHoraCancelamento: agoraIso,
+      xmlCancelamento: xmlEvento,
+      mensagemRetorno:
+        'Cancelamento registrado em Modo Simulação Controlada (Gov.br / Padrão Nacional). Para envio em produção, configure as chaves Gov.br.',
+    }
+  }
+
+  /**
+   * Gera o XML de Evento de Cancelamento no Padrão Nacional (Resolução CGSN 169)
+   */
+  private gerarXmlEventoCancelamentoGovBr(p: import('./types').NfseCancelamentoPayload): string {
+    const cleanCnpj = p.cnpjPrestador.replace(/\D/g, '')
+    const idEvento = `CAN${cleanCnpj}${p.numeroNota}`
+    const agoraIso = new Date().toISOString()
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<evento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">
+  <infEvento Id="${idEvento}">
+    <tpAmb>${p.ambiente === 'producao' ? 1 : 2}</tpAmb>
+    <verAplic>RumoContabil_v0.0.25</verAplic>
+    <dhEvento>${agoraIso}</dhEvento>
+    <tpEvento>110111</tpEvento>
+    <nSeqEvento>1</nSeqEvento>
+    <chNFSe>${p.chaveAcesso || idEvento}</chNFSe>
+    <detEvento>
+      <descEvento>Cancelamento de NFS-e</descEvento>
+      <cMotivo>${p.codigoCancelamento}</cMotivo>
+      <xMotivo>${this.escapeXml(p.motivo)}</xMotivo>
+      <nProt>${p.codigoVerificacao}</nProt>
+    </detEvento>
+  </infEvento>
+</evento>`
+  }
+
   private escapeXml(str: string): string {
     return (str || '')
       .replace(/&/g, '&amp;')

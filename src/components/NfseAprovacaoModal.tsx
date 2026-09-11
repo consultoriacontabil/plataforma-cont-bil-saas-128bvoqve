@@ -46,6 +46,19 @@ interface NfseAprovacaoModalProps {
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
   currentUserId?: string
+  dadosSubstituicao?: {
+    notaSubstituidaId: string
+    numeroNotaOriginal: number
+    empresaId: string
+    tomadorNome: string
+    tomadorDocumento: string
+    tomadorEmail?: string
+    tomadorEndereco?: string
+    descricaoServicos: string
+    codigoServico?: string
+    valorServicos: number
+    aliquotaIss?: number
+  } | null
 }
 
 export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
@@ -56,6 +69,7 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
   onOpenChange,
   onSuccess,
   currentUserId,
+  dadosSubstituicao,
 }) => {
   const { toast } = useToast()
 
@@ -74,9 +88,24 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
 
   const [emitindo, setEmitindo] = useState(false)
 
-  // Sincronizar campos quando a solicitação abrir
+  // Sincronizar campos quando a solicitação ou os dados de substituição abrirem
   React.useEffect(() => {
-    if (solicitacao) {
+    if (dadosSubstituicao) {
+      setEmpresaId(dadosSubstituicao.empresaId || (empresas.length > 0 ? empresas[0].id : ''))
+      setTomadorNome(dadosSubstituicao.tomadorNome || '')
+      setTomadorDocumento(dadosSubstituicao.tomadorDocumento || '')
+      setTomadorEmail(dadosSubstituicao.tomadorEmail || '')
+      setTomadorEndereco(dadosSubstituicao.tomadorEndereco || '')
+      setDescricaoServicos(dadosSubstituicao.descricaoServicos || '')
+      setCodigoServico(dadosSubstituicao.codigoServico || '01.07')
+      setValorServicos(dadosSubstituicao.valorServicos || 0)
+      setAliquotaIss(dadosSubstituicao.aliquotaIss || 2.0)
+      setIssRetido(false)
+      setGerarTituloReceber(true)
+
+      const venc = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      setDataVencimentoTitulo(venc)
+    } else if (solicitacao) {
       setEmpresaId(solicitacao.empresa || (empresas.length > 0 ? empresas[0].id : ''))
       setTomadorNome(solicitacao.tomador_nome || '')
       setTomadorDocumento(solicitacao.tomador_documento || '')
@@ -92,9 +121,9 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
       const venc = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       setDataVencimentoTitulo(venc)
     }
-  }, [solicitacao, empresas])
+  }, [solicitacao, dadosSubstituicao, empresas])
 
-  if (!solicitacao) return null
+  if (!solicitacao && !dadosSubstituicao) return null
 
   // Validação em tempo real do documento
   const cleanDoc = tomadorDocumento.replace(/\D/g, '')
@@ -139,12 +168,22 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
       return
     }
 
+    const tenantId = solicitacao?.tenant_id || config?.tenant_id || ''
+    if (!tenantId) {
+      toast({
+        title: 'Tenant não identificado',
+        description: 'Não foi possível identificar a organização logada.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setEmitindo(true)
     try {
       await nfseWhatsappService.emitirNfse(
-        solicitacao.tenant_id,
+        tenantId,
         {
-          solicitacao_id: solicitacao.id,
+          solicitacao_id: solicitacao?.id,
           empresa_id: empresaId,
           tomador_nome: tomadorNome.trim(),
           tomador_documento: tomadorDocumento.trim(),
@@ -157,16 +196,20 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
           iss_retido: issRetido,
           criar_titulo_receber: gerarTituloReceber,
           data_vencimento_titulo: dataVencimentoTitulo,
+          nota_substituida_id: dadosSubstituicao?.notaSubstituidaId,
         },
         currentUserId || 'system',
       )
 
       toast({
-        title: isProducaoGov
-          ? 'NFS-e emitida com sucesso no Gov.br!'
-          : 'NFS-e emitida com sucesso (Modo Simulação)!',
-        description:
-          'A nota fiscal foi gerada, guardada no GED e a confirmação com o link oficial enviada ao WhatsApp do cliente.',
+        title: dadosSubstituicao
+          ? 'Nota Fiscal Substituta emitida com sucesso!'
+          : isProducaoGov
+            ? 'NFS-e emitida com sucesso no Gov.br!'
+            : 'NFS-e emitida com sucesso (Modo Simulação)!',
+        description: dadosSubstituicao
+          ? `A nova nota fiscal foi vinculada à NFS-e original Nº ${dadosSubstituicao.numeroNotaOriginal}.`
+          : 'A nota fiscal foi gerada, guardada no GED e a confirmação com o link oficial enviada ao WhatsApp do cliente.',
       })
       onSuccess()
       onOpenChange(false)
@@ -193,45 +236,69 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
                 5
               </span>
               <DialogTitle className="text-lg font-bold text-[#1A2333]">
-                Revisar & Emitir NFS-e (API Engine Fiscal)
+                {dadosSubstituicao
+                  ? `Emitir Nota Substituta (Vinculada à NFS-e Nº ${dadosSubstituicao.numeroNotaOriginal})`
+                  : 'Revisar & Emitir NFS-e (API Engine Fiscal)'}
               </DialogTitle>
             </div>
             <Badge
               className={
-                isProducaoGov
-                  ? 'bg-emerald-600 text-white text-[10px]'
-                  : 'bg-amber-600 text-white text-[10px]'
+                dadosSubstituicao
+                  ? 'bg-indigo-600 text-white text-[10px]'
+                  : isProducaoGov
+                    ? 'bg-emerald-600 text-white text-[10px]'
+                    : 'bg-amber-600 text-white text-[10px]'
               }
             >
-              {isProducaoGov ? 'PRODUÇÃO — GOV.BR' : 'SIMULAÇÃO CONTROLADA'}
+              {dadosSubstituicao
+                ? 'FLUXO DE SUBSTITUIÇÃO'
+                : isProducaoGov
+                  ? 'PRODUÇÃO — GOV.BR'
+                  : 'SIMULAÇÃO CONTROLADA'}
             </Badge>
           </div>
           <DialogDescription className="text-xs text-[#64748B]">
-            Etapa 5 do Framework: Valide os dados extraídos pelo Motor Cognitivo IA, ajuste se
-            necessário e acione a transmissão para o Provedor Fiscal Ativo (Gov.br / Betha / Ginfes)
-            ou Simulação.
+            {dadosSubstituicao
+              ? `Os dados foram pré-carregados a partir da NFS-e Nº ${dadosSubstituicao.numeroNotaOriginal} cancelada por erro na emissão. Revise os campos e confirme a transmissão da nota substituta.`
+              : 'Etapa 5 do Framework: Valide os dados extraídos pelo Motor Cognitivo IA, ajuste se necessário e acione a transmissão para o Provedor Fiscal Ativo (Gov.br / Betha / Ginfes) ou Simulação.'}
           </DialogDescription>
         </DialogHeader>
 
         {/* Comparador: Mensagem Original vs Dados Extraídos */}
         <div className="space-y-4 my-2">
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-xs">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="font-bold text-[#1A2333] flex items-center gap-1.5">
-                <FileText className="h-4 w-4 text-[#0FA3A3]" />
-                Etapa 1: Mensagem Original Recebida via WhatsApp
-              </span>
-              <Badge variant="outline" className="text-[10px] bg-white">
-                De: {solicitacao.contato_nome} ({solicitacao.contato_telefone})
-              </Badge>
+          {dadosSubstituicao && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3.5 text-xs text-indigo-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-indigo-950">
+                <CheckCircle2 className="h-4 w-4 text-indigo-600" />
+                Substituição Tributária Direta de NFS-e
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                Esta nova nota será emitida com status <strong>Emitida</strong> e vinculará a NFS-e
+                Nº <strong>{dadosSubstituicao.numeroNotaOriginal}</strong> com o status{' '}
+                <strong>Substituída</strong> no histórico fiscal da empresa prestadora.
+              </p>
             </div>
-            <p className="italic text-[#475569] bg-white p-2.5 rounded-lg border border-slate-200 whitespace-pre-wrap">
-              &quot;{solicitacao.mensagem_original}&quot;
-            </p>
-          </div>
+          )}
+
+          {solicitacao && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-xs">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-[#1A2333] flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-[#0FA3A3]" />
+                  Etapa 1: Mensagem Original Recebida via WhatsApp
+                </span>
+                <Badge variant="outline" className="text-[10px] bg-white">
+                  De: {solicitacao.contato_nome} ({solicitacao.contato_telefone})
+                </Badge>
+              </div>
+              <p className="italic text-[#475569] bg-white p-2.5 rounded-lg border border-slate-200 whitespace-pre-wrap">
+                &quot;{solicitacao.mensagem_original}&quot;
+              </p>
+            </div>
+          )}
 
           {/* Alertas de erro prévio se houver */}
-          {solicitacao.ultimo_erro_emissao && (
+          {solicitacao?.ultimo_erro_emissao && (
             <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3 space-y-1">
               <div className="flex items-center gap-2 text-xs font-bold text-rose-800">
                 <ShieldAlert className="h-4 w-4 text-rose-600" />
@@ -246,7 +313,7 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
           )}
 
           {/* Alertas do Motor Cognitivo se houver */}
-          {solicitacao.alertas_json && solicitacao.alertas_json.length > 0 && (
+          {solicitacao?.alertas_json && solicitacao.alertas_json.length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -517,14 +584,16 @@ export const NfseAprovacaoModal: React.FC<NfseAprovacaoModalProps> = ({
               {emitindo ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Emitindo NFS-e...
+                  {dadosSubstituicao ? 'Emitindo Nota Substituta...' : 'Emitindo NFS-e...'}
                 </>
               ) : (
                 <>
                   <Send className="h-3.5 w-3.5" />
-                  {solicitacao.status === 'erro_emissao'
-                    ? 'Retentar Emissão de NFS-e'
-                    : 'Aprovar & Emitir NFS-e'}
+                  {dadosSubstituicao
+                    ? 'Aprovar & Transmitir Substituta'
+                    : solicitacao?.status === 'erro_emissao'
+                      ? 'Retentar Emissão de NFS-e'
+                      : 'Aprovar & Emitir NFS-e'}
                 </>
               )}
             </Button>

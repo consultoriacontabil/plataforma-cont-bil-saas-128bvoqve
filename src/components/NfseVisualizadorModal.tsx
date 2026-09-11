@@ -77,6 +77,32 @@ export const NfseVisualizadorModal: React.FC<NfseVisualizadorModalProps> = ({
     })
   }
 
+  const handleDownloadXmlCancelamento = () => {
+    if (!nota.xml_cancelamento) {
+      toast({
+        title: 'XML não disponível',
+        description: 'Não há XML de cancelamento arquivado para esta nota fiscal.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const blob = new Blob([nota.xml_cancelamento], { type: 'application/xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Cancelamento_NFSe_${nota.numero_nota}.xml`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast({
+      title: 'Download iniciado',
+      description: `Arquivo Cancelamento_NFSe_${nota.numero_nota}.xml baixado com sucesso.`,
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-4">
@@ -99,6 +125,18 @@ export const NfseVisualizadorModal: React.FC<NfseVisualizadorModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {nota.status === 'cancelada' && nota.xml_cancelamento && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadXmlCancelamento}
+                  className="text-xs gap-1.5 h-8 text-rose-700 border-rose-300 hover:bg-rose-50"
+                  title="Baixar XML do Evento de Cancelamento"
+                >
+                  <Code className="h-3.5 w-3.5 text-rose-600" />
+                  XML Cancelamento
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

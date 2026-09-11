@@ -39,6 +39,7 @@ export interface SalvarConfigInput {
   msg_rejeicao?: string
   msg_nota_emitida?: string
   telefone_suporte?: string
+  prazo_dias_cancelamento?: number
   ativo: boolean
 }
 
@@ -56,6 +57,15 @@ export interface EmitirNfseInput {
   iss_retido?: boolean
   criar_titulo_receber?: boolean
   data_vencimento_titulo?: string
+  nota_substituida_id?: string
+}
+
+export interface CancelarNfseInput {
+  nota_id: string
+  codigo_cancelamento: string // '1', '2', '3', '4', '5', '9'
+  motivo: string
+  emitir_substituta?: boolean
+  tratar_titulo_pago?: 'manter_estornado' | 'exigir_decisao'
 }
 
 export const nfseWhatsappService = {
@@ -159,8 +169,260 @@ export const nfseWhatsappService = {
       filter,
       sort: '-created',
       expand:
-        'empresa,solicitacao,certificado_usado,titulo_financeiro,emitido_por,ged_documento_id',
+        'empresa,solicitacao,certificado_usado,titulo_financeiro,emitido_por,cancelado_por,ged_documento_id,ged_cancelamento_doc_id,nota_substituta_id,nota_substituida_id',
     })
+  },
+
+  /**
+   * Cancelamento oficial da NFS-e com o provedor fiscal correspondente
+   * Executa integração com GED, baixa/cancelamento de Financeiro, aviso via WhatsApp e Auditoria
+   */
+  async cancelarNfse(
+    tenantId: string,
+    input: CancelarNfseInput,
+    userId: string,
+  ): Promise<{
+    nota: NfseNotaEmitidaRecord
+    mensagemSucesso: string
+    tituloFinanceiroStatus?: 'baixado' | 'ja_pago_mantido' | 'sem_titulo'
+  }> {
+    const config = await this.getConfig(tenantId)
+
+    // 1. Carregar nota original
+    const nota = await pb
+      .collection('nfse_notas_emitidas')
+      .getOne<NfseNotaEmitidaRecord>(input.nota_id, {
+        expand: 'empresa,titulo_financeiro',
+      })
+
+    if (!nota) {
+      throw new Error('Nota fiscal não encontrada para cancelamento.')
+    }
+
+    if (nota.status === 'cancelada') {
+      throw new Error(`A NFS-e Nº ${nota.numero_nota} já se encontra cancelada.`)
+    }
+
+    if (nota.tenant_id !== tenantId) {
+      throw new Error('Acesso negado: nota pertence a outro tenant.')
+    }
+
+    // 2. Carregar empresa
+    const empresa = await pb.collection('empresas').getOne<Empresa>(nota.empresa)
+
+    // 3. Obter certificado digital vinculado à empresa se houver
+    let certificadoRecord: CertificadoDigitalRecord | undefined
+    try {
+      const certs = await pb
+        .collection('certificados_digitais')
+        .getFullList<CertificadoDigitalRecord>({
+          filter: `empresa = "${empresa.id}" && status = "ativo"`,
+          sort: '-validade',
+        })
+      if (certs.length > 0) {
+        certificadoRecord = certs[0]
+      }
+    } catch {
+      /* sem certificado */
+    }
+
+    // 4. Resolver o adapter fiscal da empresa
+    const empConfig = config?.provedores_empresas_json?.[empresa.id]
+    const adapter = FiscalAdapterFactory.resolveAdapterForEmpresa(empresa.id, config)
+
+    const ambienteEmissao = (empConfig?.ambiente || config?.provedor_ambiente || 'producao') as
+      | 'producao'
+      | 'homologacao'
+    const municipioIbge =
+      empConfig?.municipioIbge ||
+      config?.provedor_municipio_ibge ||
+      (empresa.uf === 'PR' ? '4106902' : '3550308')
+
+    let apiUrl = empConfig?.apiUrl
+    let clientId = empConfig?.clientId || config?.govbr_client_id
+    let clientSecret = empConfig?.clientSecret || config?.govbr_client_secret
+    let usuario = empConfig?.usuario
+    let senhaToken = empConfig?.senhaToken
+    let senha = empConfig?.senha
+
+    if (adapter.id === 'governacional') {
+      apiUrl = apiUrl || config?.govbr_api_url || 'https://nfse.receita.fazenda.gov.br/portalnfse'
+    } else if (adapter.id === 'betha') {
+      apiUrl =
+        apiUrl ||
+        config?.betha_api_url ||
+        'https://e-gov.betha.com.br/e-nota-contribuinte-ws/nfseWS'
+      usuario = usuario || config?.betha_usuario
+      senhaToken = senhaToken || config?.betha_senha_token
+    } else if (adapter.id === 'ginfes') {
+      apiUrl =
+        apiUrl || config?.ginfes_api_url || 'https://homologacao.ginfes.com.br/ServiceGinfesImpl'
+      usuario = usuario || config?.ginfes_usuario
+      senha = senha || config?.ginfes_senha
+    }
+
+    // 5. Chamar o Adapter Fiscal para cancelamento
+    const resultadoCancelamento = await adapter.cancelar({
+      numeroNota: nota.numero_nota,
+      codigoVerificacao: nota.codigo_verificacao,
+      chaveAcesso: nota.chave_acesso,
+      cnpjPrestador: empresa.cnpj,
+      inscricaoMunicipal: empresa.inscricao_municipal,
+      codigoIbge: municipioIbge,
+      codigoCancelamento: input.codigo_cancelamento,
+      motivo: input.motivo,
+      ambiente: ambienteEmissao,
+      certificado: certificadoRecord,
+      credenciais: {
+        clientId,
+        clientSecret,
+        apiUrl,
+        municipioIbge,
+        usuario,
+        senhaToken,
+        senha,
+      },
+    })
+
+    if (!resultadoCancelamento.sucesso) {
+      // Registrar falha de cancelamento na auditoria
+      await auditService.log(
+        tenantId,
+        userId,
+        'nfse_cancelamento_rejeitado',
+        'nfse_notas_emitidas',
+        nota.id,
+        JSON.stringify({
+          provedor: adapter.id,
+          erro: resultadoCancelamento.mensagemRetorno,
+          detalhe: resultadoCancelamento.erroRejeicao,
+        }),
+      )
+
+      throw new Error(
+        `O provedor fiscal (${adapter.nome}) rejeitou o cancelamento: ${resultadoCancelamento.mensagemRetorno}`,
+      )
+    }
+
+    const agoraIso = new Date().toISOString()
+
+    // 6. Arquivar XML de Cancelamento no GED (coleção documentos)
+    let gedCancDocId: string | undefined
+    try {
+      const gedCol = pb.collection('documentos')
+      const docGed = await gedCol.create<Documento>({
+        tenant_id: tenantId,
+        empresa_id: empresa.id,
+        tipo: 'outro',
+        nome_arquivo: `Cancelamento_NFSe_${nota.numero_nota}_${empresa.cnpj.replace(/\D/g, '')}.xml`,
+        data_upload: agoraIso,
+        usuario_upload_id: userId,
+        status: 'processado',
+        observacoes: `Termo/XML de Cancelamento da NFS-e Nº ${nota.numero_nota} (${adapter.nome}). Motivo: ${input.motivo}. Protocolo: ${resultadoCancelamento.protocoloCancelamento || 'Simulado'}`,
+      })
+      gedCancDocId = docGed.id
+    } catch (errGed) {
+      console.warn('Aviso: falha ao arquivar XML de cancelamento no GED:', errGed)
+    }
+
+    // 7. Integração Financeira: Baixar / Cancelar Título a Receber vinculado
+    let tituloFinanceiroStatus: 'baixado' | 'ja_pago_mantido' | 'sem_titulo' = 'sem_titulo'
+    if (nota.titulo_financeiro) {
+      try {
+        const tituloCol = pb.collection('contas_financeiras')
+        const titulo = await tituloCol.getOne(nota.titulo_financeiro)
+        if (titulo) {
+          if (titulo.status === 'pago') {
+            // Título já estava pago: avisar e preservar registro ou estornar com marcação
+            tituloFinanceiroStatus = 'ja_pago_mantido'
+            await tituloCol.update(nota.titulo_financeiro, {
+              observacoes:
+                `${titulo.observacoes || ''} [ATENÇÃO: NFS-e Nº ${nota.numero_nota} foi CANCELADA em ${agoraIso.slice(0, 10)}. Como o título já constava como PAGO, verificar estorno manual ou nota de crédito ao cliente.]`.trim(),
+            })
+          } else {
+            // Título pendente/vencido: cancelar automaticamente
+            await tituloCol.update(nota.titulo_financeiro, {
+              status: 'cancelado',
+              observacoes:
+                `${titulo.observacoes || ''} [Cancelado automaticamente devido ao cancelamento da NFS-e Nº ${nota.numero_nota} em ${agoraIso.slice(0, 10)} - Motivo: ${input.motivo}]`.trim(),
+            })
+            tituloFinanceiroStatus = 'baixado'
+          }
+        }
+      } catch (errFin) {
+        console.warn('Aviso ao sincronizar título financeiro no cancelamento:', errFin)
+      }
+    }
+
+    // 8. Atualizar registro da NFS-e para cancelada
+    const notaAtualizada = await pb
+      .collection('nfse_notas_emitidas')
+      .update<NfseNotaEmitidaRecord>(nota.id, {
+        status: 'cancelada',
+        motivo_cancelamento: input.motivo,
+        codigo_cancelamento: input.codigo_cancelamento,
+        data_cancelamento: agoraIso,
+        cancelado_por: userId,
+        protocolo_cancelamento: resultadoCancelamento.protocoloCancelamento || '',
+        xml_cancelamento: resultadoCancelamento.xmlCancelamento || '',
+        ged_cancelamento_doc_id: gedCancDocId || null,
+      })
+
+    // 9. Notificação ao Cliente via WhatsApp (Etapa 8 do Framework)
+    const destinatarioWa = nota.whatsapp_destinatario || ''
+    const msgWaCancelamento = `Comunicado Fiscal: A NFS-e Nº ${nota.numero_nota} (Cód. Verif: ${nota.codigo_verificacao}) emitida pela empresa ${empresa.razao_social} foi cancelada.\nMotivo registrado: ${input.motivo}.\nProtocolo de Cancelamento: ${resultadoCancelamento.protocoloCancelamento || 'Homologado'}.`
+
+    if (nota.solicitacao) {
+      try {
+        const sol = await pb
+          .collection('nfse_solicitacoes')
+          .getOne<NfseSolicitacaoRecord>(nota.solicitacao)
+        const hist = sol.historico_mensagens_json ? [...sol.historico_mensagens_json] : []
+        hist.push({
+          origem: 'escritorio_bot',
+          texto: msgWaCancelamento,
+          data: agoraIso,
+        })
+        await pb.collection('nfse_solicitacoes').update(nota.solicitacao, {
+          status: 'cancelada',
+          historico_mensagens_json: hist,
+        })
+        await pb.send('/backend/v1/nfse/enviar-whatsapp', {
+          method: 'POST',
+          body: {
+            solicitacao_id: nota.solicitacao,
+            mensagem: msgWaCancelamento,
+          },
+        })
+      } catch (errWa) {
+        console.warn('Aviso: envio WhatsApp de cancelamento via backend:', errWa)
+      }
+    }
+
+    // 10. Trilha de Auditoria Completa
+    await auditService.log(
+      tenantId,
+      userId,
+      'nfse_cancelada',
+      'nfse_notas_emitidas',
+      nota.id,
+      JSON.stringify({
+        numero: nota.numero_nota,
+        empresa: empresa.razao_social,
+        provedor: adapter.id,
+        codigo_cancelamento: input.codigo_cancelamento,
+        motivo: input.motivo,
+        protocolo: resultadoCancelamento.protocoloCancelamento,
+        titulo_financeiro_status: tituloFinanceiroStatus,
+        ged_doc_id: gedCancDocId,
+      }),
+    )
+
+    return {
+      nota: notaAtualizada,
+      mensagemSucesso: resultadoCancelamento.mensagemRetorno,
+      tituloFinanceiroStatus,
+    }
   },
 
   /**
@@ -554,9 +816,22 @@ export const nfseWhatsappService = {
       xml_conteudo: xmlConteudo,
       titulo_financeiro: tituloFinanceiroId || null,
       emitido_por: userId,
+      nota_substituida_id: input.nota_substituida_id || null,
       whatsapp_destinatario: '',
       whatsapp_enviado_em: null,
     })
+
+    // Se é substituição de uma nota anterior, marcar na nota substituída seu novo status e vínculo
+    if (input.nota_substituida_id) {
+      try {
+        await pb.collection('nfse_notas_emitidas').update(input.nota_substituida_id, {
+          status: 'substituida',
+          nota_substituta_id: nota.id,
+        })
+      } catch (errVinculo) {
+        console.warn('Aviso ao vincular nota substituta na original:', errVinculo)
+      }
+    }
 
     // 11. Se veio de uma solicitação na fila, atualizar seu status e histórico
     if (input.solicitacao_id) {
@@ -879,6 +1154,26 @@ export function gerarDanfseHtml(nota: NfseNotaEmitidaRecord, empresa?: Empresa):
 
   const isGovReal = nota.modo_emissao === 'nacional_gov'
 
+  let marcaDaguaHtml = ''
+  if (nota.status === 'cancelada') {
+    marcaDaguaHtml = `
+      <div style="position:fixed; top:35%; left:10%; right:10%; transform:rotate(-28deg); text-align:center; pointer-events:none; z-index:9999;">
+        <div style="display:inline-block; font-size:75px; color:rgba(220,38,38,0.22); font-weight:900; border:6px solid rgba(220,38,38,0.22); padding:10px 40px; border-radius:12px; letter-spacing:4px;">
+          CANCELADA
+        </div>
+        ${nota.motivo_cancelamento ? `<div style="font-size:13px; color:rgba(220,38,38,0.45); font-weight:bold; margin-top:8px;">MOTIVO: ${escapeXml(nota.motivo_cancelamento)}</div>` : ''}
+      </div>
+    `
+  } else if (nota.status === 'substituida') {
+    marcaDaguaHtml = `
+      <div style="position:fixed; top:35%; left:10%; right:10%; transform:rotate(-28deg); text-align:center; pointer-events:none; z-index:9999;">
+        <div style="display:inline-block; font-size:70px; color:rgba(79,70,229,0.22); font-weight:900; border:6px solid rgba(79,70,229,0.22); padding:10px 40px; border-radius:12px; letter-spacing:3px;">
+          SUBSTITUÍDA
+        </div>
+      </div>
+    `
+  }
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -986,6 +1281,7 @@ export function gerarDanfseHtml(nota: NfseNotaEmitidaRecord, empresa?: Empresa):
     </div>
   </div>
 
+  ${marcaDaguaHtml}
   <div class="danfse-container">
     <table class="header-table">
       <tr>
@@ -1120,6 +1416,8 @@ ${nota.discriminacao_servicos}
       • Provedor Fiscal: <strong>${isGovReal ? 'Gov.br (Emissor Nacional de NFS-e)' : 'Simulação Controlada (Gov.br / ABRASF)'}</strong><br/>
       • Chave de Acesso: <span style="font-family: monospace;">${nota.chave_acesso || '—'}</span><br/>
       ${nota.protocolo_autorizacao ? `• Protocolo de Autorização: <span style="font-family: monospace;">${nota.protocolo_autorizacao}</span><br/>` : ''}
+      ${nota.data_cancelamento ? `• Cancelamento Registrado em: <strong>${new Date(nota.data_cancelamento).toLocaleString('pt-BR')}</strong> (Protocolo: ${nota.protocolo_cancelamento || 'Simulado'})<br/>` : ''}
+      ${nota.motivo_cancelamento ? `• Motivo do Cancelamento: <em>${escapeXml(nota.motivo_cancelamento)}</em><br/>` : ''}
       ${nota.url_consulta_nfse ? `• URL de Consulta Pública: <a href="${nota.url_consulta_nfse}" target="_blank" style="color: #0284C7;">${nota.url_consulta_nfse}</a><br/>` : ''}
       • Autenticidade e conferência garantidas pelo código de verificação: <strong>${nota.codigo_verificacao}</strong>.
     </div>

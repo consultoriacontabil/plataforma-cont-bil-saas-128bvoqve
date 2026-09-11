@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T20:50:18.158Z",
+  "generatedAt": "2026-09-11T20:57:12.310Z",
   "collections": [
     {
       "name": "users",
@@ -4407,6 +4407,12 @@
           "type": "json",
           "required": false,
           "system": false
+        },
+        {
+          "name": "prazo_dias_cancelamento",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -4875,6 +4881,58 @@
           "required": false,
           "system": false,
           "collectionRef": "documentos"
+        },
+        {
+          "name": "codigo_cancelamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_cancelamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cancelado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "protocolo_cancelamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "xml_cancelamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ged_cancelamento_doc_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "documentos"
+        },
+        {
+          "name": "nota_substituta_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "nfse_notas_emitidas"
+        },
+        {
+          "name": "nota_substituida_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "nfse_notas_emitidas"
         }
       ],
       "indexes": [
