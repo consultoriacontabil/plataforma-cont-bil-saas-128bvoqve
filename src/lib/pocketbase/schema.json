@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T13:28:23.307Z",
+  "generatedAt": "2026-09-12T13:37:32.842Z",
   "collections": [
     {
       "name": "users",
@@ -6504,6 +6504,765 @@
         "CREATE INDEX idx_verbas_lanc_tenant_emp_comp ON verbas_lancamentos (tenant_id, empresa, competencia)",
         "CREATE INDEX idx_verbas_lanc_func_comp ON verbas_lancamentos (funcionario, competencia)",
         "CREATE INDEX idx_verbas_lanc_verba ON verbas_lancamentos (verba)"
+      ]
+    },
+    {
+      "name": "ferias_periodos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "periodo_aquisitivo_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "periodo_aquisitivo_fim",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_inicio_gozo",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_fim_gozo",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dias_gozo",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vender_abono",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dias_abono",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adiantar_13",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "salario_base",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "media_variaveis",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "remuneracao_base_ferias",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_ferias_gozo",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "terco_constitucional_ferias",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_abono_pecuniario",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "terco_constitucional_abono",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_bruto",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "base_inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "base_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_descontos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_liquido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_limite_pagamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mapa_medias_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["calculado", "aprovado", "pago", "cancelado"]
+        },
+        {
+          "name": "integrado_folha",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pago_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ferias_tenant_emp ON ferias_periodos (tenant_id, empresa)",
+        "CREATE INDEX idx_ferias_func ON ferias_periodos (funcionario)",
+        "CREATE INDEX idx_ferias_status ON ferias_periodos (status)",
+        "CREATE INDEX idx_ferias_comp ON ferias_periodos (competencia)"
+      ]
+    },
+    {
+      "name": "decimo_terceiro",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "ano",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "parcela",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["primeira_parcela", "segunda_parcela", "parcela_unica"]
+        },
+        {
+          "name": "meses_trabalhados",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "salario_base",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "media_variaveis",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "salario_maternidade_abatimento",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "remuneracao_base_calculo",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_bruto",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "adiantamento_pago",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "base_inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "base_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fgts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_descontos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_liquido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mapa_medias_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_receita_inss",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vencimento_guia_inss",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["calculado", "aprovado", "pago", "cancelado"]
+        },
+        {
+          "name": "integrado_folha",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pago_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_decimo_tenant_emp ON decimo_terceiro (tenant_id, empresa)",
+        "CREATE INDEX idx_decimo_func_ano ON decimo_terceiro (funcionario, ano)",
+        "CREATE INDEX idx_decimo_status ON decimo_terceiro (status)",
+        "CREATE INDEX idx_decimo_comp ON decimo_terceiro (competencia)"
+      ]
+    },
+    {
+      "name": "rescisoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "motivo_desligamento",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "sem_justa_causa_empregador",
+            "justa_causa_empregador",
+            "pedido_demissao",
+            "acordo_consensual_art_484_a",
+            "termino_contrato_experiencia",
+            "rescisao_indireta",
+            "aposentadoria"
+          ]
+        },
+        {
+          "name": "codigo_afastamento_esocial",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_aviso_previo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_aviso_previo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["trabalhado", "indenizado", "dispensado", "nao_aplicavel"]
+        },
+        {
+          "name": "dias_aviso_previo",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_desligamento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_projecao_aviso",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dias_saldo_salario",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "salario_base",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "media_variaveis",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_salario_valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "aviso_previo_indenizado_valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "decimo_terceiro_proporcional_valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "decimo_terceiro_indenizado_aviso",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ferias_vencidas_valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "terco_ferias_vencidas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ferias_proporcionais_valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "terco_ferias_proporcionais",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ferias_indenizadas_aviso",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "salario_familia_proporcional",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "outros_proventos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_bruto_rescisao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "desconto_inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "desconto_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "desconto_aviso_previo_nao_cumprido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "desconto_adiantamento",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "outros_descontos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_descontos_rescisao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "total_liquido_rescisao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "saldo_fgts_para_fins_rescisorios",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_multa_fgts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_multa_rescisoria_fgts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saque_fgts_autorizado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_saque_fgts",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_pagamento_limite",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "alertas_conformidade_clt",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mapa_medias_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "verbas_rescisorias_detalhadas",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["simulada", "pendente_aprovacao", "concluida", "cancelada"]
+        },
+        {
+          "name": "evento_s2299_gerado_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "chave_conectividade_emitida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluido_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluido_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_rescisoes_tenant_emp ON rescisoes (tenant_id, empresa)",
+        "CREATE INDEX idx_rescisoes_func ON rescisoes (funcionario)",
+        "CREATE INDEX idx_rescisoes_status ON rescisoes (status)",
+        "CREATE INDEX idx_rescisoes_data ON rescisoes (data_desligamento)"
       ]
     }
   ]

@@ -30,6 +30,9 @@ import { esocialService, type ConformidadeFuncionario } from '@/services/esocial
 import { empresasService } from '@/services/empresas'
 import { PainelEsocial } from '@/components/PainelEsocial'
 import { PainelReinfDctfweb } from '@/components/PainelReinfDctfweb'
+import { PainelFeriasDecimo } from '@/components/PainelFeriasDecimo'
+import { PainelRescisoes } from '@/components/PainelRescisoes'
+import { Palmtree, UserMinus } from 'lucide-react'
 import type {
   Funcionario,
   FolhaPagamento,
@@ -73,7 +76,14 @@ export default function DepartamentoPessoal() {
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<
-    'funcionarios' | 'folha' | 'verbas' | 'eventuais' | 'esocial' | 'reinf_dctfweb'
+    | 'funcionarios'
+    | 'folha'
+    | 'ferias_decimo'
+    | 'rescisoes'
+    | 'verbas'
+    | 'eventuais'
+    | 'esocial'
+    | 'reinf_dctfweb'
   >('funcionarios')
   const [expandedFolhaId, setExpandedFolhaId] = useState<string | null>(null)
   const [empresas, setEmpresas] = useState<Empresa[]>([])
@@ -562,6 +572,14 @@ export default function DepartamentoPessoal() {
           <TabsTrigger value="folha" className="gap-2 text-xs font-semibold rounded-lg">
             <Receipt className="h-4 w-4" />
             <span>Folha de Pagamento</span>
+          </TabsTrigger>
+          <TabsTrigger value="ferias_decimo" className="gap-2 text-xs font-semibold rounded-lg">
+            <Palmtree className="h-4 w-4 text-emerald-600" />
+            <span>Férias &amp; 13º (CLT)</span>
+          </TabsTrigger>
+          <TabsTrigger value="rescisoes" className="gap-2 text-xs font-semibold rounded-lg">
+            <UserMinus className="h-4 w-4 text-rose-600" />
+            <span>Rescisão Contratual</span>
           </TabsTrigger>
           <TabsTrigger value="verbas" className="gap-2 text-xs font-semibold rounded-lg">
             <Coins className="h-4 w-4 text-[#0FA3A3]" />
@@ -1181,6 +1199,31 @@ export default function DepartamentoPessoal() {
             selectedCompetencia={selectedCompetencia}
             onSelectCompetencia={setSelectedCompetencia}
             onFolhaRecalculated={() => loadData()}
+          />
+        </TabsContent>
+
+        {/* === TAB: FÉRIAS & 13º SALÁRIO (CLT) === */}
+        <TabsContent value="ferias_decimo" className="space-y-4 mt-4">
+          <PainelFeriasDecimo
+            tenantId={tenant?.id || ''}
+            usuarioId={member?.user_id || ''}
+            perfilUsuario={member?.perfil || ''}
+            empresas={empresas}
+            selectedEmpresaId={selectedEmpresaId}
+            onEmpresaChange={setSelectedEmpresaId}
+          />
+        </TabsContent>
+
+        {/* === TAB: RESCISÃO DE CONTRATO (CLT) === */}
+        <TabsContent value="rescisoes" className="space-y-4 mt-4">
+          <PainelRescisoes
+            tenantId={tenant?.id || ''}
+            usuarioId={member?.user_id || ''}
+            perfilUsuario={member?.perfil || ''}
+            empresas={empresas}
+            selectedEmpresaId={selectedEmpresaId}
+            onEmpresaChange={setSelectedEmpresaId}
+            onNavegarEsocial={() => setActiveTab('esocial')}
           />
         </TabsContent>
 

@@ -278,6 +278,742 @@ export function validarLancamentoClt(params: {
 
 // === 4. PROCESSADOR CONSOLIDADO DA FOLHA POR COLABORADOR ===
 
+// === 5. CÁLCULO DE MÉDIAS DE VERBAS VARIÁVEIS (CLT art. 142 §5º e Lei 4.090/62) ===
+export interface CalculoMediasResult {
+  mediaApurada: number
+  totalLancamentos: number
+  mesesConsiderados: number
+  itensDetalhados: {
+    competencia: string
+    verba: string
+    codigo?: string
+    valor: number
+  }[]
+}
+
+/**
+ * Calcula a média de verbas variáveis marcadas com reflexo_ferias_13
+ */
+export function apurarMediasVerbasVariaveis(params: {
+  lancamentos: (VerbaLancamentoRecord & { verbaObj?: VerbaCatalogoRecord })[]
+  mesesDivisor?: number // 12 para férias/13º padrão ou meses trabalhados
+}): CalculoMediasResult {
+  const { lancamentos, mesesDivisor = 12 } = params
+  const itensDetalhados: {
+    competencia: string
+    verba: string
+    codigo?: string
+    valor: number
+  }[] = []
+
+  let somaValores = 0
+
+  for (const l of lancamentos) {
+    const v = l.verbaObj || (l.expand?.verba as VerbaCatalogoRecord | undefined)
+    // Apenas verbas com reflexo_ferias_13 ativo e tipo provento
+    if (v && v.reflexo_ferias_13 && v.tipo === 'provento') {
+      const val = Number(l.valor_calculado || 0)
+      if (val > 0) {
+        somaValores += val
+        itensDetalhados.push({
+          competencia: l.competencia,
+          verba: v.descricao,
+          codigo: v.codigo,
+          valor: val,
+        })
+      }
+    }
+  }
+
+  const divisor = Math.max(1, mesesDivisor)
+  const mediaApurada = Number((somaValores / divisor).toFixed(2))
+
+  return {
+    mediaApurada,
+    totalLancamentos: somaValores,
+    mesesConsiderados: divisor,
+    itensDetalhados,
+  }
+}
+
+// === 6. MOTOR DE CÁLCULO DE FÉRIAS CLT ===
+export interface ParametrosCalculoFerias {
+  salarioBase: number
+  diasGozo: number // normalmente 20 ou 30 dias
+  venderAbono: boolean // venda de até 1/3 (10 dias)
+  diasAbono?: number
+  dependentes: number
+  mediaVariaveis?: number
+  adiantar13?: boolean
+}
+
+export interface ResultadoCalculoFerias {
+  salarioBase: number
+  mediaVariaveis: number
+  remuneracaoBase: number
+  diasGozo: number
+  diasAbono: number
+  valorFeriasGozo: number
+  tercoConstitucionalFerias: number
+  valorAbonoPecuniario: number
+  tercoConstitucionalAbono: number
+  totalBruto: number
+  baseInss: number
+  inss: number
+  baseIrrf: number
+  irrf: number
+  totalDescontos: number
+  totalLiquido: number
+  dataLimitePagamentoSugerida?: string
+}
+
+export function calcularFeriasClt(params: ParametrosCalculoFerias): ResultadoCalculoFerias {
+  const {
+    salarioBase,
+    diasGozo,
+    venderAbono,
+    diasAbono = venderAbono ? 10 : 0,
+    dependentes,
+    mediaVariaveis = 0,
+  } = params
+
+  const remuneracaoBase = Number((salarioBase + mediaVariaveis).toFixed(2))
+  const valorDia = remuneracaoBase / 30
+
+  // Gozo
+  const valorFeriasGozo = Number((valorDia * diasGozo).toFixed(2))
+  const tercoConstitucionalFerias = Number((valorFeriasGozo / 3).toFixed(2))
+
+  // Abono pecuniário (CLT art. 143: faculdade do empregado converter 1/3 das férias em abono)
+  const diasAbonoEfetivos = venderAbono ? Math.min(10, Math.max(1, diasAbono)) : 0
+  const valorAbonoPecuniario = Number((valorDia * diasAbonoEfetivos).toFixed(2))
+  const tercoConstitucionalAbono = Number((valorAbonoPecuniario / 3).toFixed(2))
+
+  const totalBruto = Number(
+    (
+      valorFeriasGozo +
+      tercoConstitucionalFerias +
+      valorAbonoPecuniario +
+      tercoConstitucionalAbono
+    ).toFixed(2),
+  )
+
+  // Incidências: Abono pecuniário e seu 1/3 são ISENTOS de INSS e IRRF (Súmula 386/STJ e Lei 8.212/91)
+  const baseTributavel = Number((valorFeriasGozo + tercoConstitucionalFerias).toFixed(2))
+
+  const resInss = calcularInssProgressivo(baseTributavel)
+  const inss = resInss.inss
+
+  const resIrrf = calcularIrrfProgressivo({
+    baseBrutaParaIrrf: baseTributavel,
+    inssDescontado: inss,
+    dependentes,
+  })
+  const irrf = resIrrf.irrf
+
+  const totalDescontos = Number((inss + irrf).toFixed(2))
+  const totalLiquido = Number((totalBruto - totalDescontos).toFixed(2))
+
+  return {
+    salarioBase,
+    mediaVariaveis,
+    remuneracaoBase,
+    diasGozo,
+    diasAbono: diasAbonoEfetivos,
+    valorFeriasGozo,
+    tercoConstitucionalFerias,
+    valorAbonoPecuniario,
+    tercoConstitucionalAbono,
+    totalBruto,
+    baseInss: baseTributavel,
+    inss,
+    baseIrrf: resIrrf.baseCalculo,
+    irrf,
+    totalDescontos,
+    totalLiquido,
+  }
+}
+
+// === 7. MOTOR DE CÁLCULO DE 13º SALÁRIO CLT ===
+export interface ParametrosCalculoDecimo {
+  salarioBase: number
+  mesesTrabalhados: number // avos 1 a 12 (mês com >14 dias conta 1 avo)
+  parcela: 'primeira_parcela' | 'segunda_parcela' | 'parcela_unica'
+  mediaVariaveis?: number
+  adiantamentoJaPago?: number // valor recebido na 1ª parcela
+  dependentes: number
+  salarioMaternidadeMeses?: number // se afastada, INSS compensa
+}
+
+export interface ResultadoCalculoDecimo {
+  salarioBase: number
+  mediaVariaveis: number
+  remuneracaoBase: number
+  mesesTrabalhados: number
+  valorIntegralAnual: number
+  valorBrutoParcela: number
+  adiantamentoDescontado: number
+  salarioMaternidadeAbatimento: number
+  baseInss: number
+  inss: number
+  baseIrrf: number
+  irrf: number
+  fgts: number
+  totalDescontos: number
+  totalLiquido: number
+}
+
+export function calcularDecimoTerceiroClt(params: ParametrosCalculoDecimo): ResultadoCalculoDecimo {
+  const {
+    salarioBase,
+    mesesTrabalhados,
+    parcela,
+    mediaVariaveis = 0,
+    adiantamentoJaPago = 0,
+    dependentes,
+    salarioMaternidadeMeses = 0,
+  } = params
+
+  const avosEfetivos = Math.min(12, Math.max(1, mesesTrabalhados))
+  const remuneracaoBase = Number((salarioBase + mediaVariaveis).toFixed(2))
+  const valorIntegralAnual = Number(((remuneracaoBase * avosEfetivos) / 12).toFixed(2))
+
+  // Salário-maternidade: responsabilidade da Previdência Social
+  const salarioMaternidadeAbatimento =
+    salarioMaternidadeMeses > 0
+      ? Number(((remuneracaoBase * salarioMaternidadeMeses) / 12).toFixed(2))
+      : 0
+
+  let valorBrutoParcela = 0
+  let adiantamentoDescontado = 0
+  let inss = 0
+  let irrf = 0
+  let baseInss = 0
+  let baseIrrf = 0
+
+  if (parcela === 'primeira_parcela') {
+    // 1ª Parcela: adiantamento de 50% sem descontos de INSS ou IRRF (CLT art. 4º Lei 4.749/65)
+    valorBrutoParcela = Number((valorIntegralAnual * 0.5).toFixed(2))
+    inss = 0
+    irrf = 0
+  } else if (parcela === 'segunda_parcela') {
+    // 2ª Parcela: valor total apurado anual deduzindo o adiantamento da 1ª parcela
+    // e aplicando INSS e IRRF sobre o TOTAL anual devido (tributação exclusiva na fonte)
+    valorBrutoParcela = valorIntegralAnual
+    adiantamentoDescontado = adiantamentoJaPago
+
+    baseInss = valorIntegralAnual
+    const resInss = calcularInssProgressivo(baseInss)
+    inss = resInss.inss
+
+    const resIrrf = calcularIrrfProgressivo({
+      baseBrutaParaIrrf: valorIntegralAnual,
+      inssDescontado: inss,
+      dependentes,
+    })
+    irrf = resIrrf.irrf
+    baseIrrf = resIrrf.baseCalculo
+  } else {
+    // Parcela única (ou rescisória)
+    valorBrutoParcela = valorIntegralAnual
+    baseInss = valorIntegralAnual
+    const resInss = calcularInssProgressivo(baseInss)
+    inss = resInss.inss
+
+    const resIrrf = calcularIrrfProgressivo({
+      baseBrutaParaIrrf: valorIntegralAnual,
+      inssDescontado: inss,
+      dependentes,
+    })
+    irrf = resIrrf.irrf
+    baseIrrf = resIrrf.baseCalculo
+  }
+
+  // FGTS 8% sobre o valor devido da parcela
+  const baseFgts =
+    parcela === 'segunda_parcela' ? valorIntegralAnual - adiantamentoJaPago : valorBrutoParcela
+  const fgts = Number((Math.max(0, baseFgts) * 0.08).toFixed(2))
+
+  const totalDescontos = Number((adiantamentoDescontado + inss + irrf).toFixed(2))
+  const totalLiquido = Number(Math.max(0, valorBrutoParcela - totalDescontos).toFixed(2))
+
+  return {
+    salarioBase,
+    mediaVariaveis,
+    remuneracaoBase,
+    mesesTrabalhados: avosEfetivos,
+    valorIntegralAnual,
+    valorBrutoParcela,
+    adiantamentoDescontado,
+    salarioMaternidadeAbatimento,
+    baseInss,
+    inss,
+    baseIrrf,
+    irrf,
+    fgts,
+    totalDescontos,
+    totalLiquido,
+  }
+}
+
+// === 8. MOTOR DE CÁLCULO DE RESCISÃO DE CONTRATO CLT ===
+export interface ParametrosCalculoRescisao {
+  salarioBase: number
+  dataAdmissao: string // YYYY-MM-DD
+  dataDesligamento: string // YYYY-MM-DD
+  motivoDesligamento:
+    | 'sem_justa_causa_empregador'
+    | 'justa_causa_empregador'
+    | 'pedido_demissao'
+    | 'acordo_consensual_art_484_a'
+    | 'termino_contrato_experiencia'
+    | 'rescisao_indireta'
+    | 'aposentadoria'
+  tipoAvisoPrevio: 'trabalhado' | 'indenizado' | 'dispensado' | 'nao_aplicavel'
+  dataAvisoPrevio?: string
+  mediaVariaveis?: number
+  dependentes: number
+  feriasVencidas?: boolean // período aquisitivo anterior não gozado
+  saldoFgts?: number // saldo informado para cálculo da multa
+  descontoAdiantamento?: number
+  outrosProventos?: number
+  outrosDescontos?: number
+}
+
+export interface ResultadoCalculoRescisao {
+  anosCompletosTrabalhados: number
+  diasAvisoPrevioLei12506: number
+  dataProjecaoAviso: string
+  diasSaldoSalario: number
+  saldoSalarioValor: number
+  avisoPrevioIndenizadoValor: number
+  decimoTerceiroProporcionalValor: number
+  decimoTerceiroIndenizadoAviso: number
+  feriasVencidasValor: number
+  tercoFeriasVencidas: number
+  feriasProporcionaisValor: number
+  tercoFeriasProporcionais: number
+  feriasIndenizadasAviso: number
+  totalBrutoRescisao: number
+  descontoInss: number
+  descontoIrrf: number
+  descontoAvisoNaoCumprido: number
+  descontoAdiantamento: number
+  outrosDescontos: number
+  totalDescontosRescisao: number
+  totalLiquidoRescisao: number
+  aliquotaMultaFgts: number
+  valorMultaFgts: number
+  saqueFgtsAutorizado: boolean
+  codigoSaqueFgts: string
+  prazoPagamentoLimite: string
+  alertasConformidade: AlertaConformidadeClt[]
+  rubricasDetalhadas: {
+    rubrica: string
+    descricao: string
+    tipo: 'provento' | 'desconto'
+    valor: number
+  }[]
+}
+
+export function calcularRescisaoClt(params: ParametrosCalculoRescisao): ResultadoCalculoRescisao {
+  const {
+    salarioBase,
+    dataAdmissao,
+    dataDesligamento,
+    motivoDesligamento,
+    tipoAvisoPrevio,
+    dataAvisoPrevio,
+    mediaVariaveis = 0,
+    dependentes,
+    feriasVencidas = false,
+    saldoFgts = 0,
+    descontoAdiantamento = 0,
+    outrosProventos = 0,
+    outrosDescontos = 0,
+  } = params
+
+  const alertasConformidade: AlertaConformidadeClt[] = []
+  const rubricasDetalhadas: {
+    rubrica: string
+    descricao: string
+    tipo: 'provento' | 'desconto'
+    valor: number
+  }[] = []
+
+  const remuneracaoBase = Number((salarioBase + mediaVariaveis).toFixed(2))
+  const valorDia = remuneracaoBase / 30
+
+  // 1. Cálculo de tempo de serviço e aviso prévio (Lei 12.506/2011)
+  const dtAdm = new Date(dataAdmissao)
+  const dtDem = new Date(dataDesligamento)
+
+  let diffYears = dtDem.getFullYear() - dtAdm.getFullYear()
+  const m = dtDem.getMonth() - dtAdm.getMonth()
+  if (m < 0 || (m === 0 && dtDem.getDate() < dtAdm.getDate())) {
+    diffYears--
+  }
+  const anosCompletosTrabalhados = Math.max(0, diffYears)
+
+  // Lei 12.506/2011: 30 dias + 3 dias por ano trabalhado, até o limite de 90 dias (60 adicionais)
+  const diasAdicionais = Math.min(60, anosCompletosTrabalhados * 3)
+  const diasAvisoPrevioLei12506 = 30 + diasAdicionais
+
+  // Projeção do aviso prévio no contrato de trabalho (OJ 82 da SDI-1 do TST)
+  const diasParaProjetar =
+    tipoAvisoPrevio === 'indenizado' || tipoAvisoPrevio === 'trabalhado'
+      ? diasAvisoPrevioLei12506
+      : 0
+  const dtProjetada = new Date(dtDem.getTime() + diasParaProjetar * 24 * 60 * 60 * 1000)
+  const dataProjecaoAviso = dtProjetada.toISOString().slice(0, 10)
+
+  // 2. Dias de saldo de salário
+  const diasSaldoSalario = Math.min(30, dtDem.getDate())
+  const saldoSalarioValor = Number((valorDia * diasSaldoSalario).toFixed(2))
+  rubricasDetalhadas.push({
+    rubrica: '01',
+    descricao: `Saldo de Salário (${diasSaldoSalario} dias)`,
+    tipo: 'provento',
+    valor: saldoSalarioValor,
+  })
+
+  // 3. Aviso Prévio
+  let avisoPrevioIndenizadoValor = 0
+  let descontoAvisoNaoCumprido = 0
+
+  if (
+    motivoDesligamento === 'sem_justa_causa_empregador' ||
+    motivoDesligamento === 'rescisao_indireta'
+  ) {
+    if (tipoAvisoPrevio === 'indenizado') {
+      avisoPrevioIndenizadoValor = Number(
+        ((remuneracaoBase / 30) * diasAvisoPrevioLei12506).toFixed(2),
+      )
+      rubricasDetalhadas.push({
+        rubrica: '02',
+        descricao: `Aviso Prévio Indenizado (${diasAvisoPrevioLei12506} dias - Lei 12.506)`,
+        tipo: 'provento',
+        valor: avisoPrevioIndenizadoValor,
+      })
+    }
+  } else if (motivoDesligamento === 'acordo_consensual_art_484_a') {
+    // Acordo mútuo: aviso prévio indenizado pela metade (CLT art. 484-A)
+    if (tipoAvisoPrevio === 'indenizado') {
+      avisoPrevioIndenizadoValor = Number(
+        (((remuneracaoBase / 30) * diasAvisoPrevioLei12506) / 2).toFixed(2),
+      )
+      rubricasDetalhadas.push({
+        rubrica: '02',
+        descricao: `Aviso Prévio Indenizado (50% Acordo Art. 484-A CLT - ${diasAvisoPrevioLei12506} dias)`,
+        tipo: 'provento',
+        valor: avisoPrevioIndenizadoValor,
+      })
+    }
+  } else if (motivoDesligamento === 'pedido_demissao') {
+    if (tipoAvisoPrevio === 'indenizado') {
+      // Empregado não cumpriu o aviso prévio: desconto de 30 dias (CLT art. 487 §2º)
+      descontoAvisoNaoCumprido = Number(salarioBase.toFixed(2))
+      rubricasDetalhadas.push({
+        rubrica: '9908',
+        descricao: 'Desconto Aviso Prévio Não Cumprido (CLT art. 487 §2º)',
+        tipo: 'desconto',
+        valor: descontoAvisoNaoCumprido,
+      })
+    }
+  }
+
+  // 4. 13º Salário Proporcional (CLT art. 146 § único: fração igual ou superior a 15 dias de trabalho)
+  // Meses no ano corrente até a data de demissão
+  const mesDemissao = dtDem.getMonth() + 1
+  const diasNoUltimoMes = dtDem.getDate()
+  let avosDecimo = diasNoUltimoMes >= 15 ? mesDemissao : mesDemissao - 1
+  // Se admitido no mesmo ano
+  if (dtAdm.getFullYear() === dtDem.getFullYear()) {
+    const mesAdmissao = dtAdm.getMonth() + 1
+    const diasNoMesAdm = 30 - dtAdm.getDate() + 1
+    const avoAdm = diasNoMesAdm >= 15 ? 1 : 0
+    avosDecimo = Math.max(0, mesDemissao - mesAdmissao + avoAdm)
+  }
+  avosDecimo = Math.min(12, Math.max(0, avosDecimo))
+
+  let decimoTerceiroProporcionalValor = 0
+  let decimoTerceiroIndenizadoAviso = 0
+
+  if (motivoDesligamento !== 'justa_causa_empregador') {
+    decimoTerceiroProporcionalValor = Number(((remuneracaoBase * avosDecimo) / 12).toFixed(2))
+    rubricasDetalhadas.push({
+      rubrica: '03',
+      descricao: `13º Salário Proporcional (${avosDecimo}/12 avos)`,
+      tipo: 'provento',
+      valor: decimoTerceiroProporcionalValor,
+    })
+
+    // Avos de 13º sobre a projeção do aviso indenizado (1/12 para cada 30 dias)
+    if (tipoAvisoPrevio === 'indenizado' && diasAvisoPrevioLei12506 >= 15) {
+      const avosAviso = Math.round(diasAvisoPrevioLei12506 / 30)
+      decimoTerceiroIndenizadoAviso = Number(((remuneracaoBase * avosAviso) / 12).toFixed(2))
+      if (decimoTerceiroIndenizadoAviso > 0) {
+        rubricasDetalhadas.push({
+          rubrica: '04',
+          descricao: `13º sobre Projeção Aviso Indenizado (${avosAviso}/12 avos)`,
+          tipo: 'provento',
+          valor: decimoTerceiroIndenizadoAviso,
+        })
+      }
+    }
+  }
+
+  // 5. Férias Vencidas e Proporcionais + 1/3
+  let feriasVencidasValor = 0
+  let tercoFeriasVencidas = 0
+  let feriasProporcionaisValor = 0
+  let tercoFeriasProporcionais = 0
+  let feriasIndenizadasAviso = 0
+
+  if (motivoDesligamento !== 'justa_causa_empregador') {
+    if (feriasVencidas) {
+      feriasVencidasValor = Number(remuneracaoBase.toFixed(2))
+      tercoFeriasVencidas = Number((feriasVencidasValor / 3).toFixed(2))
+      rubricasDetalhadas.push({
+        rubrica: '05',
+        descricao: 'Férias Vencidas Simples',
+        tipo: 'provento',
+        valor: feriasVencidasValor,
+      })
+      rubricasDetalhadas.push({
+        rubrica: '06',
+        descricao: '1/3 Constitucional sobre Férias Vencidas',
+        tipo: 'provento',
+        valor: tercoFeriasVencidas,
+      })
+    }
+
+    // Férias Proporcionais
+    // Período aquisitivo incompleto: contagem de meses desde o aniversário de admissão
+    let mesesAquisitivo = (dtDem.getMonth() - dtAdm.getMonth() + 12) % 12
+    if (dtDem.getDate() >= dtAdm.getDate() || dtDem.getDate() >= 15) {
+      mesesAquisitivo++
+    }
+    const avosFerias = Math.min(12, Math.max(1, mesesAquisitivo))
+    feriasProporcionaisValor = Number(((remuneracaoBase * avosFerias) / 12).toFixed(2))
+    tercoFeriasProporcionais = Number((feriasProporcionaisValor / 3).toFixed(2))
+
+    rubricasDetalhadas.push({
+      rubrica: '07',
+      descricao: `Férias Proporcionais (${avosFerias}/12 avos)`,
+      tipo: 'provento',
+      valor: feriasProporcionaisValor,
+    })
+    rubricasDetalhadas.push({
+      rubrica: '08',
+      descricao: '1/3 Constitucional sobre Férias Proporcionais',
+      tipo: 'provento',
+      valor: tercoFeriasProporcionais,
+    })
+
+    // Férias Indenizadas pela projeção do aviso prévio (1/12 + 1/3)
+    if (tipoAvisoPrevio === 'indenizado') {
+      const valorAvoFerias = remuneracaoBase / 12
+      const avosAvisoFerias = Math.max(1, Math.round(diasAvisoPrevioLei12506 / 30))
+      const feriasAviso = valorAvoFerias * avosAvisoFerias
+      const tercoAviso = feriasAviso / 3
+      feriasIndenizadasAviso = Number((feriasAviso + tercoAviso).toFixed(2))
+      rubricasDetalhadas.push({
+        rubrica: '09',
+        descricao: `Férias Projeção Aviso Indenizado (${avosAvisoFerias}/12 avos + 1/3)`,
+        tipo: 'provento',
+        valor: feriasIndenizadasAviso,
+      })
+    }
+  }
+
+  // 6. Proventos Totais
+  const totalBrutoRescisao = Number(
+    (
+      saldoSalarioValor +
+      avisoPrevioIndenizadoValor +
+      decimoTerceiroProporcionalValor +
+      decimoTerceiroIndenizadoAviso +
+      feriasVencidasValor +
+      tercoFeriasVencidas +
+      feriasProporcionaisValor +
+      tercoFeriasProporcionais +
+      feriasIndenizadasAviso +
+      outrosProventos
+    ).toFixed(2),
+  )
+
+  // 7. Descontos Fiscais e Previdenciários
+  // INSS incide sobre Saldo de Salário (e 13º proporcional tem tabela exclusiva)
+  const resInssSaldo = calcularInssProgressivo(saldoSalarioValor)
+  const descontoInss = resInssSaldo.inss
+
+  rubricasDetalhadas.push({
+    rubrica: '9901',
+    descricao: 'INSS Previdência Social sobre Saldo de Salário',
+    tipo: 'desconto',
+    valor: descontoInss,
+  })
+
+  // IRRF sobre saldo de salário e verbas tributáveis
+  const resIrrf = calcularIrrfProgressivo({
+    baseBrutaParaIrrf: saldoSalarioValor,
+    inssDescontado: descontoInss,
+    dependentes,
+  })
+  const descontoIrrf = resIrrf.irrf
+
+  if (descontoIrrf > 0) {
+    rubricasDetalhadas.push({
+      rubrica: '9902',
+      descricao: 'IRRF Retido na Fonte Rescisão',
+      tipo: 'desconto',
+      valor: descontoIrrf,
+    })
+  }
+
+  if (descontoAdiantamento > 0) {
+    rubricasDetalhadas.push({
+      rubrica: '9903',
+      descricao: 'Adiantamento Salarial a Compensar',
+      tipo: 'desconto',
+      valor: descontoAdiantamento,
+    })
+  }
+
+  const totalDescontosRescisao = Number(
+    (
+      descontoInss +
+      descontoIrrf +
+      descontoAvisoNaoCumprido +
+      descontoAdiantamento +
+      outrosDescontos
+    ).toFixed(2),
+  )
+
+  const totalLiquidoRescisao = Number(
+    Math.max(0, totalBrutoRescisao - totalDescontosRescisao).toFixed(2),
+  )
+
+  // 8. FGTS e Multa Rescisória
+  let aliquotaMultaFgts = 0
+  let valorMultaFgts = 0
+  let saqueFgtsAutorizado = false
+  let codigoSaqueFgts = '00'
+
+  if (
+    motivoDesligamento === 'sem_justa_causa_empregador' ||
+    motivoDesligamento === 'rescisao_indireta'
+  ) {
+    aliquotaMultaFgts = 40 // 40% CLT e CF art. 7º I c/c Lei 8.036/90
+    saqueFgtsAutorizado = true
+    codigoSaqueFgts = '01'
+    valorMultaFgts = Number(((saldoFgts * 40) / 100).toFixed(2))
+  } else if (motivoDesligamento === 'acordo_consensual_art_484_a') {
+    aliquotaMultaFgts = 20 // 20% no acordo do art. 484-A
+    saqueFgtsAutorizado = true
+    codigoSaqueFgts = '01A' // saque limitado a 80% dos depósitos
+    valorMultaFgts = Number(((saldoFgts * 20) / 100).toFixed(2))
+  } else if (motivoDesligamento === 'termino_contrato_experiencia') {
+    aliquotaMultaFgts = 0
+    saqueFgtsAutorizado = true
+    codigoSaqueFgts = '04'
+  } else if (motivoDesligamento === 'aposentadoria') {
+    aliquotaMultaFgts = 0
+    saqueFgtsAutorizado = true
+    codigoSaqueFgts = '05'
+  } else {
+    // Justa causa ou pedido de demissão: sem multa rescisória e saque bloqueado
+    aliquotaMultaFgts = 0
+    saqueFgtsAutorizado = false
+    codigoSaqueFgts = '00'
+  }
+
+  // 9. Prazo legal de pagamento da rescisão (CLT art. 477 §6º: 10 dias corridos)
+  const dtPrazo = new Date(dtDem.getTime() + 10 * 24 * 60 * 60 * 1000)
+  const prazoPagamentoLimite = dtPrazo.toISOString().slice(0, 10)
+
+  // 10. Alertas de conformidade CLT
+  if (
+    (motivoDesligamento === 'sem_justa_causa_empregador' ||
+      motivoDesligamento === 'acordo_consensual_art_484_a') &&
+    !dataAvisoPrevio
+  ) {
+    alertasConformidade.push({
+      tipo: 'infracao',
+      regra: 'CLT Art. 487 / Lei 12.506/2011',
+      mensagem:
+        'Aviso prévio não possui data de comunicação formal. Risco de nulidade ou obrigação de indenização plena.',
+      sugestao: 'Registre a data formal em que o colaborador tomou ciência por escrito.',
+    })
+  }
+
+  alertasConformidade.push({
+    tipo: 'aviso',
+    regra: 'CLT Art. 477 §6º e §8º',
+    mensagem: `Prazo improrrogável de quitação: ${prazoPagamentoLimite} (10 dias corridos do término). Atraso acarreta multa no valor de 1 salário (R$ ${salarioBase.toFixed(2)}).`,
+    sugestao:
+      'Programe o pagamento bancário e gere a chave de conectividade social antecipadamente.',
+  })
+
+  if (aliquotaMultaFgts > 0) {
+    alertasConformidade.push({
+      tipo: 'informativo',
+      regra: 'Lei nº 8.036/90 Art. 18 §1º',
+      mensagem: `Multa do FGTS de ${aliquotaMultaFgts}% sobre o saldo apurado (R$ ${valorMultaFgts.toFixed(2)}). Nota: O adicional de 10% da LC 110/01 foi extinto pela Lei nº 13.932/2019.`,
+    })
+  }
+
+  if (motivoDesligamento === 'justa_causa_empregador') {
+    alertasConformidade.push({
+      tipo: 'aviso',
+      regra: 'CLT Art. 482',
+      mensagem:
+        'Dispensa por Justa Causa: Saque do FGTS e seguro-desemprego bloqueados. Exige comprovação documental robusta da falta grave.',
+    })
+  }
+
+  if (feriasVencidas) {
+    alertasConformidade.push({
+      tipo: 'aviso',
+      regra: 'CLT Art. 134 e 137',
+      mensagem:
+        'Férias vencidas apuradas na rescisão. Verifique se o período concessivo expirou antes da data de demissão para eventual dobra legal.',
+    })
+  }
+
+  return {
+    anosCompletosTrabalhados,
+    diasAvisoPrevioLei12506,
+    dataProjecaoAviso,
+    diasSaldoSalario,
+    saldoSalarioValor,
+    avisoPrevioIndenizadoValor,
+    decimoTerceiroProporcionalValor,
+    decimoTerceiroIndenizadoAviso,
+    feriasVencidasValor,
+    tercoFeriasVencidas,
+    feriasProporcionaisValor,
+    tercoFeriasProporcionais,
+    feriasIndenizadasAviso,
+    totalBrutoRescisao,
+    descontoInss,
+    descontoIrrf,
+    descontoAvisoNaoCumprido,
+    descontoAdiantamento,
+    outrosDescontos,
+    totalDescontosRescisao,
+    totalLiquidoRescisao,
+    aliquotaMultaFgts,
+    valorMultaFgts,
+    saqueFgtsAutorizado,
+    codigoSaqueFgts,
+    prazoPagamentoLimite,
+    alertasConformidade,
+    rubricasDetalhadas,
+  }
+}
+
 export interface ResultadoProcessamentoFolha {
   salarioBase: number
   totalProventos: number

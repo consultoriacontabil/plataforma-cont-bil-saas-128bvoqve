@@ -1746,3 +1746,172 @@ export interface DctfwebDeclaracaoRecord {
     titulo_financeiro?: ContaFinanceiraRecord
   }
 }
+
+// === FÉRIAS & 13º (CLT) & RESCISÕES ===
+
+export type FeriasStatus = 'calculado' | 'aprovado' | 'pago' | 'cancelado'
+export type DecimoTerceiroStatus = 'calculado' | 'aprovado' | 'pago' | 'cancelado'
+export type DecimoTerceiroParcela = 'primeira_parcela' | 'segunda_parcela' | 'parcela_unica'
+export type RescisaoStatus = 'simulada' | 'pendente_aprovacao' | 'concluida' | 'cancelada'
+export type RescisaoMotivo =
+  | 'sem_justa_causa_empregador'
+  | 'justa_causa_empregador'
+  | 'pedido_demissao'
+  | 'acordo_consensual_art_484_a'
+  | 'termino_contrato_experiencia'
+  | 'rescisao_indireta'
+  | 'aposentadoria'
+
+export type AvisoPrevioTipo = 'trabalhado' | 'indenizado' | 'dispensado' | 'nao_aplicavel'
+
+export interface ItemMapaMedia {
+  competencia: string
+  verba: string
+  codigo?: string
+  valor: number
+}
+
+export interface FeriasPeriodoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  competencia: string
+  periodo_aquisitivo_inicio: string
+  periodo_aquisitivo_fim: string
+  data_inicio_gozo: string
+  data_fim_gozo: string
+  dias_gozo: number
+  vender_abono: boolean
+  dias_abono?: number
+  adiantar_13: boolean
+  salario_base: number
+  media_variaveis?: number
+  remuneracao_base_ferias: number
+  valor_ferias_gozo: number
+  terco_constitucional_ferias: number
+  valor_abono_pecuniario?: number
+  terco_constitucional_abono?: number
+  total_bruto: number
+  base_inss?: number
+  inss?: number
+  base_irrf?: number
+  irrf?: number
+  total_descontos?: number
+  total_liquido: number
+  data_limite_pagamento?: string
+  mapa_medias_json?: ItemMapaMedia[]
+  status: FeriasStatus
+  integrado_folha?: boolean
+  pago_em?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+  }
+}
+
+export interface DecimoTerceiroRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  ano: number
+  competencia: string
+  parcela: DecimoTerceiroParcela
+  meses_trabalhados: number
+  salario_base: number
+  media_variaveis?: number
+  salario_maternidade_abatimento?: number
+  remuneracao_base_calculo: number
+  valor_bruto: number
+  adiantamento_pago?: number
+  base_inss?: number
+  inss?: number
+  base_irrf?: number
+  irrf?: number
+  fgts?: number
+  total_descontos?: number
+  total_liquido: number
+  mapa_medias_json?: ItemMapaMedia[]
+  codigo_receita_inss?: string
+  vencimento_guia_inss?: string
+  status: DecimoTerceiroStatus
+  integrado_folha?: boolean
+  pago_em?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+  }
+}
+
+export interface ItemVerbaRescisoria {
+  rubrica?: string
+  descricao: string
+  tipo: 'provento' | 'desconto'
+  valor: number
+  referencia?: string
+}
+
+export interface RescisaoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  motivo_desligamento: RescisaoMotivo
+  codigo_afastamento_esocial: string
+  data_aviso_previo?: string
+  tipo_aviso_previo: AvisoPrevioTipo
+  dias_aviso_previo: number
+  data_desligamento: string
+  data_projecao_aviso?: string
+  dias_saldo_salario: number
+  salario_base: number
+  media_variaveis?: number
+  saldo_salario_valor: number
+  aviso_previo_indenizado_valor?: number
+  decimo_terceiro_proporcional_valor: number
+  decimo_terceiro_indenizado_aviso?: number
+  ferias_vencidas_valor?: number
+  terco_ferias_vencidas?: number
+  ferias_proporcionais_valor: number
+  terco_ferias_proporcionais: number
+  ferias_indenizadas_aviso?: number
+  salario_familia_proporcional?: number
+  outros_proventos?: number
+  total_bruto_rescisao: number
+  desconto_inss?: number
+  desconto_irrf?: number
+  desconto_aviso_previo_nao_cumprido?: number
+  desconto_adiantamento?: number
+  outros_descontos?: number
+  total_descontos_rescisao: number
+  total_liquido_rescisao: number
+  saldo_fgts_para_fins_rescisorios?: number
+  aliquota_multa_fgts?: number
+  valor_multa_rescisoria_fgts?: number
+  saque_fgts_autorizado?: boolean
+  codigo_saque_fgts?: string
+  prazo_pagamento_limite: string
+  alertas_conformidade_clt?: AlertaConformidadeClt[]
+  mapa_medias_json?: ItemMapaMedia[]
+  verbas_rescisorias_detalhadas?: ItemVerbaRescisoria[]
+  status: RescisaoStatus
+  evento_s2299_gerado_id?: string
+  chave_conectividade_emitida?: boolean
+  concluido_em?: string
+  concluido_por?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+    concluido_por?: User
+  }
+}
