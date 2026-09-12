@@ -14,6 +14,24 @@ export interface CreateFuncionarioInput {
   tipo: 'clt' | 'pj' | 'estagio'
   status: FuncionarioStatus
   centro_custo?: string
+  // Campos e-Social
+  nis_pis?: string
+  ctps_numero?: string
+  ctps_serie?: string
+  ctps_uf?: string
+  cbo?: string
+  grau_instrucao?: string
+  raca_cor?: string
+  estado_civil?: string
+  sexo?: 'M' | 'F'
+  data_nascimento?: string
+  nome_mae?: string
+  pcd?: boolean
+  tipo_deficiencia?: string
+  dependentes_irrf?: number
+  regime_tributario_trabalhador?: string
+  categoria_trabalhador?: string
+  matricula_esocial?: string
 }
 
 export const dpService = {

@@ -540,6 +540,148 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       }
     }
 
+    // 1.08 Scan for esocial_eventos pending/pronto due within 7 days or overdue (S-1200, S-1210, S-1299, S-2200, S-2299)
+    try {
+      const pendingEsocial = $app.findRecordsByFilter(
+        'esocial_eventos',
+        "status = 'pendente' || status = 'pronto' || status = 'validado' || status = 'rejeitado'",
+        'prazo_legal',
+        300,
+        0,
+      )
+      console.log('[CRON] Found', pendingEsocial.length, 'esocial events to check')
+
+      for (let e = 0; e < pendingEsocial.length; e++) {
+        const ev = pendingEsocial[e]
+        const evTenantId = ev.getString('tenant_id')
+        const evEmpresaId = ev.getString('empresa')
+        const evTipo = ev.getString('tipo_evento')
+        const evComp = ev.getString('competencia')
+        const evPrazoStr = ev.getString('prazo_legal')
+        const evStatus = ev.getString('status')
+        const evIdEvento = ev.getString('identificador_evento')
+
+        if (!evPrazoStr) continue
+        const evPrazo = new Date(evPrazoStr)
+        const diffEvTime = evPrazo.getTime() - now.getTime()
+        const diffEvDays = Math.ceil(diffEvTime / (1000 * 60 * 60 * 24))
+
+        if (diffEvDays <= 7) {
+          const isEvOverdue = diffEvDays < 0
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', evEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          const evNotifTitle = isEvOverdue
+            ? 'e-Social ' + evTipo + ' Atrasado: ' + empNome + (evComp ? ' (' + evComp + ')' : '')
+            : 'e-Social ' +
+              evTipo +
+              ' Vence em ' +
+              (diffEvDays <= 0 ? 'menos de 24h' : diffEvDays + ' dia(s)') +
+              ': ' +
+              empNome
+
+          // Prevenir flood: checar se já notificou nas últimas 20 horas
+          const twentyHoursAgoEv = new Date(now.getTime() - 20 * 3600000).toISOString()
+          const existEvNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              evTenantId +
+              "' && titulo = '" +
+              evNotifTitle +
+              "' && created >= '" +
+              twentyHoursAgoEv +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existEvNotif.length === 0) {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                evTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifEsoc = new Record(notificacoesCol)
+              notifEsoc.set('tenant_id', evTenantId)
+              notifEsoc.set('usuario_destino_id', staffUserId)
+              notifEsoc.set('titulo', evNotifTitle)
+              notifEsoc.set(
+                'mensagem',
+                'O evento e-Social ' +
+                  evTipo +
+                  ' da empresa ' +
+                  empNome +
+                  (evComp ? ' (Competência: ' + evComp + ')' : '') +
+                  ' está com status "' +
+                  evStatus +
+                  '" e prazo legal ' +
+                  (isEvOverdue
+                    ? 'VENCIDO!'
+                    : 'próximo ao vencimento (dia ' + evPrazo.toLocaleDateString('pt-BR') + ').') +
+                  ' Acesse o painel e-Social no DP para validar e transmitir em modo supervisionado.',
+              )
+              notifEsoc.set('tipo', isEvOverdue ? 'atrasada' : 'prazo_proximo')
+              notifEsoc.set('link', '/departamento-pessoal')
+              notifEsoc.set('lida', false)
+              $app.save(notifEsoc)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[e-Social] ' + evNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de Obrigações Trabalhistas e-Social:</p>' +
+                      '<div style="background:' +
+                      (isEvOverdue ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isEvOverdue ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isEvOverdue
+                        ? '⚠️ EVENTO E-SOCIAL COM PRAZO VENCIDO'
+                        : '⏳ EVENTO E-SOCIAL PRÓXIMO AO VENCIMENTO') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Evento:</b> ' +
+                      evTipo +
+                      (evComp ? ' (Comp: ' + evComp + ')' : '') +
+                      '<br/><b>Status Atual:</b> ' +
+                      evStatus.toUpperCase() +
+                      '<br/><b>Prazo Legal:</b> ' +
+                      evPrazo.toLocaleDateString('pt-BR') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse o painel e-Social no módulo de Departamento Pessoal para auditar o XML e realizar a transmissão supervisionada.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errEsoc) {
+      console.log('[CRON] Error scanning esocial_eventos:', errEsoc)
+    }
+
     // 1.1 Scan for pending impostos_retidos due within 7 days or overdue
     try {
       const pendingImpostos = $app.findRecordsByFilter(

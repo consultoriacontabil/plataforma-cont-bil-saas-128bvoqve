@@ -383,6 +383,27 @@ export interface BalanceteItem {
 export type FuncionarioTipo = 'clt' | 'pj' | 'estagio'
 export type FuncionarioStatus = 'ativo' | 'demitido' | 'ferias' | 'afastado'
 
+export type GrauInstrucaoEsocial =
+  | 'fundamental_incompleto'
+  | 'fundamental_completo'
+  | 'medio_incompleto'
+  | 'medio_completo'
+  | 'superior_incompleto'
+  | 'superior_completo'
+  | 'pos_graduacao'
+  | 'mestrado'
+  | 'doutorado'
+
+export type RacaCorEsocial = 'branca' | 'preta' | 'parda' | 'amarela' | 'indigena' | 'nao_informado'
+
+export type EstadoCivilEsocial =
+  | 'solteiro'
+  | 'casado'
+  | 'divorciado'
+  | 'viuvo'
+  | 'uniao_estavel'
+  | 'outro'
+
 export interface Funcionario extends RecordModel {
   tenant_id: string
   empresa: string
@@ -395,8 +416,118 @@ export interface Funcionario extends RecordModel {
   tipo: FuncionarioTipo
   status: FuncionarioStatus
   centro_custo?: string
+  // Campos e-Social
+  nis_pis?: string
+  ctps_numero?: string
+  ctps_serie?: string
+  ctps_uf?: string
+  cbo?: string
+  grau_instrucao?: GrauInstrucaoEsocial
+  raca_cor?: RacaCorEsocial
+  estado_civil?: EstadoCivilEsocial
+  sexo?: 'M' | 'F'
+  data_nascimento?: string
+  nome_mae?: string
+  pcd?: boolean
+  tipo_deficiencia?: string
+  dependentes_irrf?: number
+  regime_tributario_trabalhador?: string
+  categoria_trabalhador?: string
+  matricula_esocial?: string
   expand?: {
     empresa?: Empresa
+  }
+}
+
+// === e-Social Tipos & Entidades ===
+export type EsocialEventoTipo =
+  | 'S-1200'
+  | 'S-1210'
+  | 'S-1298'
+  | 'S-1299'
+  | 'S-2200'
+  | 'S-2205'
+  | 'S-2230'
+  | 'S-2299'
+
+export type EsocialEventoStatus =
+  | 'pendente'
+  | 'pronto'
+  | 'validado'
+  | 'transmitido'
+  | 'rejeitado'
+  | 'fechado'
+
+export type EsocialAmbiente = 'producao' | 'producao_restrita' | 'homologacao'
+export type EsocialLayoutVersao = 'v_s1_0' | 'v_s1_1' | 'v_s1_2'
+
+export interface EsocialErroValidacao {
+  campo: string
+  mensagem: string
+  acao: string
+}
+
+export interface EsocialDiagnosticoCredenciais {
+  certificado_ok: boolean
+  certificado_emissor?: string
+  certificado_validade?: string
+  certificado_dias_restantes?: number
+  senha_ok: boolean
+  ambiente_comunicacao: EsocialAmbiente
+  transmissor_valido: boolean
+  transmissor_cnpj_cpf?: string
+  modo_operacao: 'supervisao' | 'producao'
+  status_geral: string
+  detalhes: {
+    item: string
+    sucesso: boolean
+    mensagem: string
+  }[]
+}
+
+export interface EsocialConfigRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  ambiente: EsocialAmbiente
+  certificado_a1?: string
+  senha_certificado?: string
+  transmissor_cnpj?: string
+  transmissor_cpf?: string
+  tipo_inscricao?: 'cnpj' | 'cpf'
+  versao_layout?: EsocialLayoutVersao
+  modo_operacao?: 'supervisao' | 'producao'
+  status_conexao?: 'apto' | 'pendente' | 'erro_credenciais'
+  auto_gerar_eventos?: boolean
+  ultimo_diagnostico_json?: EsocialDiagnosticoCredenciais | Record<string, unknown>
+  ultima_verificacao_em?: string
+  expand?: {
+    empresa?: Empresa
+    certificado_a1?: CertificadoDigitalRecord
+  }
+}
+
+export interface EsocialEventoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  funcionario?: string
+  tipo_evento: EsocialEventoTipo
+  competencia?: string
+  status: EsocialEventoStatus
+  identificador_evento?: string
+  prazo_legal?: string
+  xml_gerado?: string
+  erros_validacao?: EsocialErroValidacao[]
+  protocolo_envio?: string
+  recibo_entrega?: string
+  data_transmissao?: string
+  duracao_transmissao_ms?: number
+  modo_envio?: 'supervisao' | 'producao'
+  resposta_governo_json?: Record<string, unknown>
+  motivo_reabertura?: string
+  justificativa?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
   }
 }
 

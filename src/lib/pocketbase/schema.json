@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T12:35:56.931Z",
+  "generatedAt": "2026-09-12T13:01:52.517Z",
   "collections": [
     {
       "name": "users",
@@ -1569,6 +1569,122 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "nis_pis",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ctps_numero",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ctps_serie",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ctps_uf",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cbo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "grau_instrucao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "fundamental_incompleto",
+            "fundamental_completo",
+            "medio_incompleto",
+            "medio_completo",
+            "superior_incompleto",
+            "superior_completo",
+            "pos_graduacao",
+            "mestrado",
+            "doutorado"
+          ]
+        },
+        {
+          "name": "raca_cor",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["branca", "preta", "parda", "amarela", "indigena", "nao_informado"]
+        },
+        {
+          "name": "estado_civil",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["solteiro", "casado", "divorciado", "viuvo", "uniao_estavel", "outro"]
+        },
+        {
+          "name": "sexo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["M", "F"]
+        },
+        {
+          "name": "data_nascimento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nome_mae",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pcd",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_deficiencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dependentes_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regime_tributario_trabalhador",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "categoria_trabalhador",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "matricula_esocial",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -5517,6 +5633,283 @@
       "indexes": [
         "CREATE INDEX idx_emp_migr_tenant ON empresas_migracoes_lote (tenant_id)",
         "CREATE INDEX idx_emp_migr_created ON empresas_migracoes_lote (created DESC)"
+      ]
+    },
+    {
+      "name": "esocial_config",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?= 'administrador'"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "ambiente",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["producao", "producao_restrita", "homologacao"]
+        },
+        {
+          "name": "certificado_a1",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "certificados_digitais"
+        },
+        {
+          "name": "senha_certificado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "transmissor_cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "transmissor_cpf",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_inscricao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["cnpj", "cpf"]
+        },
+        {
+          "name": "versao_layout",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["v_s1_0", "v_s1_1", "v_s1_2"]
+        },
+        {
+          "name": "modo_operacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_conexao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "auto_gerar_eventos",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_diagnostico_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_verificacao_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_esocial_config_empresa ON esocial_config (empresa)",
+        "CREATE INDEX idx_esocial_config_tenant ON esocial_config (tenant_id)"
+      ]
+    },
+    {
+      "name": "esocial_eventos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador' || @request.auth.tenant_members_via_user_id.perfil ?= 'auxiliar')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?= 'administrador'"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "tipo_evento",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "S-1200",
+            "S-1210",
+            "S-1298",
+            "S-1299",
+            "S-2200",
+            "S-2205",
+            "S-2230",
+            "S-2299"
+          ]
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "pronto", "validado", "transmitido", "rejeitado", "fechado"]
+        },
+        {
+          "name": "identificador_evento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_legal",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "xml_gerado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "erros_validacao",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "protocolo_envio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recibo_entrega",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_transmissao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duracao_transmissao_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modo_envio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resposta_governo_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_reabertura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justificativa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_esocial_eventos_tenant_emp ON esocial_eventos (tenant_id, empresa)",
+        "CREATE INDEX idx_esocial_eventos_comp ON esocial_eventos (competencia)",
+        "CREATE INDEX idx_esocial_eventos_tipo ON esocial_eventos (tipo_evento)",
+        "CREATE INDEX idx_esocial_eventos_status ON esocial_eventos (status)",
+        "CREATE INDEX idx_esocial_eventos_prazo ON esocial_eventos (prazo_legal)"
       ]
     }
   ]

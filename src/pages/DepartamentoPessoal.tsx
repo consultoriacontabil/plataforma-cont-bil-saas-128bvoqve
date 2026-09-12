@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Building2,
   Calendar,
   DollarSign,
@@ -21,7 +22,9 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { dpService, type CreateFuncionarioInput } from '@/services/dp'
+import { esocialService, type ConformidadeFuncionario } from '@/services/esocial'
 import { empresasService } from '@/services/empresas'
+import { PainelEsocial } from '@/components/PainelEsocial'
 import type {
   Funcionario,
   FolhaPagamento,
@@ -30,6 +33,9 @@ import type {
   FuncionarioStatus,
   FuncionarioTipo,
   EventoDpTipo,
+  GrauInstrucaoEsocial,
+  RacaCorEsocial,
+  EstadoCivilEsocial,
 } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -61,7 +67,9 @@ export default function DepartamentoPessoal() {
   const { tenant, member } = useAuth()
   const { toast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<'funcionarios' | 'folha' | 'eventuais'>('funcionarios')
+  const [activeTab, setActiveTab] = useState<'funcionarios' | 'folha' | 'eventuais' | 'esocial'>(
+    'funcionarios',
+  )
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -85,6 +93,19 @@ export default function DepartamentoPessoal() {
   const [formFuncTipo, setFormFuncTipo] = useState<FuncionarioTipo>('clt')
   const [formFuncStatus, setFormFuncStatus] = useState<FuncionarioStatus>('ativo')
   const [formFuncCentroCusto, setFormFuncCentroCusto] = useState('')
+  // Campos e-Social do Funcionário
+  const [formFuncNisPis, setFormFuncNisPis] = useState('')
+  const [formFuncCtpsNum, setFormFuncCtpsNum] = useState('')
+  const [formFuncCtpsSerie, setFormFuncCtpsSerie] = useState('')
+  const [formFuncCtpsUf, setFormFuncCtpsUf] = useState('')
+  const [formFuncCbo, setFormFuncCbo] = useState('')
+  const [formFuncGrauInstr, setFormFuncGrauInstr] = useState<string>('superior_completo')
+  const [formFuncRacaCor, setFormFuncRacaCor] = useState<string>('branca')
+  const [formFuncEstadoCivil, setFormFuncEstadoCivil] = useState<string>('solteiro')
+  const [formFuncSexo, setFormFuncSexo] = useState<'M' | 'F'>('M')
+  const [formFuncNomeMae, setFormFuncNomeMae] = useState('')
+  const [formFuncDepIrrf, setFormFuncDepIrrf] = useState('0')
+  const [formFuncMatricula, setFormFuncMatricula] = useState('')
   const [savingFunc, setSavingFunc] = useState(false)
 
   // === Aba 2: Folha de Pagamento ===
@@ -167,6 +188,18 @@ export default function DepartamentoPessoal() {
       setFormFuncTipo(func.tipo)
       setFormFuncStatus(func.status)
       setFormFuncCentroCusto(func.centro_custo || '')
+      setFormFuncNisPis(func.nis_pis || '')
+      setFormFuncCtpsNum(func.ctps_numero || '')
+      setFormFuncCtpsSerie(func.ctps_serie || '')
+      setFormFuncCtpsUf(func.ctps_uf || 'SP')
+      setFormFuncCbo(func.cbo || '')
+      setFormFuncGrauInstr(func.grau_instrucao || 'superior_completo')
+      setFormFuncRacaCor(func.raca_cor || 'branca')
+      setFormFuncEstadoCivil(func.estado_civil || 'solteiro')
+      setFormFuncSexo(func.sexo || 'M')
+      setFormFuncNomeMae(func.nome_mae || '')
+      setFormFuncDepIrrf(String(func.dependentes_irrf || 0))
+      setFormFuncMatricula(func.matricula_esocial || '')
     } else {
       setEditingFuncionario(null)
       setFormFuncEmpresa(selectedEmpresaId !== 'todas' ? selectedEmpresaId : empresas[0]?.id || '')
@@ -178,6 +211,18 @@ export default function DepartamentoPessoal() {
       setFormFuncTipo('clt')
       setFormFuncStatus('ativo')
       setFormFuncCentroCusto('')
+      setFormFuncNisPis('')
+      setFormFuncCtpsNum('')
+      setFormFuncCtpsSerie('')
+      setFormFuncCtpsUf('SP')
+      setFormFuncCbo('')
+      setFormFuncGrauInstr('superior_completo')
+      setFormFuncRacaCor('branca')
+      setFormFuncEstadoCivil('solteiro')
+      setFormFuncSexo('M')
+      setFormFuncNomeMae('')
+      setFormFuncDepIrrf('0')
+      setFormFuncMatricula('')
     }
     setModalFuncOpen(true)
   }
@@ -219,10 +264,22 @@ export default function DepartamentoPessoal() {
           tipo: formFuncTipo,
           status: formFuncStatus,
           centro_custo: formFuncCentroCusto.trim() || undefined,
+          nis_pis: formFuncNisPis.trim() || undefined,
+          ctps_numero: formFuncCtpsNum.trim() || undefined,
+          ctps_serie: formFuncCtpsSerie.trim() || undefined,
+          ctps_uf: formFuncCtpsUf.trim() || undefined,
+          cbo: formFuncCbo.trim() || undefined,
+          grau_instrucao: formFuncGrauInstr as GrauInstrucaoEsocial,
+          raca_cor: formFuncRacaCor as RacaCorEsocial,
+          estado_civil: formFuncEstadoCivil as EstadoCivilEsocial,
+          sexo: formFuncSexo,
+          nome_mae: formFuncNomeMae.trim() || undefined,
+          dependentes_irrf: parseInt(formFuncDepIrrf, 10) || 0,
+          matricula_esocial: formFuncMatricula.trim() || undefined,
         })
         toast({
           title: 'Colaborador atualizado',
-          description: `${formFuncNome} salvo com sucesso.`,
+          description: `${formFuncNome} salvo com sucesso com dados de conformidade e-Social.`,
         })
       } else {
         const input: CreateFuncionarioInput = {
@@ -236,6 +293,18 @@ export default function DepartamentoPessoal() {
           tipo: formFuncTipo,
           status: formFuncStatus,
           centro_custo: formFuncCentroCusto.trim() || undefined,
+          nis_pis: formFuncNisPis.trim() || undefined,
+          ctps_numero: formFuncCtpsNum.trim() || undefined,
+          ctps_serie: formFuncCtpsSerie.trim() || undefined,
+          ctps_uf: formFuncCtpsUf.trim() || undefined,
+          cbo: formFuncCbo.trim() || undefined,
+          grau_instrucao: formFuncGrauInstr,
+          raca_cor: formFuncRacaCor,
+          estado_civil: formFuncEstadoCivil,
+          sexo: formFuncSexo,
+          nome_mae: formFuncNomeMae.trim() || undefined,
+          dependentes_irrf: parseInt(formFuncDepIrrf, 10) || 0,
+          matricula_esocial: formFuncMatricula.trim() || undefined,
         }
         await dpService.createFuncionario(input)
         toast({
@@ -481,6 +550,10 @@ export default function DepartamentoPessoal() {
             <History className="h-4 w-4" />
             <span>Eventuais & Timeline</span>
           </TabsTrigger>
+          <TabsTrigger value="esocial" className="gap-2 text-xs font-semibold rounded-lg">
+            <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+            <span>e-Social (S-1.1)</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* === TAB 1: FUNCIONÁRIOS === */}
@@ -532,6 +605,7 @@ export default function DepartamentoPessoal() {
                     <th className="py-3 px-4">Nome Completo / CPF</th>
                     <th className="py-3 px-4">Empresa</th>
                     <th className="py-3 px-4">Cargo / Tipo</th>
+                    <th className="py-3 px-4">Conformidade e-Social</th>
                     <th className="py-3 px-4">Admissão</th>
                     <th className="py-3 px-4">Salário Base</th>
                     <th className="py-3 px-4">Status</th>
@@ -565,9 +639,45 @@ export default function DepartamentoPessoal() {
                         </td>
                         <td className="py-3.5 px-4">
                           <p className="font-semibold text-[#1A2333]">{f.cargo}</p>
-                          <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#64748B]">
-                            {f.tipo}
-                          </span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#64748B]">
+                              {f.tipo}
+                            </span>
+                            {f.cbo && (
+                              <span className="inline-block rounded-md bg-sky-50 text-sky-700 px-1.5 py-0.5 text-[10px] font-mono">
+                                CBO: {f.cbo}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {(() => {
+                            const conf = esocialService.validarConformidadeFuncionario(f)
+                            if (conf.statusConformidade === 'conforme') {
+                              return (
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-semibold gap-1">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  <span>100% Conforme</span>
+                                </Badge>
+                              )
+                            }
+                            if (conf.statusConformidade === 'pendencias') {
+                              return (
+                                <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[11px] font-semibold gap-1">
+                                  <AlertTriangle className="h-3 w-3 text-amber-600" />
+                                  <span>
+                                    {conf.percentual}% ({conf.pendencias.length} alertas)
+                                  </span>
+                                </Badge>
+                              )
+                            }
+                            return (
+                              <Badge className="bg-rose-50 text-rose-800 border-rose-200 text-[11px] font-semibold gap-1">
+                                <AlertTriangle className="h-3 w-3 text-rose-600" />
+                                <span>{conf.percentual}% (Crítico)</span>
+                              </Badge>
+                            )
+                          })()}
                         </td>
                         <td className="py-3.5 px-4 text-[#64748B]">
                           {formatDatePtBr(f.data_admissao)}
@@ -917,6 +1027,20 @@ export default function DepartamentoPessoal() {
             )}
           </div>
         </TabsContent>
+
+        {/* === TAB 4: e-SOCIAL (S-1.1 CONFORMIDADE) === */}
+        <TabsContent value="esocial" className="space-y-4 mt-4">
+          <PainelEsocial
+            tenantId={tenant?.id || ''}
+            userId={member?.user_id || ''}
+            userRole={member?.perfil}
+            empresas={empresas}
+            selectedEmpresaId={selectedEmpresaId}
+            onSelectEmpresaId={setSelectedEmpresaId}
+            selectedCompetencia={selectedCompetencia}
+            onSelectCompetencia={setSelectedCompetencia}
+          />
+        </TabsContent>
       </Tabs>
 
       {/* Modal: Admissão / Editar Funcionário */}
@@ -1052,6 +1176,160 @@ export default function DepartamentoPessoal() {
                 placeholder="Ex: Operacional / Administrativo"
                 className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
               />
+            </div>
+
+            {/* SEÇÃO CONFORMIDADE E-SOCIAL */}
+            <div className="pt-3 border-t border-slate-200 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+                <span className="font-bold text-xs text-[#1A2333]">
+                  Campos e-Social (Layout S-1.1)
+                </span>
+                <Badge variant="outline" className="text-[10px] text-[#0FA3A3] border-[#0FA3A3]/30">
+                  Obrigatório para S-2200
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">PIS / NIS / PASEP (11 dígitos)</Label>
+                  <Input
+                    value={formFuncNisPis}
+                    onChange={(e) => setFormFuncNisPis(e.target.value)}
+                    placeholder="000.00000.00-0"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">CBO Oficial (MTE)</Label>
+                  <Input
+                    value={formFuncCbo}
+                    onChange={(e) => setFormFuncCbo(e.target.value)}
+                    placeholder="Ex: 2124-05"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs font-semibold">CTPS Nº</Label>
+                  <Input
+                    value={formFuncCtpsNum}
+                    onChange={(e) => setFormFuncCtpsNum(e.target.value)}
+                    placeholder="0459821"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">Série</Label>
+                  <Input
+                    value={formFuncCtpsSerie}
+                    onChange={(e) => setFormFuncCtpsSerie(e.target.value)}
+                    placeholder="0040"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">UF</Label>
+                  <Input
+                    value={formFuncCtpsUf}
+                    onChange={(e) => setFormFuncCtpsUf(e.target.value)}
+                    placeholder="SP"
+                    maxLength={2}
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">Grau de Instrução</Label>
+                  <Select value={formFuncGrauInstr} onValueChange={setFormFuncGrauInstr}>
+                    <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fundamental_incompleto">Fundamental Incompleto</SelectItem>
+                      <SelectItem value="fundamental_completo">Fundamental Completo</SelectItem>
+                      <SelectItem value="medio_incompleto">Médio Incompleto</SelectItem>
+                      <SelectItem value="medio_completo">Médio Completo</SelectItem>
+                      <SelectItem value="superior_incompleto">Superior Incompleto</SelectItem>
+                      <SelectItem value="superior_completo">Superior Completo</SelectItem>
+                      <SelectItem value="pos_graduacao">Pós-Graduação / Especialização</SelectItem>
+                      <SelectItem value="mestrado">Mestrado</SelectItem>
+                      <SelectItem value="doutorado">Doutorado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold">Raça / Cor</Label>
+                  <Select value={formFuncRacaCor} onValueChange={setFormFuncRacaCor}>
+                    <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="branca">Branca</SelectItem>
+                      <SelectItem value="preta">Preta</SelectItem>
+                      <SelectItem value="parda">Parda</SelectItem>
+                      <SelectItem value="amarela">Amarela</SelectItem>
+                      <SelectItem value="indigena">Indígena</SelectItem>
+                      <SelectItem value="nao_informado">Não informado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">Nome da Mãe (Filiação)</Label>
+                  <Input
+                    value={formFuncNomeMae}
+                    onChange={(e) => setFormFuncNomeMae(e.target.value)}
+                    placeholder="Nome completo da genitora"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">Dependentes IRRF (Qtd)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formFuncDepIrrf}
+                    onChange={(e) => setFormFuncDepIrrf(e.target.value)}
+                    placeholder="0"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">Sexo Biológico</Label>
+                  <Select
+                    value={formFuncSexo}
+                    onValueChange={(v) => setFormFuncSexo(v as 'M' | 'F')}
+                  >
+                    <SelectTrigger className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M">Masculino</SelectItem>
+                      <SelectItem value="F">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">Matrícula e-Social (Única)</Label>
+                  <Input
+                    value={formFuncMatricula}
+                    onChange={(e) => setFormFuncMatricula(e.target.value)}
+                    placeholder="Ex: EMP-001"
+                    className="h-9 rounded-xl border-[#E2E8F0] mt-1 text-xs"
+                  />
+                </div>
+              </div>
             </div>
 
             <DialogFooter className="pt-2">
