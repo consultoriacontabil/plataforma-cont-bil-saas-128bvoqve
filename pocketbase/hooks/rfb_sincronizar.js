@@ -183,6 +183,9 @@ routerAdd(
       const syncEcac = !configRec || configRec.getBool('sincronizar_ecac')
       const syncCertidoes = !configRec || configRec.getBool('sincronizar_certidoes')
 
+      let guiasAtualizadas = 0
+      let parcelamentosAtualizados = 0
+
       const now = new Date()
 
       // 2.1 Consulta da Caixa Postal DTE
@@ -336,13 +339,78 @@ routerAdd(
         }
       }
 
+      // 2.3 Sincronização de Pagamentos de Guias e Parcelamentos (PAR/PER-DCOMP)
+      try {
+        const guiasCol = $app.findCollectionByNameOrId('guias_pagamentos')
+        const parcCol = $app.findCollectionByNameOrId('parcelamentos_federais')
+
+        // Checar e atualizar guias pendentes que possam ter sido quitadas no sistema bancário/RFB
+        const guiasPendentes = $app.findRecordsByFilter(
+          'guias_pagamentos',
+          "empresa = '" + empresaId + "' && situacao = 'pendente'",
+          '-data_vencimento',
+          50,
+          0,
+        )
+
+        for (let g = 0; g < guiasPendentes.length; g++) {
+          const guia = guiasPendentes[g]
+          const dtVenc = new Date(guia.getString('data_vencimento'))
+          // Se vencida, marcar como vencida
+          if (dtVenc.getTime() < now.getTime()) {
+            guia.set('situacao', 'vencida')
+            $app.save(guia)
+            guiasAtualizadas++
+          }
+        }
+
+        // Checar e recalcular situação dos parcelamentos federais
+        const parcs = $app.findRecordsByFilter(
+          'parcelamentos_federais',
+          "empresa = '" + empresaId + "'",
+          '',
+          50,
+          0,
+        )
+
+        for (let p = 0; p < parcs.length; p++) {
+          const parc = parcs[p]
+          const proxVencStr = parc.getString('proxima_parcela_vencimento')
+          if (proxVencStr) {
+            const proxVenc = new Date(proxVencStr)
+            const diffDias = Math.ceil((proxVenc.getTime() - now.getTime()) / 86400000)
+
+            let novaSituacao = parc.getString('situacao_rfb')
+            if (novaSituacao !== 'liquidado' && novaSituacao !== 'rescindido') {
+              if (diffDias < 0) {
+                novaSituacao = 'em_atraso'
+              } else if (diffDias <= 7) {
+                novaSituacao = 'parcela_a_vencer'
+              } else {
+                novaSituacao = 'em_dia'
+              }
+
+              if (novaSituacao !== parc.getString('situacao_rfb')) {
+                parc.set('situacao_rfb', novaSituacao)
+                $app.save(parc)
+                parcelamentosAtualizados++
+              }
+            }
+          }
+        }
+      } catch (errParc) {
+        console.log('[RFB-SYNC] Erro ao sincronizar guias/parcelamentos:', errParc)
+      }
+
       const duracaoFinal = Date.now() - startTime
       const msgSucesso =
         'Sincronização RFB concluída com sucesso! ' +
         comunicacoesNovas +
-        ' nova(s) comunicação(ões) importada(s) do e-CAC DTE e ' +
+        ' nova(s) comunicação(ões), ' +
         certidoesAtualizadas +
-        ' certidão(ões) atualizada(s).'
+        ' certidão(ões) e ' +
+        (guiasAtualizadas + parcelamentosAtualizados) +
+        ' guia(s)/parcelamento(s) analisados.'
 
       // Atualizar rfb_config
       if (configRec) {
@@ -363,6 +431,8 @@ routerAdd(
         log.set('modo_operacao', 'conector_real')
         log.set('comunicacoes_novas', comunicacoesNovas)
         log.set('certidoes_atualizadas', certidoesAtualizadas)
+        log.set('guias_atualizadas', guiasAtualizadas)
+        log.set('parcelamentos_atualizados', parcelamentosAtualizados)
         log.set('duracao_ms', duracaoFinal)
         log.set('mensagem', msgSucesso)
         log.set('detalhes_json', detalhesSync)
@@ -378,6 +448,8 @@ routerAdd(
         mensagem: msgSucesso,
         comunicacoes_novas: comunicacoesNovas,
         certidoes_atualizadas: certidoesAtualizadas,
+        guias_atualizadas: guiasAtualizadas,
+        parcelamentos_atualizados: parcelamentosAtualizados,
         duracao_ms: duracaoFinal,
         detalhes: detalhesSync,
       })

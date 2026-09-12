@@ -1255,6 +1255,224 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       console.log('[CRON] Error scanning impostos_retidos:', errImp)
     }
 
+    // 1.10 Scan for parcelamentos_federais (PAR / PER-DCOMP) due within 7 days or overdue
+    try {
+      const parcsAtivos = $app.findRecordsByFilter(
+        'parcelamentos_federais',
+        "situacao_rfb != 'liquidado' && situacao_rfb != 'rescindido'",
+        'proxima_parcela_vencimento',
+        200,
+        0,
+      )
+      console.log('[CRON] Found', parcsAtivos.length, 'parcelamentos federais to check')
+
+      for (let p = 0; p < parcsAtivos.length; p++) {
+        const parc = parcsAtivos[p]
+        const pTenantId = parc.getString('tenant_id')
+        const pEmpresaId = parc.getString('empresa')
+        const pNumero = parc.getString('numero_parcelamento')
+        const pModalidade = parc.getString('modalidade')
+        const pProxNum = parc.getInt('proxima_parcela_numero')
+        const pProxValor = parc.getFloat('proxima_parcela_valor')
+        const pProxVencStr = parc.getString('proxima_parcela_vencimento')
+        const pSituacao = parc.getString('situacao_rfb')
+
+        if (!pProxVencStr) continue
+        const pProxVenc = new Date(pProxVencStr)
+        const diffPTime = pProxVenc.getTime() - now.getTime()
+        const diffPDays = Math.ceil(diffPTime / (1000 * 60 * 60 * 24))
+
+        const isParcOverdue = diffPDays < 0
+        const isExpiring7Days = diffPDays >= 0 && diffPDays <= 7
+
+        // Atualizar situação do parcelamento
+        let novaSit = pSituacao
+        if (isParcOverdue) {
+          novaSit = 'em_atraso'
+        } else if (isExpiring7Days) {
+          novaSit = 'parcela_a_vencer'
+        } else {
+          novaSit = 'em_dia'
+        }
+
+        if (novaSit !== pSituacao) {
+          try {
+            parc.set('situacao_rfb', novaSit)
+            $app.save(parc)
+          } catch (_) {}
+        }
+
+        if (isParcOverdue || isExpiring7Days) {
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', pEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          const parcNotifTitle = isParcOverdue
+            ? 'Parcelamento Federal em Atraso: ' + pNumero + ' - ' + empNome
+            : 'Parcelamento Federal Vence em ' +
+              (diffPDays === 0 ? 'menos de 24h' : diffPDays + ' dia(s)') +
+              ': ' +
+              pNumero +
+              ' - ' +
+              empNome
+
+          // Anti-flood: 20 horas
+          const twentyHoursAgoP = new Date(now.getTime() - 20 * 3600000).toISOString()
+          const existParcNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              pTenantId +
+              "' && titulo = '" +
+              parcNotifTitle +
+              "' && created >= '" +
+              twentyHoursAgoP +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existParcNotif.length === 0) {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                pTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifParc = new Record(notificacoesCol)
+              notifParc.set('tenant_id', pTenantId)
+              notifParc.set('usuario_destino_id', staffUserId)
+              notifParc.set('titulo', parcNotifTitle)
+              notifParc.set(
+                'mensagem',
+                isParcOverdue
+                  ? 'A parcela ' +
+                      pProxNum +
+                      ' do acordo ' +
+                      pNumero +
+                      ' (' +
+                      pModalidade.toUpperCase() +
+                      ') da empresa ' +
+                      empNome +
+                      ' no valor de R$ ' +
+                      pProxValor.toFixed(2) +
+                      ' venceu em ' +
+                      pProxVenc.toLocaleDateString('pt-BR') +
+                      ' e consta sem comprovação de pagamento. Risco de rescisão do parcelamento na RFB/PGFN.'
+                  : 'A parcela ' +
+                      pProxNum +
+                      ' do parcelamento ' +
+                      pNumero +
+                      ' da empresa ' +
+                      empNome +
+                      ' no valor de R$ ' +
+                      pProxValor.toFixed(2) +
+                      ' vencerá em ' +
+                      diffPDays +
+                      ' dia(s) (' +
+                      pProxVenc.toLocaleDateString('pt-BR') +
+                      '). Emita o DARF de arrecadação no portal e-CAC.',
+              )
+              notifParc.set('tipo', isParcOverdue ? 'atrasada' : 'prazo_proximo')
+              notifParc.set('link', '/empresas/' + pEmpresaId)
+              notifParc.set('lida', false)
+              $app.save(notifParc)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo Parcelamentos] ' + parcNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de Parcelamento Federal (PAR/PER-DCOMP / RFB / PGFN):</p>' +
+                      '<div style="background:' +
+                      (isParcOverdue ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isParcOverdue ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isParcOverdue
+                        ? '⚠️ PARCELA FEDERAL EM ATRASO (RISCO DE RESCISÃO)'
+                        : '⏳ PARCELA FEDERAL A VENCER EM BREVE') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Parcelamento:</b> ' +
+                      pNumero +
+                      ' (' +
+                      pModalidade.toUpperCase() +
+                      ')<br/><b>Parcela:</b> ' +
+                      pProxNum +
+                      '<br/><b>Valor Total:</b> R$ ' +
+                      pProxValor.toFixed(2) +
+                      '<br/><b>Vencimento:</b> ' +
+                      pProxVenc.toLocaleDateString('pt-BR') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse a aba Regularidade & CND / E-CAC → Guias & Pagamentos da empresa para consultar o extrato completo e registrar o comprovante de pagamento.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errParcCron) {
+      console.log('[CRON] Error scanning parcelamentos_federais:', errParcCron)
+    }
+
+    // 1.11 Scan for guias_pagamentos overdue or due within 7 days
+    try {
+      const pendingGuias = $app.findRecordsByFilter(
+        'guias_pagamentos',
+        "situacao = 'pendente' || situacao = 'vencida'",
+        'data_vencimento',
+        200,
+        0,
+      )
+      console.log('[CRON] Found', pendingGuias.length, 'guias de pagamento to check')
+
+      for (let g = 0; g < pendingGuias.length; g++) {
+        const guia = pendingGuias[g]
+        const gTenantId = guia.getString('tenant_id')
+        const gEmpresaId = guia.getString('empresa')
+        const gTipo = guia.getString('tipo_guia')
+        const gCodReceita = guia.getString('codigo_receita')
+        const gPeriodo = guia.getString('periodo_apuracao')
+        const gValor = guia.getFloat('valor_total')
+        const gVencStr = guia.getString('data_vencimento')
+        const gSituacao = guia.getString('situacao')
+
+        if (!gVencStr) continue
+        const gVenc = new Date(gVencStr)
+        const diffGTime = gVenc.getTime() - now.getTime()
+        const diffGDays = Math.ceil(diffGTime / (1000 * 60 * 60 * 24))
+
+        if (diffGDays < 0 && gSituacao !== 'vencida') {
+          try {
+            guia.set('situacao', 'vencida')
+            $app.save(guia)
+          } catch (_) {}
+        }
+      }
+    } catch (errGuiasCron) {
+      console.log('[CRON] Error scanning guias_pagamentos:', errGuiasCron)
+    }
+
     for (let i = 0; i < pendingObrigacoes.length; i++) {
       const ob = pendingObrigacoes[i]
       const tenantId = ob.getString('tenant_id')

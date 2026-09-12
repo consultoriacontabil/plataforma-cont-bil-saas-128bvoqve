@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T18:39:26.378Z",
+  "generatedAt": "2026-09-12T19:00:30.926Z",
   "collections": [
     {
       "name": "users",
@@ -7728,6 +7728,317 @@
         "CREATE INDEX idx_histsal_func ON historico_salarial (funcionario)",
         "CREATE INDEX idx_histsal_lote ON historico_salarial (lote_reajuste_id)",
         "CREATE INDEX idx_histsal_convencao ON historico_salarial (convencao_origem)"
+      ]
+    },
+    {
+      "name": "guias_pagamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo_guia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["darf", "darf_previdenciario", "dae_par", "dctfweb", "das", "perdcomp"]
+        },
+        {
+          "name": "codigo_receita",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "periodo_apuracao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero_referencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_original",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acrescimos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_pagamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "situacao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "paga", "vencida", "em_parcelamento", "compensada"]
+        },
+        {
+          "name": "comprovante_arquivo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["manual", "dctfweb", "fiscal", "conector_rfb", "perdcomp"]
+        },
+        {
+          "name": "titulo_financeiro",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_financeiras"
+        },
+        {
+          "name": "autenticacao_bancaria",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_guias_tenant_empresa ON guias_pagamentos (tenant_id, empresa)",
+        "CREATE INDEX idx_guias_vencimento ON guias_pagamentos (data_vencimento)",
+        "CREATE INDEX idx_guias_situacao ON guias_pagamentos (situacao)",
+        "CREATE INDEX idx_guias_receita_periodo ON guias_pagamentos (empresa, codigo_receita, periodo_apuracao)",
+        "CREATE INDEX idx_guias_created ON guias_pagamentos (created DESC)"
+      ]
+    },
+    {
+      "name": "parcelamentos_federais",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "numero_parcelamento",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "modalidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "pert_sn",
+            "pert_demais",
+            "ordinario_rfb",
+            "simplificado_previdenciario",
+            "transacao_tributaria_pgfn",
+            "perdcomp_compensacao",
+            "outros"
+          ]
+        },
+        {
+          "name": "descricao_modalidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_adesao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "total_parcelas",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "parcelas_quitadas",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_total_consolidado",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_devedor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "situacao_rfb",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["em_dia", "parcela_a_vencer", "em_atraso", "liquidado", "rescindido"]
+        },
+        {
+          "name": "proxima_parcela_numero",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proxima_parcela_vencimento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proxima_parcela_valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quadro_parcelas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_captura",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["manual_contador", "conector_rfb_dte"]
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_parc_tenant_empresa ON parcelamentos_federais (tenant_id, empresa)",
+        "CREATE INDEX idx_parc_situacao ON parcelamentos_federais (situacao_rfb)",
+        "CREATE INDEX idx_parc_prox_venc ON parcelamentos_federais (proxima_parcela_vencimento)",
+        "CREATE INDEX idx_parc_numero ON parcelamentos_federais (empresa, numero_parcelamento)",
+        "CREATE INDEX idx_parc_created ON parcelamentos_federais (created DESC)"
       ]
     }
   ]

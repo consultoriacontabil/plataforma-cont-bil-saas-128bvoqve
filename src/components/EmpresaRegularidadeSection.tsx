@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmpresaCertidoesTab } from './EmpresaCertidoesTab'
 import { EmpresaEcacTab } from './EmpresaEcacTab'
 import { EmpresaConectorRfbTab } from './EmpresaConectorRfbTab'
+import { EmpresaGuiasPagamentosTab } from './EmpresaGuiasPagamentosTab'
 import { certidoesService } from '@/services/regularidade'
 import type { Empresa, CertidaoRecord, EcacComunicacaoRecord } from '@/types'
 
@@ -38,7 +39,9 @@ export function EmpresaRegularidadeSection({
   empresa,
   onRefresh,
 }: EmpresaRegularidadeSectionProps) {
-  const [subTab, setSubTab] = useState<'certidoes' | 'ecac' | 'conector_rfb'>('certidoes')
+  const [subTab, setSubTab] = useState<'certidoes' | 'ecac' | 'conector_rfb' | 'guias_pagamentos'>(
+    'certidoes',
+  )
 
   // Contadores para os badges das sub-abas
   const certidoesVencendoOuVencidas = certidoes.filter((c) => {
@@ -143,6 +146,14 @@ export function EmpresaRegularidadeSection({
               <ShieldAlert className="h-3.5 w-3.5" />
               <span>Conector RFB / DTE</span>
             </TabsTrigger>
+
+            <TabsTrigger
+              value="guias_pagamentos"
+              className="rounded-lg text-xs font-semibold gap-2 data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3]"
+            >
+              <FileCheck2 className="h-3.5 w-3.5 text-[#0FA3A3]" />
+              <span>Guias & Pagamentos (PAR/PER-DCOMP)</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="certidoes" className="pt-4">
@@ -175,6 +186,15 @@ export function EmpresaRegularidadeSection({
                 onSyncCompleted={onRefresh}
               />
             )}
+          </TabsContent>
+
+          <TabsContent value="guias_pagamentos" className="pt-4">
+            <EmpresaGuiasPagamentosTab
+              empresaId={empresaId}
+              tenantId={tenantId}
+              canEdit={canEdit}
+              onRefreshParent={onRefresh}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

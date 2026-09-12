@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
 import { certidoesService, ecacService } from '@/services/regularidade'
+import { guiasPagamentosService } from '@/services/guiasPagamentos'
 import { ModalImportacaoEmpresas } from '@/components/ModalImportacaoEmpresas'
 import {
   ShieldCheck,
@@ -33,6 +34,8 @@ import type {
   CertificadoDigitalRecord,
   CertidaoRecord,
   EcacComunicacaoRecord,
+  GuiaPagamentoRecord,
+  ParcelamentoFederalRecord,
 } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,6 +69,8 @@ export default function Empresas() {
   )
   const [certidoesMap, setCertidoesMap] = useState<Record<string, CertidaoRecord[]>>({})
   const [ecacMap, setEcacMap] = useState<Record<string, EcacComunicacaoRecord[]>>({})
+  const [guiasMap, setGuiasMap] = useState<Record<string, GuiaPagamentoRecord[]>>({})
+  const [parcsMap, setParcsMap] = useState<Record<string, ParcelamentoFederalRecord[]>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'todos' | EmpresaStatus>('todos')
@@ -87,11 +92,13 @@ export default function Empresas() {
     if (!tenant?.id) return
     try {
       setLoading(true)
-      const [res, certs, allCertidoes, allEcac] = await Promise.all([
+      const [res, certs, allCertidoes, allEcac, allGuias, allParcs] = await Promise.all([
         empresasService.list(tenant.id),
         certificadosService.list(tenant.id),
         certidoesService.list(tenant.id),
         ecacService.list(tenant.id),
+        guiasPagamentosService.listTodasGuiasTenant(tenant.id),
+        guiasPagamentosService.listTodosParcelamentosTenant(tenant.id),
       ])
       setEmpresas(res)
 
@@ -120,6 +127,24 @@ export default function Empresas() {
         mapEcacMsgs[msg.empresa].push(msg)
       })
       setEcacMap(mapEcacMsgs)
+
+      const mapG: Record<string, GuiaPagamentoRecord[]> = {}
+      allGuias.forEach((g) => {
+        if (!mapG[g.empresa]) {
+          mapG[g.empresa] = []
+        }
+        mapG[g.empresa].push(g)
+      })
+      setGuiasMap(mapG)
+
+      const mapP: Record<string, ParcelamentoFederalRecord[]> = {}
+      allParcs.forEach((p) => {
+        if (!mapP[p.empresa]) {
+          mapP[p.empresa] = []
+        }
+        mapP[p.empresa].push(p)
+      })
+      setParcsMap(mapP)
     } catch (err) {
       console.error('Error loading empresas:', err)
       toast({
@@ -211,12 +236,39 @@ export default function Empresas() {
     const ecacNaoLidas = ecacMsgs.filter((m) => !m.lida).length
     const ecacAltas = ecacMsgs.filter((m) => !m.lida && m.criticidade === 'alta').length
 
+    // Verificação de guias e parcelamentos
+    const guiasEmp = guiasMap[empresaId] || []
+    const parcsEmp = parcsMap[empresaId] || []
+    const resumoTributario = guiasPagamentosService.calcularResumoExecutivo(guiasEmp, parcsEmp)
+
     const temAlertaCritico =
-      saudeCert.saude === 'expirado' || certidoesVencidas > 0 || ecacAltas > 0
+      saudeCert.saude === 'expirado' ||
+      certidoesVencidas > 0 ||
+      ecacAltas > 0 ||
+      resumoTributario.qtdGuiasVencidas > 0 ||
+      resumoTributario.parcelamentosComAtraso > 0
+
     const temAlertaAtencao =
-      saudeCert.saude === 'proximo_vencimento' || certidoesVencendo > 0 || ecacNaoLidas > 0
+      saudeCert.saude === 'proximo_vencimento' ||
+      certidoesVencendo > 0 ||
+      ecacNaoLidas > 0 ||
+      resumoTributario.parcelamentosVencendo7d > 0 ||
+      resumoTributario.qtdGuiasAbertas > 0
 
     if (temAlertaCritico) {
+      let labelCritico = 'Débito / CND pendente'
+      if (resumoTributario.qtdGuiasVencidas > 0) {
+        labelCritico = `${resumoTributario.qtdGuiasVencidas} guia(s) vencida(s)`
+      } else if (resumoTributario.parcelamentosComAtraso > 0) {
+        labelCritico = 'Parcelamento atrasado'
+      } else if (certidoesVencidas > 0) {
+        labelCritico = `${certidoesVencidas} CND vencida`
+      } else if (saudeCert.saude === 'expirado') {
+        labelCritico = 'Cert. Digital vencido'
+      } else {
+        labelCritico = 'E-CAC Urgente'
+      }
+
       return (
         <div className="flex flex-col gap-1">
           <Badge
@@ -224,25 +276,35 @@ export default function Empresas() {
             className="border-red-200 bg-red-50 text-red-700 text-[10px] font-semibold flex items-center gap-1 w-fit"
           >
             <ShieldX className="h-3 w-3 text-red-600" />
-            <span>
-              {certidoesVencidas > 0
-                ? `${certidoesVencidas} CND vencida`
-                : saudeCert.saude === 'expirado'
-                  ? 'Cert. Digital vencido'
-                  : 'E-CAC Urgente'}
-            </span>
+            <span>{labelCritico}</span>
           </Badge>
           <div className="flex items-center gap-2 text-[10px] text-[#64748B]">
+            {resumoTributario.saldoDevedorParcelamentos > 0 && (
+              <span className="text-slate-600 font-medium">PAR ativo</span>
+            )}
             {ecacNaoLidas > 0 && (
               <span className="text-red-700 font-semibold">{ecacNaoLidas} E-CAC pendente</span>
             )}
-            {certidoesVencendo > 0 && <span>{certidoesVencendo} vencendo</span>}
+            {certidoesVencendo > 0 && <span>{certidoesVencendo} CND renovando</span>}
           </div>
         </div>
       )
     }
 
     if (temAlertaAtencao) {
+      let labelAtencao = 'Atenção Prazos'
+      if (resumoTributario.parcelamentosVencendo7d > 0) {
+        labelAtencao = 'Parcela PAR ≤ 7d'
+      } else if (certidoesVencendo > 0) {
+        labelAtencao = `${certidoesVencendo} CND renovando`
+      } else if (saudeCert.saude === 'proximo_vencimento') {
+        labelAtencao = `Cert. vence ${saudeCert.diasRestantes}d`
+      } else if (ecacNaoLidas > 0) {
+        labelAtencao = `${ecacNaoLidas} E-CAC não lida`
+      } else {
+        labelAtencao = `${resumoTributario.qtdGuiasAbertas} guia(s) a vencer`
+      }
+
       return (
         <div className="flex flex-col gap-1">
           <Badge
@@ -250,15 +312,10 @@ export default function Empresas() {
             className="border-amber-300 bg-amber-50 text-amber-800 text-[10px] font-semibold flex items-center gap-1 w-fit animate-pulse"
           >
             <ShieldAlert className="h-3 w-3 text-amber-600" />
-            <span>
-              {certidoesVencendo > 0
-                ? `${certidoesVencendo} CND em renovação`
-                : saudeCert.saude === 'proximo_vencimento'
-                  ? `Cert. vence ${saudeCert.diasRestantes}d`
-                  : `${ecacNaoLidas} E-CAC não lida`}
-            </span>
+            <span>{labelAtencao}</span>
           </Badge>
           <div className="flex items-center gap-2 text-[10px] text-[#64748B]">
+            {resumoTributario.parcelamentosAtivos > 0 && <span>PAR em dia</span>}
             {ecacNaoLidas > 0 && <span>{ecacNaoLidas} msg(s) E-CAC</span>}
             {certidoes.length > 0 && <span>{certidoes.length - certidoesVencendo} CNDs OK</span>}
           </div>

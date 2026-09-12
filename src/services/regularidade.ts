@@ -29,6 +29,8 @@ export interface ConsolidadoRegularidadeEmpresa {
   certificadoSaude: 'valido' | 'proximo_vencimento' | 'expirado' | 'inexistente'
   ecacNaoLidas: number
   ecacNaoLidasAlta: number
+  guiasVencidas?: number
+  parcelamentosAtrasados?: number
   regularidadeGeral: 'regular' | 'atencao' | 'critico'
 }
 

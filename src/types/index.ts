@@ -2029,3 +2029,115 @@ export interface HistoricoSalarialRecord {
     convencao_origem?: ConvencaoColetivaRecord
   }
 }
+
+// === GUIAS & PAGAMENTOS (PAR / PER-DCOMP) ===
+
+export type GuiaTipo = 'darf' | 'darf_previdenciario' | 'dae_par' | 'dctfweb' | 'das' | 'perdcomp'
+
+export type GuiaSituacao = 'pendente' | 'paga' | 'vencida' | 'em_parcelamento' | 'compensada'
+
+export type GuiaOrigem = 'manual' | 'dctfweb' | 'fiscal' | 'conector_rfb' | 'perdcomp'
+
+export interface GuiaPagamentoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  tipo_guia: GuiaTipo
+  codigo_receita: string
+  periodo_apuracao: string
+  numero_referencia?: string
+  descricao?: string
+  valor_original?: number
+  acrescimos?: number
+  valor_total: number
+  data_vencimento: string
+  data_pagamento?: string
+  situacao: GuiaSituacao
+  comprovante_arquivo?: string
+  origem: GuiaOrigem
+  titulo_financeiro?: string
+  autenticacao_bancaria?: string
+  observacoes?: string
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    titulo_financeiro?: ContaFinanceiraRecord
+    criado_por?: User
+  }
+}
+
+export type ModalidadeParcelamento =
+  | 'pert_sn'
+  | 'pert_demais'
+  | 'ordinario_rfb'
+  | 'simplificado_previdenciario'
+  | 'transacao_tributaria_pgfn'
+  | 'perdcomp_compensacao'
+  | 'outros'
+
+export type SituacaoParcelamentoRfb =
+  | 'em_dia'
+  | 'parcela_a_vencer'
+  | 'em_atraso'
+  | 'liquidado'
+  | 'rescindido'
+
+export type ParcelaStatus = 'paga' | 'aberta' | 'atrasada'
+
+export interface ParcelaItem {
+  numero: number
+  vencimento: string
+  valor_principal: number
+  juros_selic?: number
+  valor_total: number
+  status: ParcelaStatus
+  data_pagamento?: string | null
+  codigo_barras?: string
+  observacoes?: string
+}
+
+export interface ParcelamentoFederalRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  numero_parcelamento: string
+  modalidade: ModalidadeParcelamento
+  descricao_modalidade?: string
+  data_adesao: string
+  total_parcelas: number
+  parcelas_quitadas: number
+  valor_total_consolidado?: number
+  saldo_devedor: number
+  situacao_rfb: SituacaoParcelamentoRfb
+  proxima_parcela_numero?: number
+  proxima_parcela_vencimento?: string
+  proxima_parcela_valor?: number
+  quadro_parcelas_json?: ParcelaItem[]
+  origem_captura: 'manual_contador' | 'conector_rfb_dte'
+  observacoes?: string
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    criado_por?: User
+  }
+}
+
+export type SaudeParcelamentoBadge = 'adimplente' | 'vencendo_7d' | 'inadimplente'
+
+export interface ResumoGuiasPagamentosEmpresa {
+  totalAberto: number
+  totalPagoAno: number
+  totalVencido: number
+  qtdGuiasVencidas: number
+  qtdGuiasAbertas: number
+  qtdGuiasPagas: number
+  parcelamentosAtivos: number
+  saldoDevedorParcelamentos: number
+  parcelamentosComAtraso: number
+  parcelamentosVencendo7d: number
+  regularidadeTributaria: 'regular' | 'alerta' | 'irregular'
+}
