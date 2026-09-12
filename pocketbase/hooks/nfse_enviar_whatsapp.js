@@ -48,7 +48,7 @@ routerAdd(
         data: agora,
       })
 
-      solRec.set('historico_mensagens_json', JSON.stringify(historico))
+      solRec.set('historico_mensagens_json', historico)
       $app.save(solRec)
 
       // Se houver Evolution API configurada, tentar envio real

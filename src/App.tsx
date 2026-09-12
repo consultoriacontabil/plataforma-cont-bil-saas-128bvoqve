@@ -40,6 +40,7 @@ import SimuladorReformaPage from '@/pages/SimuladorReforma'
 import NfseWhatsappPage from '@/pages/NfseWhatsapp'
 import AnalyticsTributarioPage from '@/pages/AnalyticsTributario'
 import MonitoramentoLegislativoPage from '@/pages/MonitoramentoLegislativo'
+import PopTreinamentoPage from '@/pages/PopTreinamento'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -104,6 +105,7 @@ export default function App() {
           <Route path="/extensao" element={<ExtensaoWhatsAppPage />} />
 
           {/* Gestão */}
+          <Route path="/pop-treinamento" element={<PopTreinamentoPage />} />
           <Route path="/portal-acessos" element={<PortalAcessosPage />} />
           <Route path="/usuarios" element={<Usuarios />} />
           <Route path="/usuarios/perfis" element={<Usuarios />} />

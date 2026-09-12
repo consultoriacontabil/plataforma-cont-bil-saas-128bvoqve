@@ -159,6 +159,7 @@ export default function Layout() {
     if (path.startsWith('/fecho-mensal')) return 'Fecho Mensal & Checklist'
     if (path.startsWith('/relatorios-contabeis')) return 'DRE & Balanço Patrimonial'
     if (path.startsWith('/contratos')) return 'Contratos & Propostas de Honorários'
+    if (path.startsWith('/pop-treinamento')) return 'POP & Treinamento Elliza'
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/extensao')) return 'Extensão WhatsApp Web'
@@ -335,10 +336,13 @@ export default function Layout() {
     {
       group: 'GESTÃO & INTEGRAÇÕES',
       items: [
+        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: BookOpen, badge: 'ELLIZA' },
         { label: 'Extensão WhatsApp', to: '/extensao', icon: Sparkles, badge: 'NOVO' },
         { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
         { label: 'Relatórios', to: '/relatorios', icon: Layers },
-        { label: 'Usuários & Perfis', to: '/usuarios', icon: Users },
+        ...(member?.perfil !== 'cliente'
+          ? [{ label: 'Usuários & Perfis', to: '/usuarios', icon: Users }]
+          : []),
         { label: 'Auditoria', to: '/auditoria', icon: ShieldCheck },
         { label: 'Integrações', to: '/integracoes', icon: Compass },
       ],
