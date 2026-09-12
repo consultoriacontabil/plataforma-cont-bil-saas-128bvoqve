@@ -1439,8 +1439,69 @@ export interface NfseConfigRecord extends RecordModel {
   telefone_suporte?: string
   prazo_dias_cancelamento?: number
   ativo: boolean
+  ia_ativa?: boolean
+  ia_modo_operacao?: 'supervisionado' | 'autonomo_duvidas'
+  ia_mensagem_boas_vindas?: string
+  ia_horario_inicio?: string
+  ia_horario_fim?: string
+  ia_mensagem_fora_horario?: string
   expand?: {
     empresa_padrao?: Empresa
+  }
+}
+
+export type StatusWaConversa =
+  | 'aberta'
+  | 'em_atendimento'
+  | 'escalada_humano'
+  | 'resolvida_ia'
+  | 'encerrada'
+
+export type MotivoEscalonamentoWa =
+  | 'ato_fiscal'
+  | 'duvida_complexa'
+  | 'solicitacao_cliente'
+  | 'erro_ia'
+  | 'outro'
+
+export type RemetenteTipoWa = 'cliente' | 'ia' | 'humano' | 'sistema'
+export type StatusEnvioWa = 'sugerida_ia' | 'enviada' | 'pendente_aprovacao' | 'rejeitada_contador'
+
+export interface WaAtendimentoConversaRecord extends RecordModel {
+  tenant_id: string
+  empresa?: string
+  contato_nome: string
+  contato_telefone: string
+  origem_chat_jid?: string
+  status: StatusWaConversa
+  escalonamento_motivo?: MotivoEscalonamentoWa
+  solicitacao_nfse?: string
+  ultima_mensagem?: string
+  ultima_interacao?: string
+  total_mensagens: number
+  total_respostas_ia: number
+  total_respostas_humano: number
+  skip_conversation_id?: string
+  atendente_humano?: string
+  expand?: {
+    empresa?: Empresa
+    solicitacao_nfse?: NfseSolicitacaoRecord
+    atendente_humano?: User
+  }
+}
+
+export interface WaAtendimentoMensagemRecord extends RecordModel {
+  tenant_id: string
+  conversa: string
+  remetente_tipo: RemetenteTipoWa
+  conteudo: string
+  status_envio?: StatusEnvioWa
+  aprovado_por?: string
+  mensagem_id_externo?: string
+  citacoes_json?: any[]
+  tools_executadas_json?: any[]
+  expand?: {
+    aprovado_por?: User
   }
 }
 

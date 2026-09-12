@@ -67,12 +67,16 @@ import { NfseChatLogModal } from '@/components/NfseChatLogModal'
 import { NfseVisualizadorModal } from '@/components/NfseVisualizadorModal'
 import { NfseConfigTab } from '@/components/NfseConfigTab'
 import { NfseCancelamentoModal } from '@/components/NfseCancelamentoModal'
+import { WhatsAppAgentTab } from '@/components/WhatsAppAgentTab'
+import { Bot } from 'lucide-react'
 
 export default function NfseWhatsappPage() {
   const { tenant, user } = useAuth()
   const { toast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<'supervisao' | 'historico' | 'config'>('supervisao')
+  const [activeTab, setActiveTab] = useState<'supervisao' | 'historico' | 'agente' | 'config'>(
+    'supervisao',
+  )
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -461,6 +465,12 @@ export default function NfseWhatsappPage() {
             <Badge variant="outline" className="text-[10px] ml-1 px-1.5 py-0 h-4">
               {totalEmitidas}
             </Badge>
+          </TabsTrigger>
+
+          <TabsTrigger value="agente" className="text-xs font-semibold rounded-lg gap-2">
+            <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
+            Agente IA (WhatsApp)
+            <Badge className="bg-teal-500 text-white text-[9px] px-1.5 py-0 h-4">NATIVO</Badge>
           </TabsTrigger>
 
           <TabsTrigger value="config" className="text-xs font-semibold rounded-lg gap-2">
@@ -1003,7 +1013,20 @@ export default function NfseWhatsappPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA 3: CONFIGURAÇÃO DO CANAL WHATSAPP */}
+        {/* ABA 3: AGENTE IA NO WHATSAPP (NATIVE SKIP CLOUD AGENT) */}
+        <TabsContent value="agente" className="pt-2">
+          {tenant && (
+            <WhatsAppAgentTab
+              config={config}
+              empresas={empresas}
+              tenantId={tenant.id}
+              user={user}
+              onConfigUpdated={() => loadData(true)}
+            />
+          )}
+        </TabsContent>
+
+        {/* ABA 4: CONFIGURAÇÃO DO CANAL WHATSAPP */}
         <TabsContent value="config" className="pt-2">
           {tenant && (
             <NfseConfigTab

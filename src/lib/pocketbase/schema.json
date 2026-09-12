@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T19:16:29.127Z",
+  "generatedAt": "2026-09-12T19:41:45.161Z",
   "collections": [
     {
       "name": "users",
@@ -4553,6 +4553,43 @@
           "type": "number",
           "required": false,
           "system": false
+        },
+        {
+          "name": "ia_ativa",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ia_modo_operacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["supervisionado", "autonomo_duvidas"]
+        },
+        {
+          "name": "ia_mensagem_boas_vindas",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ia_horario_inicio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ia_horario_fim",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ia_mensagem_fora_horario",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -8364,6 +8401,237 @@
         "CREATE INDEX idx_pub_criticidade ON publicacoes_legislativas (criticidade)",
         "CREATE INDEX idx_pub_status ON publicacoes_legislativas (status)",
         "CREATE INDEX idx_pub_created ON publicacoes_legislativas (created DESC)"
+      ]
+    },
+    {
+      "name": "wa_atendimento_conversas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "contato_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "contato_telefone",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origem_chat_jid",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "aberta",
+            "em_atendimento",
+            "escalada_humano",
+            "resolvida_ia",
+            "encerrada"
+          ]
+        },
+        {
+          "name": "escalonamento_motivo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "ato_fiscal",
+            "duvida_complexa",
+            "solicitacao_cliente",
+            "erro_ia",
+            "outro"
+          ]
+        },
+        {
+          "name": "solicitacao_nfse",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "nfse_solicitacoes"
+        },
+        {
+          "name": "ultima_mensagem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_interacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_mensagens",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_respostas_ia",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_respostas_humano",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "skip_conversation_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "atendente_humano",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_wa_conv_tenant ON wa_atendimento_conversas (tenant_id, status)",
+        "CREATE INDEX idx_wa_conv_empresa ON wa_atendimento_conversas (tenant_id, empresa)",
+        "CREATE INDEX idx_wa_conv_telefone ON wa_atendimento_conversas (contato_telefone)",
+        "CREATE INDEX idx_wa_conv_interacao ON wa_atendimento_conversas (ultima_interacao DESC)"
+      ]
+    },
+    {
+      "name": "wa_atendimento_mensagens",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "conversa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "wa_atendimento_conversas"
+        },
+        {
+          "name": "remetente_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["cliente", "ia", "humano", "sistema"]
+        },
+        {
+          "name": "conteudo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status_envio",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["sugerida_ia", "enviada", "pendente_aprovacao", "rejeitada_contador"]
+        },
+        {
+          "name": "aprovado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "mensagem_id_externo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "citacoes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tools_executadas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_wa_msg_conv ON wa_atendimento_mensagens (conversa, created)",
+        "CREATE INDEX idx_wa_msg_tenant ON wa_atendimento_mensagens (tenant_id)"
       ]
     }
   ]
