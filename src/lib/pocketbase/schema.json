@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T13:11:09.307Z",
+  "generatedAt": "2026-09-12T13:28:23.307Z",
   "collections": [
     {
       "name": "users",
@@ -6276,6 +6276,234 @@
         "CREATE INDEX idx_dctfweb_comp ON dctfweb_declaracoes (competencia)",
         "CREATE INDEX idx_dctfweb_status ON dctfweb_declaracoes (status)",
         "CREATE INDEX idx_dctfweb_prazo ON dctfweb_declaracoes (prazo_legal)"
+      ]
+    },
+    {
+      "name": "verbas_catalogo",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["provento", "desconto"]
+        },
+        {
+          "name": "rubrica_esocial",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["horas", "dias", "valor_fixo", "percentual"]
+        },
+        {
+          "name": "valor_padrao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "incide_inss",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "incide_irrf",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "incide_fgts",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "integra_salario_contrib",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reflexo_dsr",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reflexo_ferias_13",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_verbas_cat_tenant_emp ON verbas_catalogo (tenant_id, empresa)",
+        "CREATE INDEX idx_verbas_cat_codigo ON verbas_catalogo (codigo)",
+        "CREATE INDEX idx_verbas_cat_tipo ON verbas_catalogo (tipo)"
+      ]
+    },
+    {
+      "name": "verbas_lancamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "verba",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "verbas_catalogo"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "quantidade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_percentual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_calculado",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "referencia_detalhe",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alertas_clt",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_verbas_lanc_tenant_emp_comp ON verbas_lancamentos (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_verbas_lanc_func_comp ON verbas_lancamentos (funcionario, competencia)",
+        "CREATE INDEX idx_verbas_lanc_verba ON verbas_lancamentos (verba)"
       ]
     }
   ]

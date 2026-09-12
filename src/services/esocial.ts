@@ -571,6 +571,47 @@ export const esocialService = {
 
         const matr = funcionario?.matricula_esocial || 'MATR-001'
 
+        // Parsear proventos e descontos para alimentar as rubricas oficiais da Tabela 1 no S-1200
+        let itensRubricasXml = ''
+        let proventosList: {
+          descricao: string
+          valor: number
+          rubrica_esocial?: string
+          codigo?: string
+        }[] = []
+        if (folha?.proventos) {
+          if (typeof folha.proventos === 'string') {
+            try {
+              proventosList = JSON.parse(folha.proventos)
+            } catch {
+              /* intentionally ignored */
+            }
+          } else if (Array.isArray(folha.proventos)) {
+            proventosList = folha.proventos as typeof proventosList
+          }
+        }
+
+        if (proventosList.length > 0) {
+          itensRubricasXml = proventosList
+            .map((item) => {
+              const codRubr =
+                item.rubrica_esocial ||
+                (item.codigo && item.codigo.length === 4 ? item.codigo : '1000')
+              return `            <itensRemun>
+              <codRubr>${codRubr}</codRubr>
+              <ideTabRubr>TAB1</ideTabRubr>
+              <vrRubr>${item.valor.toFixed(2)}</vrRubr>
+            </itensRemun>`
+            })
+            .join('\n')
+        } else {
+          itensRubricasXml = `            <itensRemun>
+              <codRubr>1000</codRubr>
+              <ideTabRubr>TAB1</ideTabRubr>
+              <vrRubr>${salBase.toFixed(2)}</vrRubr>
+            </itensRemun>`
+        }
+
         xml = `<?xml version="1.0" encoding="UTF-8"?>
 <eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtRemun/v_S_01_01_00">
   <evtRemun Id="${idEvento}">
@@ -599,11 +640,7 @@ export const esocialService = {
           <nrInsc>${cleanCnpj}</nrInsc>
           <remunPerApur>
             <matricula>${matr}</matricula>
-            <itensRemun>
-              <codRubr>1000</codRubr>
-              <ideTabRubr>TAB1</ideTabRubr>
-              <vrRubr>${salBase.toFixed(2)}</vrRubr>
-            </itensRemun>
+${itensRubricasXml}
           </remunPerApur>
         </ideEstabLot>
       </infoPerApur>

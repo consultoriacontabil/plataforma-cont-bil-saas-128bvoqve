@@ -1,6 +1,15 @@
 import pb from '@/lib/pocketbase/client'
 import { impostosRetidosService } from '@/services/impostosRetidos'
-import type { Funcionario, FolhaPagamento, EventoDp, FuncionarioStatus, ItemRubrica } from '@/types'
+import { processarCalculoFolhaClt } from '@/lib/calculoClt'
+import type {
+  Funcionario,
+  FolhaPagamento,
+  EventoDp,
+  FuncionarioStatus,
+  ItemRubrica,
+  VerbaLancamentoRecord,
+  VerbaCatalogoRecord,
+} from '@/types'
 
 export interface CreateFuncionarioInput {
   tenant_id: string
@@ -151,23 +160,36 @@ export const dpService = {
     let totalBruto = 0
     let totalLiquido = 0
 
+    // Buscar lançamentos de verbas da competência para a empresa
+    const lancamentosCompetencia = await pb
+      .collection('verbas_lancamentos')
+      .getFullList<VerbaLancamentoRecord>({
+        filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && competencia = "${competencia}"`,
+        expand: 'verba',
+      })
+
+    const lancamentosPorFuncionario = new Map<string, VerbaLancamentoRecord[]>()
+    for (const l of lancamentosCompetencia) {
+      const arr = lancamentosPorFuncionario.get(l.funcionario) || []
+      arr.push(l)
+      lancamentosPorFuncionario.set(l.funcionario, arr)
+    }
+
     for (const f of funcs) {
       if (existingFuncIds.has(f.id)) continue
 
       const salario = f.salario || 0
-      // INSS simplificado CLT (até teto de ~R$ 908,85)
-      const inss = Math.min(salario * 0.11, 908.85)
-      // IRRF simplificado
-      const irrf = salario > 5000 ? (salario - inss) * 0.15 : (salario - inss) * 0.075
-      // FGTS (encargo patronal 8%)
-      const fgts = salario * 0.08
+      const lancsFunc = lancamentosPorFuncionario.get(f.id) || []
 
-      const proventos: ItemRubrica[] = [{ descricao: 'Salário Base', valor: salario }]
-      const descontos: ItemRubrica[] = [
-        { descricao: 'INSS Previdência', valor: Number(inss.toFixed(2)) },
-        { descricao: 'IRRF Retido', valor: Number(irrf.toFixed(2)) },
-      ]
-      const liq = salario - (inss + irrf)
+      // Processamento oficial conforme CLT
+      const resultadoClt = processarCalculoFolhaClt({
+        salarioBase: salario,
+        dependentes: f.dependentes_irrf || 0,
+        lancamentos: lancsFunc.map((l) => ({
+          ...l,
+          verbaObj: l.expand?.verba as VerbaCatalogoRecord | undefined,
+        })),
+      })
 
       await pb.collection('folha_pagamento').create<FolhaPagamento>({
         tenant_id: tenantId,
@@ -175,18 +197,18 @@ export const dpService = {
         funcionario: f.id,
         competencia,
         salario_base: salario,
-        proventos: JSON.stringify(proventos),
-        descontos: JSON.stringify(descontos),
-        inss: Number(inss.toFixed(2)),
-        irrf: Number(irrf.toFixed(2)),
-        fgts: Number(fgts.toFixed(2)),
-        total_liquido: Number(liq.toFixed(2)),
+        proventos: JSON.stringify(resultadoClt.proventosDetalhados),
+        descontos: JSON.stringify(resultadoClt.descontosDetalhados),
+        inss: resultadoClt.inss,
+        irrf: resultadoClt.irrf,
+        fgts: resultadoClt.fgts,
+        total_liquido: resultadoClt.salarioLiquido,
         status: 'processada',
       })
 
       gerados++
-      totalBruto += salario
-      totalLiquido += liq
+      totalBruto += resultadoClt.totalBruto
+      totalLiquido += resultadoClt.salarioLiquido
     }
 
     // Buscar todas as folhas da competência e sincronizar automaticamente os impostos retidos (DP -> Financeiro)
@@ -357,5 +379,84 @@ export const dpService = {
 
   async deleteEvento(id: string) {
     return pb.collection('eventos_dp').delete(id)
+  },
+
+  // Recalcular folha existente de um colaborador específico considerando verbas recém-lançadas
+  async recalcularFolhaFuncionario(
+    tenantId: string,
+    empresaId: string,
+    funcionarioId: string,
+    competencia: string,
+  ): Promise<FolhaPagamento | null> {
+    const f = await pb.collection('funcionarios').getOne<Funcionario>(funcionarioId)
+    const folhas = await pb.collection('folha_pagamento').getFullList<FolhaPagamento>({
+      filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && funcionario = "${funcionarioId}" && competencia = "${competencia}"`,
+    })
+
+    const lancs = await pb.collection('verbas_lancamentos').getFullList<VerbaLancamentoRecord>({
+      filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && funcionario = "${funcionarioId}" && competencia = "${competencia}"`,
+      expand: 'verba',
+    })
+
+    const resultadoClt = processarCalculoFolhaClt({
+      salarioBase: f.salario || 0,
+      dependentes: f.dependentes_irrf || 0,
+      lancamentos: lancs.map((l) => ({
+        ...l,
+        verbaObj: l.expand?.verba as VerbaCatalogoRecord | undefined,
+      })),
+    })
+
+    let folha: FolhaPagamento
+    if (folhas.length > 0) {
+      folha = await pb.collection('folha_pagamento').update<FolhaPagamento>(folhas[0].id, {
+        salario_base: f.salario || 0,
+        proventos: JSON.stringify(resultadoClt.proventosDetalhados),
+        descontos: JSON.stringify(resultadoClt.descontosDetalhados),
+        inss: resultadoClt.inss,
+        irrf: resultadoClt.irrf,
+        fgts: resultadoClt.fgts,
+        total_liquido: resultadoClt.salarioLiquido,
+      })
+    } else {
+      folha = await pb.collection('folha_pagamento').create<FolhaPagamento>({
+        tenant_id: tenantId,
+        empresa: empresaId,
+        funcionario: funcionarioId,
+        competencia,
+        salario_base: f.salario || 0,
+        proventos: JSON.stringify(resultadoClt.proventosDetalhados),
+        descontos: JSON.stringify(resultadoClt.descontosDetalhados),
+        inss: resultadoClt.inss,
+        irrf: resultadoClt.irrf,
+        fgts: resultadoClt.fgts,
+        total_liquido: resultadoClt.salarioLiquido,
+        status: 'processada',
+      })
+    }
+
+    // Sincronizar impostos retidos
+    try {
+      const allFolhas = await pb.collection('folha_pagamento').getFullList<FolhaPagamento>({
+        filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && competencia = "${competencia}"`,
+      })
+      const inssTotal = allFolhas.reduce((acc, cur) => acc + (cur.inss || 0), 0)
+      const irrfTotal = allFolhas.reduce((acc, cur) => acc + (cur.irrf || 0), 0)
+      const fgtsTotal = allFolhas.reduce((acc, cur) => acc + (cur.fgts || 0), 0)
+
+      await impostosRetidosService.gerarOuAtualizarImpostosFolha({
+        tenantId,
+        empresaId,
+        competencia,
+        inssTotal,
+        irrfTotal,
+        fgtsTotal,
+        folhaIdRef: `folha-${competencia}`,
+      })
+    } catch (e) {
+      console.warn('Erro ao atualizar impostos retidos após recalcular folha:', e)
+    }
+
+    return folha
   },
 }

@@ -116,7 +116,22 @@ export const dctfwebService = {
 
     if (folhas.length > 0) {
       folhas.forEach((f) => {
-        totalBaseFolha += f.salario_base || 0
+        // Obter remuneração bruta total (salário base + proventos apurados)
+        let brutoFunc = f.salario_base || 0
+        if (f.proventos) {
+          try {
+            const arr = typeof f.proventos === 'string' ? JSON.parse(f.proventos) : f.proventos
+            if (Array.isArray(arr) && arr.length > 0) {
+              brutoFunc = arr.reduce(
+                (acc: number, cur: { valor?: number }) => acc + (cur.valor || 0),
+                0,
+              )
+            }
+          } catch {
+            /* intentionally ignored */
+          }
+        }
+        totalBaseFolha += brutoFunc
         totalInssFolha += f.inss || 0
         totalIrrfFolha += f.irrf || 0
       })

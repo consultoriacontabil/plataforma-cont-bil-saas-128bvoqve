@@ -534,6 +534,63 @@ export interface EsocialEventoRecord extends RecordModel {
 export interface ItemRubrica {
   descricao: string
   valor: number
+  codigo?: string
+  rubrica_esocial?: string
+  tipo?: 'provento' | 'desconto' | 'informativo'
+  quantidade?: number
+  unidade?: string
+  aliquota_percentual?: number
+  referencia?: string
+}
+
+export type VerbaTipo = 'provento' | 'desconto'
+export type VerbaUnidade = 'horas' | 'dias' | 'valor_fixo' | 'percentual'
+
+export interface VerbaCatalogoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  codigo: string
+  descricao: string
+  tipo: VerbaTipo
+  rubrica_esocial: string
+  unidade: VerbaUnidade
+  valor_padrao?: number
+  incide_inss: boolean
+  incide_irrf: boolean
+  incide_fgts: boolean
+  integra_salario_contrib: boolean
+  reflexo_dsr: boolean
+  reflexo_ferias_13: boolean
+  ativo: boolean
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
+export interface AlertaConformidadeClt {
+  tipo: 'aviso' | 'infracao' | 'informativo'
+  regra: string
+  mensagem: string
+  sugestao?: string
+}
+
+export interface VerbaLancamentoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  verba: string
+  competencia: string
+  quantidade?: number
+  aliquota_percentual?: number
+  valor_calculado: number
+  referencia_detalhe?: string
+  alertas_clt?: AlertaConformidadeClt[]
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+    verba?: VerbaCatalogoRecord
+  }
 }
 
 export type FolhaPagamentoStatus = 'rascunho' | 'processada' | 'paga'

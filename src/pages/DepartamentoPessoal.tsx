@@ -19,7 +19,11 @@ import {
   Edit,
   ShieldCheck,
   CheckCheck,
+  Coins,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
+import { PainelVerbas } from '@/components/PainelVerbas'
 import { useAuth } from '@/contexts/AuthContext'
 import { dpService, type CreateFuncionarioInput } from '@/services/dp'
 import { esocialService, type ConformidadeFuncionario } from '@/services/esocial'
@@ -69,8 +73,9 @@ export default function DepartamentoPessoal() {
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<
-    'funcionarios' | 'folha' | 'eventuais' | 'esocial' | 'reinf_dctfweb'
+    'funcionarios' | 'folha' | 'verbas' | 'eventuais' | 'esocial' | 'reinf_dctfweb'
   >('funcionarios')
+  const [expandedFolhaId, setExpandedFolhaId] = useState<string | null>(null)
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -484,7 +489,18 @@ export default function DepartamentoPessoal() {
     let liquido = 0
 
     folhaRecords.forEach((f) => {
-      bruto += f.salario_base || 0
+      let b = f.salario_base || 0
+      if (f.proventos) {
+        try {
+          const arr = typeof f.proventos === 'string' ? JSON.parse(f.proventos) : f.proventos
+          if (Array.isArray(arr) && arr.length > 0) {
+            b = arr.reduce((acc: number, cur: { valor?: number }) => acc + (cur.valor || 0), 0)
+          }
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+      bruto += b
       inss += f.inss || 0
       irrf += f.irrf || 0
       fgts += f.fgts || 0
@@ -546,6 +562,10 @@ export default function DepartamentoPessoal() {
           <TabsTrigger value="folha" className="gap-2 text-xs font-semibold rounded-lg">
             <Receipt className="h-4 w-4" />
             <span>Folha de Pagamento</span>
+          </TabsTrigger>
+          <TabsTrigger value="verbas" className="gap-2 text-xs font-semibold rounded-lg">
+            <Coins className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Verbas & Descontos (CLT)</span>
           </TabsTrigger>
           <TabsTrigger value="eventuais" className="gap-2 text-xs font-semibold rounded-lg">
             <History className="h-4 w-4" />
@@ -884,78 +904,284 @@ export default function DepartamentoPessoal() {
                   <tr>
                     <th className="py-3 px-4">Colaborador</th>
                     <th className="py-3 px-4">Salário Base</th>
+                    <th className="py-3 px-4">Bruto Apurado</th>
                     <th className="py-3 px-4">INSS</th>
                     <th className="py-3 px-4">IRRF</th>
-                    <th className="py-3 px-4">FGTS</th>
+                    <th className="py-3 px-4">FGTS (8%)</th>
                     <th className="py-3 px-4">Total Líquido</th>
                     <th className="py-3 px-4">Status</th>
-                    {canManage && <th className="py-3 px-4 text-right">Ação</th>}
+                    <th className="py-3 px-4 text-right">Detalhamento</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-[#1A2333]">
                   {folhaRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-[#94A3B8]">
+                      <td colSpan={9} className="py-8 text-center text-[#94A3B8]">
                         Nenhuma folha gerada para a competência {selectedCompetencia}. Clique em
-                        &quot;Processar Folha&quot; acima.
+                        &quot;Processar Folha da Competência&quot; acima.
                       </td>
                     </tr>
                   ) : (
-                    folhaRecords.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-[#1A2333]">
-                          {item.expand?.funcionario?.nome_completo || 'Colaborador'}
-                          <p className="text-[11px] font-normal text-[#64748B]">
-                            {item.expand?.funcionario?.cargo || 'Cargo'}
-                          </p>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-medium">
-                          R$ {item.salario_base.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-amber-600">
-                          - R$ {item.inss.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-amber-600">
-                          - R$ {item.irrf.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-indigo-600">
-                          R$ {item.fgts.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
-                          R$ {item.total_liquido.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {item.status === 'paga' ? (
-                            <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
-                              Paga
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-[#FEF3C7] text-[#D97706] border-amber-200">
-                              Processada
-                            </Badge>
+                    folhaRecords.map((item) => {
+                      const isExpanded = expandedFolhaId === item.id
+                      let provArr: {
+                        descricao: string
+                        valor: number
+                        codigo?: string
+                        rubrica_esocial?: string
+                        referencia?: string
+                      }[] = []
+                      let descArr: {
+                        descricao: string
+                        valor: number
+                        codigo?: string
+                        rubrica_esocial?: string
+                        referencia?: string
+                      }[] = []
+
+                      if (item.proventos) {
+                        try {
+                          provArr =
+                            typeof item.proventos === 'string'
+                              ? JSON.parse(item.proventos)
+                              : item.proventos
+                        } catch {
+                          /* intentionally ignored */
+                        }
+                      }
+                      if (item.descontos) {
+                        try {
+                          descArr =
+                            typeof item.descontos === 'string'
+                              ? JSON.parse(item.descontos)
+                              : item.descontos
+                        } catch {
+                          /* intentionally ignored */
+                        }
+                      }
+
+                      const totalBrutoItem =
+                        provArr.reduce((acc, c) => acc + (c.valor || 0), 0) || item.salario_base
+
+                      return (
+                        <React.Fragment key={item.id}>
+                          <tr className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-[#1A2333]">
+                              {item.expand?.funcionario?.nome_completo || 'Colaborador'}
+                              <p className="text-[11px] font-normal text-[#64748B]">
+                                {item.expand?.funcionario?.cargo || 'Cargo'}
+                              </p>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-medium text-slate-600">
+                              R$ {item.salario_base.toFixed(2)}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-[#1A2333]">
+                              R$ {totalBrutoItem.toFixed(2)}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-amber-600">
+                              - R$ {item.inss.toFixed(2)}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-amber-600">
+                              - R$ {item.irrf.toFixed(2)}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-indigo-600">
+                              R$ {item.fgts.toFixed(2)}
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
+                              R$ {item.total_liquido.toFixed(2)}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {item.status === 'paga' ? (
+                                <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
+                                  Paga
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-[#FEF3C7] text-[#D97706] border-amber-200">
+                                  Processada
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setExpandedFolhaId(isExpanded ? null : item.id)}
+                                  className="h-7 text-xs font-semibold gap-1 text-[#0FA3A3] hover:bg-teal-50"
+                                >
+                                  <span>{isExpanded ? 'Ocultar' : 'Ver Holerite'}</span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                                {canManage && item.status !== 'paga' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleMarcarFolhaPaga(item.id)}
+                                    className="h-7 text-[11px] font-semibold text-[#16A34A] border-emerald-200 hover:bg-emerald-50"
+                                  >
+                                    Quitar
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Linha expansível com o espelho detalhado do cálculo CLT */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/80">
+                              <td colSpan={9} className="p-4 border-b border-slate-200">
+                                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3">
+                                  <div className="flex items-center justify-between border-b pb-2">
+                                    <div>
+                                      <h4 className="font-bold text-xs text-[#1A2333]">
+                                        Demonstrativo de Pagamento CLT •{' '}
+                                        {item.expand?.funcionario?.nome_completo}
+                                      </h4>
+                                      <p className="text-[11px] text-[#64748B]">
+                                        Competência: {item.competencia} • Dependentes IRRF:{' '}
+                                        {item.expand?.funcionario?.dependentes_irrf || 0}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-teal-50 text-[#0FA3A3] border-teal-200 text-[10px]">
+                                        CLT Progressivo Vigente
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Proventos */}
+                                    <div className="space-y-1.5">
+                                      <p className="font-bold text-xs text-emerald-700 uppercase tracking-wide">
+                                        Proventos Remuneratórios (+)
+                                      </p>
+                                      <div className="rounded-lg border border-emerald-100 bg-emerald-50/30 p-2 space-y-1">
+                                        {provArr.map((p, idx) => (
+                                          <div
+                                            key={idx}
+                                            className="flex items-center justify-between text-xs py-0.5"
+                                          >
+                                            <div>
+                                              <span className="font-medium text-[#1A2333]">
+                                                {p.descricao}
+                                              </span>
+                                              {p.referencia && (
+                                                <span className="text-[10px] text-[#64748B] block">
+                                                  Ref: {p.referencia}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span className="font-mono font-bold text-emerald-700">
+                                              R$ {p.valor.toFixed(2)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                        <div className="pt-1 border-t border-emerald-200 flex justify-between font-bold text-xs text-emerald-900">
+                                          <span>Total Bruto:</span>
+                                          <span>R$ {totalBrutoItem.toFixed(2)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Descontos */}
+                                    <div className="space-y-1.5">
+                                      <p className="font-bold text-xs text-rose-700 uppercase tracking-wide">
+                                        Descontos Legais & Variáveis (-)
+                                      </p>
+                                      <div className="rounded-lg border border-rose-100 bg-rose-50/30 p-2 space-y-1">
+                                        {descArr.map((d, idx) => (
+                                          <div
+                                            key={idx}
+                                            className="flex items-center justify-between text-xs py-0.5"
+                                          >
+                                            <div>
+                                              <span className="font-medium text-[#1A2333]">
+                                                {d.descricao}
+                                              </span>
+                                              {d.referencia && (
+                                                <span className="text-[10px] text-[#64748B] block">
+                                                  Ref: {d.referencia}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span className="font-mono font-bold text-rose-700">
+                                              - R$ {d.valor.toFixed(2)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                        <div className="pt-1 border-t border-rose-200 flex justify-between font-bold text-xs text-rose-900">
+                                          <span>Total Descontos:</span>
+                                          <span>
+                                            - R${' '}
+                                            {descArr
+                                              .reduce((acc, c) => acc + (c.valor || 0), 0)
+                                              .toFixed(2)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Resumo Líquido */}
+                                  <div className="p-3 bg-slate-50 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs border border-slate-200">
+                                    <div className="flex items-center gap-4">
+                                      <div>
+                                        <span className="text-[#64748B] text-[11px] block">
+                                          Base INSS:
+                                        </span>
+                                        <span className="font-mono font-bold text-[#1A2333]">
+                                          R$ {totalBrutoItem.toFixed(2)}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-[#64748B] text-[11px] block">
+                                          Depósito FGTS 8%:
+                                        </span>
+                                        <span className="font-mono font-bold text-indigo-700">
+                                          R$ {item.fgts.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-[#64748B] text-[11px] block">
+                                        Líquido a Receber:
+                                      </span>
+                                      <span className="text-lg font-mono font-bold text-emerald-700">
+                                        R$ {item.total_liquido.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        {canManage && (
-                          <td className="py-3.5 px-4 text-right">
-                            {item.status !== 'paga' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleMarcarFolhaPaga(item.id)}
-                                className="h-7 text-[11px] font-semibold text-[#16A34A] border-emerald-200 hover:bg-emerald-50"
-                              >
-                                Marcar Paga
-                              </Button>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))
+                        </React.Fragment>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+        </TabsContent>
+
+        {/* === TAB 3: VERBAS & DESCONTOS (CLT) === */}
+        <TabsContent value="verbas" className="space-y-4 mt-4">
+          <PainelVerbas
+            tenantId={tenant?.id || ''}
+            userId={member?.user_id || ''}
+            canManage={canManage}
+            empresas={empresas}
+            selectedEmpresaId={selectedEmpresaId}
+            onSelectEmpresaId={setSelectedEmpresaId}
+            selectedCompetencia={selectedCompetencia}
+            onSelectCompetencia={setSelectedCompetencia}
+            onFolhaRecalculated={() => loadData()}
+          />
         </TabsContent>
 
         {/* === TAB 3: EVENTUAIS / EVENTOS DP === */}
