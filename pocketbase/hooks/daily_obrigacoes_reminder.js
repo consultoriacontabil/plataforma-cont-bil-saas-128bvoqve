@@ -682,6 +682,280 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       console.log('[CRON] Error scanning esocial_eventos:', errEsoc)
     }
 
+    // 1.08 Scan for pending reinf_eventos due within 7 days or overdue (Prazo EFD-Reinf: dia 15)
+    try {
+      const pendingReinf = $app.findRecordsByFilter(
+        'reinf_eventos',
+        "status = 'pendente' || status = 'pronto' || status = 'rejeitado'",
+        'prazo_legal',
+        200,
+        0,
+      )
+      console.log('[CRON] Found', pendingReinf.length, 'reinf_eventos to check')
+
+      for (let rf = 0; rf < pendingReinf.length; rf++) {
+        const reinfEv = pendingReinf[rf]
+        const rfTenantId = reinfEv.getString('tenant_id')
+        const rfEmpresaId = reinfEv.getString('empresa')
+        const rfTipo = reinfEv.getString('tipo_evento')
+        const rfComp = reinfEv.getString('competencia')
+        const rfStatus = reinfEv.getString('status')
+        const rfPrazoStr = reinfEv.getString('prazo_legal')
+
+        if (!rfPrazoStr) continue
+        const rfPrazo = new Date(rfPrazoStr)
+        const diffRfTime = rfPrazo.getTime() - now.getTime()
+        const diffRfDays = Math.ceil(diffRfTime / (1000 * 60 * 60 * 24))
+
+        if (diffRfDays <= 7) {
+          const isRfOverdue = diffRfDays < 0
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', rfEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          const rfNotifTitle = isRfOverdue
+            ? 'EFD-Reinf ' + rfTipo + ' com Prazo Vencido - ' + empNome
+            : 'EFD-Reinf ' +
+              rfTipo +
+              ' Vence em ' +
+              (diffRfDays <= 0 ? 'menos de 24h' : diffRfDays + ' dia(s)') +
+              ' (Dia 15) - ' +
+              empNome
+
+          const twentyHoursAgoRf = new Date(now.getTime() - 20 * 3600000).toISOString()
+          const existRfNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              rfTenantId +
+              "' && titulo = '" +
+              rfNotifTitle +
+              "' && created >= '" +
+              twentyHoursAgoRf +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existRfNotif.length === 0) {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                rfTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifRf = new Record(notificacoesCol)
+              notifRf.set('tenant_id', rfTenantId)
+              notifRf.set('usuario_destino_id', staffUserId)
+              notifRf.set('titulo', rfNotifTitle)
+              notifRf.set(
+                'mensagem',
+                'O evento EFD-Reinf ' +
+                  rfTipo +
+                  ' da empresa ' +
+                  empNome +
+                  ' (Competência ' +
+                  rfComp +
+                  ') está com status "' +
+                  rfStatus +
+                  '". O prazo legal é dia 15. Acesse a aba EFD-Reinf & DCTFWeb no DP para validar e transmitir.',
+              )
+              notifRf.set('tipo', isRfOverdue ? 'atrasada' : 'prazo_proximo')
+              notifRf.set('link', '/departamento-pessoal')
+              notifRf.set('lida', false)
+              $app.save(notifRf)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[EFD-Reinf] ' + rfNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de Prazo do EFD-Reinf (Escrituração Fiscal Digital de Retenções):</p>' +
+                      '<div style="background:' +
+                      (isRfOverdue ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isRfOverdue ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isRfOverdue
+                        ? '⚠️ EVENTO EFD-REINF COM PRAZO VENCIDO'
+                        : '⏳ PRAZO LEGAL EFD-REINF (DIA 15)') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Evento:</b> ' +
+                      rfTipo +
+                      '<br/><b>Competência:</b> ' +
+                      rfComp +
+                      '<br/><b>Status:</b> ' +
+                      rfStatus.toUpperCase() +
+                      '<br/><b>Vencimento:</b> ' +
+                      rfPrazo.toLocaleDateString('pt-BR') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse a aba EFD-Reinf & DCTFWeb no Departamento Pessoal para auditar o XML e protocolar a entrega.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errReinfCron) {
+      console.log('[CRON] Error scanning reinf_eventos:', errReinfCron)
+    }
+
+    // 1.09 Scan for pending/consolidada dctfweb_declaracoes due within 7 days or overdue (Prazo DCTFWeb: dia 25)
+    try {
+      const pendingDctf = $app.findRecordsByFilter(
+        'dctfweb_declaracoes',
+        "status = 'pendente' || status = 'consolidada'",
+        'prazo_legal',
+        200,
+        0,
+      )
+      console.log('[CRON] Found', pendingDctf.length, 'dctfweb_declaracoes to check')
+
+      for (let df = 0; df < pendingDctf.length; df++) {
+        const dctfRec = pendingDctf[df]
+        const dfTenantId = dctfRec.getString('tenant_id')
+        const dfEmpresaId = dctfRec.getString('empresa')
+        const dfComp = dctfRec.getString('competencia')
+        const dfStatus = dctfRec.getString('status')
+        const dfPrazoStr = dctfRec.getString('prazo_legal')
+        const dfSaldo = dctfRec.getFloat('saldo_a_recolher')
+
+        if (!dfPrazoStr) continue
+        const dfPrazo = new Date(dfPrazoStr)
+        const diffDfTime = dfPrazo.getTime() - now.getTime()
+        const diffDfDays = Math.ceil(diffDfTime / (1000 * 60 * 60 * 24))
+
+        if (diffDfDays <= 7) {
+          const isDfOverdue = diffDfDays < 0
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', dfEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          const dfNotifTitle = isDfOverdue
+            ? 'DCTFWeb ' + dfComp + ' com Prazo Vencido - ' + empNome
+            : 'DCTFWeb ' +
+              dfComp +
+              ' Vence em ' +
+              (diffDfDays <= 0 ? 'menos de 24h' : diffDfDays + ' dia(s)') +
+              ' (Dia 25) - ' +
+              empNome
+
+          const twentyHoursAgoDf = new Date(now.getTime() - 20 * 3600000).toISOString()
+          const existDfNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              dfTenantId +
+              "' && titulo = '" +
+              dfNotifTitle +
+              "' && created >= '" +
+              twentyHoursAgoDf +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existDfNotif.length === 0) {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                dfTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifDf = new Record(notificacoesCol)
+              notifDf.set('tenant_id', dfTenantId)
+              notifDf.set('usuario_destino_id', staffUserId)
+              notifDf.set('titulo', dfNotifTitle)
+              notifDf.set(
+                'mensagem',
+                'A declaração DCTFWeb da empresa ' +
+                  empNome +
+                  ' (Competência ' +
+                  dfComp +
+                  ', Saldo apurado: R$ ' +
+                  dfSaldo.toFixed(2) +
+                  ') está com status "' +
+                  dfStatus +
+                  '". O prazo federal de recolhimento e envio é dia 25.',
+              )
+              notifDf.set('tipo', isDfOverdue ? 'atrasada' : 'prazo_proximo')
+              notifDf.set('link', '/departamento-pessoal')
+              notifDf.set('lida', false)
+              $app.save(notifDf)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[DCTFWeb] ' + dfNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta de Prazo Legal DCTFWeb (Débitos Federais Previdenciários):</p>' +
+                      '<div style="background:' +
+                      (isDfOverdue ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isDfOverdue ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isDfOverdue
+                        ? '⚠️ DCTFWEB COM PRAZO VENCIDO'
+                        : '⏳ PRAZO LEGAL DCTFWEB (DIA 25)') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Competência:</b> ' +
+                      dfComp +
+                      '<br/><b>Saldo a Recolher (DARF):</b> R$ ' +
+                      dfSaldo.toFixed(2) +
+                      '<br/><b>Vencimento:</b> ' +
+                      dfPrazo.toLocaleDateString('pt-BR') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Lembre-se: a transmissão da DCTFWeb depende do fechamento do e-Social (S-1299) e do EFD-Reinf (R-2099).</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errDctfCron) {
+      console.log('[CRON] Error scanning dctfweb_declaracoes:', errDctfCron)
+    }
+
     // 1.1 Scan for pending impostos_retidos due within 7 days or overdue
     try {
       const pendingImpostos = $app.findRecordsByFilter(

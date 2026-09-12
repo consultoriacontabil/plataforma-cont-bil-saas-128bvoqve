@@ -25,6 +25,7 @@ import { dpService, type CreateFuncionarioInput } from '@/services/dp'
 import { esocialService, type ConformidadeFuncionario } from '@/services/esocial'
 import { empresasService } from '@/services/empresas'
 import { PainelEsocial } from '@/components/PainelEsocial'
+import { PainelReinfDctfweb } from '@/components/PainelReinfDctfweb'
 import type {
   Funcionario,
   FolhaPagamento,
@@ -67,9 +68,9 @@ export default function DepartamentoPessoal() {
   const { tenant, member } = useAuth()
   const { toast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<'funcionarios' | 'folha' | 'eventuais' | 'esocial'>(
-    'funcionarios',
-  )
+  const [activeTab, setActiveTab] = useState<
+    'funcionarios' | 'folha' | 'eventuais' | 'esocial' | 'reinf_dctfweb'
+  >('funcionarios')
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -553,6 +554,10 @@ export default function DepartamentoPessoal() {
           <TabsTrigger value="esocial" className="gap-2 text-xs font-semibold rounded-lg">
             <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
             <span>e-Social (S-1.1)</span>
+          </TabsTrigger>
+          <TabsTrigger value="reinf_dctfweb" className="gap-2 text-xs font-semibold rounded-lg">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <span>EFD-Reinf & DCTFWeb</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1039,6 +1044,18 @@ export default function DepartamentoPessoal() {
             onSelectEmpresaId={setSelectedEmpresaId}
             selectedCompetencia={selectedCompetencia}
             onSelectCompetencia={setSelectedCompetencia}
+          />
+        </TabsContent>
+
+        {/* === TAB 5: EFD-REINF & DCTFWEB (INTEGRAÇÃO FEDERAL) === */}
+        <TabsContent value="reinf_dctfweb" className="space-y-4 mt-4">
+          <PainelReinfDctfweb
+            empresas={empresas}
+            selectedEmpresaId={selectedEmpresaId}
+            selectedCompetencia={selectedCompetencia}
+            canManage={canManage}
+            canEdit={member?.perfil === 'administrador' || member?.perfil === 'contador'}
+            onNavigateToEsocial={() => setActiveTab('esocial')}
           />
         </TabsContent>
       </Tabs>

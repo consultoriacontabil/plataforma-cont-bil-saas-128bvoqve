@@ -1573,3 +1573,119 @@ export interface RfbSincronizarResult {
   erros?: string[]
   detalhes?: Record<string, unknown>
 }
+
+// === EFD-Reinf & DCTFWeb Types ===
+export type ReinfEventoTipo =
+  | 'R-1000'
+  | 'R-1070'
+  | 'R-2010'
+  | 'R-2020'
+  | 'R-2030'
+  | 'R-2040'
+  | 'R-2050'
+  | 'R-2060'
+  | 'R-2098'
+  | 'R-2099'
+  | 'R-3010'
+
+export type ReinfEventoStatus =
+  | 'pendente'
+  | 'pronto'
+  | 'validado'
+  | 'transmitido'
+  | 'rejeitado'
+  | 'fechado'
+
+export interface ReinfErroValidacao {
+  campo: string
+  mensagem: string
+  acao: string
+}
+
+export interface ReinfEventoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  tipo_evento: ReinfEventoTipo
+  competencia: string // MM/AAAA
+  status: ReinfEventoStatus
+  identificador_evento?: string
+  prestador_cnpj_cpf?: string
+  prestador_razao_social?: string
+  numero_documento?: string
+  valor_bruto?: number
+  base_calculo?: number
+  valor_retencao?: number
+  codigo_receita?: string
+  prazo_legal?: string
+  xml_gerado?: string
+  erros_validacao?: ReinfErroValidacao[]
+  protocolo_envio?: string
+  recibo_entrega?: string
+  data_transmissao?: string
+  duracao_transmissao_ms?: number
+  modo_envio?: 'supervisao' | 'producao'
+  resposta_governo_json?: Record<string, unknown>
+  motivo_reabertura?: string
+  justificativa?: string
+  titulo_financeiro?: string
+  expand?: {
+    empresa?: Empresa
+    titulo_financeiro?: ContaFinanceiraRecord
+  }
+}
+
+export type DctfwebTipoDeclaracao = 'geral' | '13_salario' | 'diaria' | 'espetaculo_desportivo'
+export type DctfwebStatus = 'pendente' | 'consolidada' | 'transmitida' | 'rejeitada'
+
+export interface DctfwebDebitoItem {
+  origem: string // 'e-Social (S-1200/S-1299)' | 'EFD-Reinf (R-2010)' | etc.
+  codigo_receita: string // '111-0' | '0561' | '1708' | '5952'
+  descricao: string
+  base_calculo: number
+  aliquota: number
+  valor_apurado: number
+  deducoes: number
+  saldo_pagar: number
+}
+
+export interface DctfwebPendenciaBloqueante {
+  modulo: string // 'e-Social' | 'EFD-Reinf' | 'Credenciais'
+  tipo_evento?: string // 'S-1299' | 'R-2099' | 'S-2200'
+  motivo: string
+  acao: string
+}
+
+export interface DctfwebDeclaracaoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  competencia: string // MM/AAAA
+  tipo_declaracao: DctfwebTipoDeclaracao
+  status: DctfwebStatus
+  debitos_json?: DctfwebDebitoItem[]
+  total_debitos?: number
+  total_deducoes?: number
+  saldo_a_recolher?: number
+  esocial_status_fechamento?: 'fechado' | 'pendente' | 'reaberto'
+  reinf_status_fechamento?: 'fechado' | 'pendente' | 'reaberto'
+  pronta_para_transmitir?: boolean
+  pendencias_bloqueantes?: DctfwebPendenciaBloqueante[]
+  protocolo_envio?: string
+  recibo_entrega?: string
+  numero_declaracao?: string
+  data_transmissao?: string
+  prazo_legal?: string
+  modo_envio?: 'supervisao' | 'producao'
+  obrigacao_vinculada?: string
+  titulo_financeiro?: string
+  expand?: {
+    empresa?: Empresa
+    obrigacao_vinculada?: ObrigacaoRecord
+    titulo_financeiro?: ContaFinanceiraRecord
+  }
+}
