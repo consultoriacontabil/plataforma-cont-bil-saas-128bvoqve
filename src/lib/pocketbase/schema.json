@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T22:58:01.473Z",
+  "generatedAt": "2026-09-12T12:23:24.585Z",
   "collections": [
     {
       "name": "users",
@@ -103,6 +103,30 @@
         {
           "name": "onboarding_checklist",
           "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_tecnico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crc_responsavel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_contato",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "endereco_completo",
+          "type": "text",
           "required": false,
           "system": false
         }

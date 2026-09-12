@@ -310,6 +310,25 @@ export function RelatorioReformaModal({
             </div>
           </div>
 
+          {/* RESSALVA TÉCNICA E TRANSPARÊNCIA (CONFORMIDADE CFC) */}
+          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-950">
+            <Info className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Ressalva Metodológica e Transparência Regulatória:</span>
+              <p className="mt-0.5 text-[11px] text-amber-900 leading-normal">
+                Este estudo consiste em{' '}
+                <b>
+                  projeção e estimativa preliminar baseada em premissas normativas e cenários
+                  tributários
+                </b>{' '}
+                da EC 132/2023 e regulamentação da LC 214/2025. Não constitui parecer conclusivo,
+                garantia de redução de carga fiscal ou vinculação legal definitiva, estando sujeito
+                à regulamentação infralegal e decisões definitivas do Comitê Gestor do IBS e da
+                Secretaria da Receita Federal do Brasil.
+              </p>
+            </div>
+          </div>
+
           {/* Assinatura do Contador / Responsável Técnico */}
           <div className="pt-8 border-t border-slate-300 flex justify-between items-end text-xs">
             <div>

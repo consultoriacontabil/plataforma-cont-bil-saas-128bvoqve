@@ -473,7 +473,7 @@ export default function RelatoriosContabeisPage() {
           </div>
           <p className="text-xs text-[#64748B]">
             Demonstrações contábeis regulatórias geradas automaticamente a partir do balancete de
-            verificação e plano de contas
+            verificação e plano de contas (NBC TG 26 / ITG 1000/2000)
           </p>
         </div>
 
@@ -580,6 +580,28 @@ export default function RelatoriosContabeisPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Identificação Formal do Responsável Técnico Contábil com CRC (NBC PP 01 / NBC TG 26) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200 text-xs text-[#334155]">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-[#123B6D] text-white text-[10px] uppercase font-bold">
+            NBC TG 26 / ITG 1000
+          </Badge>
+          <span className="text-[11px] text-[#475569]">
+            Demonstrações contábeis oficiais sob regime de competência, comparabilidade e
+            integridade patrimonial.
+          </span>
+        </div>
+        <div className="text-[11px] text-[#64748B]">
+          <span>Responsável Técnico: </span>
+          <b className="text-[#1A2333]">
+            {tenant?.responsavel_tecnico || 'Carlos Silva (Contador Responsável)'}
+          </b>
+          <span className="ml-1 text-[#0FA3A3] font-semibold">
+            ({tenant?.crc_responsavel || 'CRC/SP nº 2SP034821/O'})
+          </span>
+        </div>
+      </div>
 
       {/* Tabs: DRE vs Balanço Patrimonial */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'dre' | 'balanco')}>

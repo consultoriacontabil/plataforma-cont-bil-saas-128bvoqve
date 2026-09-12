@@ -24,6 +24,10 @@ export interface Tenant extends RecordModel {
   cnpj?: string
   plano: 'starter' | 'pro' | 'enterprise'
   ativo: boolean
+  responsavel_tecnico?: string
+  crc_responsavel?: string
+  email_contato?: string
+  endereco_completo?: string
   onboarding_checklist?: OnboardingChecklistState
 }
 

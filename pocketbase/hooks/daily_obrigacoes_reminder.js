@@ -16,7 +16,7 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       const configsRfb = $app.findRecordsByFilter(
         'rfb_config',
         'ativo = true && sincronizacao_automatica = true',
-        'created ASC',
+        'created',
         100,
         0,
       )
@@ -147,11 +147,11 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
           if (syncCert) {
             try {
               const certsExistentes = $app.findRecordsByFilter(
-                'certidos',
+                'certidoes',
                 "empresa = '" +
                   rfbEmpresaId +
                   "' && (tipo = 'receita_pgfn_cnd' || tipo = 'receita_pgfn_cpen')",
-                'data_validade DESC',
+                '-data_validade',
                 1,
                 0,
               )
@@ -202,7 +202,7 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       const activeCertificados = $app.findRecordsByFilter(
         'certificados_digitais',
         "status = 'ativo'",
-        'validade ASC',
+        'validade',
         300,
         0,
       )
@@ -359,7 +359,7 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       const activeCertidoes = $app.findRecordsByFilter(
         'certidoes',
         "status = 'valida' || status = 'vencida'",
-        'data_validade ASC',
+        'data_validade',
         300,
         0,
       )
@@ -514,7 +514,7 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
     const pendingObrigacoes = $app.findRecordsByFilter(
       'obrigacoes',
       "status = 'pendente' || status = 'em_andamento' || status = 'atrasada'",
-      'vencimento ASC',
+      'vencimento',
       300,
       0,
     )
@@ -545,7 +545,7 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       const pendingImpostos = $app.findRecordsByFilter(
         'impostos_retidos',
         "status = 'pendente' || status = 'atrasado'",
-        'vencimento ASC',
+        'vencimento',
         300,
         0,
       )

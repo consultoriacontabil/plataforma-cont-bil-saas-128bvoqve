@@ -65,7 +65,7 @@ cronAdd('quarterly_reforma_ranking', '0 3 1 1,4,7,10 *', () => {
         const empresas = $app.findRecordsByFilter(
           'empresas',
           "tenant_id = '" + tenantId + "' && status = 'ativo'",
-          'razao_social ASC',
+          'razao_social',
           500,
           0,
         )

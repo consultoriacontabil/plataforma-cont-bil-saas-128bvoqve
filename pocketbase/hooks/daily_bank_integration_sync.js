@@ -10,7 +10,7 @@ cronAdd('daily_bank_sync', '30 6 * * *', () => {
     const integracoes = $app.findRecordsByFilter(
       'integracoes_bancarias',
       "status = 'ativo' && modo = 'automatico'",
-      'ultima_execucao ASC',
+      'ultima_execucao',
       50,
       0,
     )

@@ -22,11 +22,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDatePtBr } from '@/lib/formatters'
+import { useAuth } from '@/contexts/AuthContext'
 import type {
   ContratoHonorarioRecord,
   Empresa,
   AssinaturaDemonstrativoRecord,
   ClausulaContrato,
+  Tenant,
 } from '@/types'
 
 interface ContratoModalViewProps {
@@ -35,6 +37,7 @@ interface ContratoModalViewProps {
   contrato: ContratoHonorarioRecord | null
   empresa?: Empresa | null
   assinatura?: AssinaturaDemonstrativoRecord | null
+  tenant?: Tenant | null
   tenantNome?: string
   tenantCnpj?: string
   canSign?: boolean
@@ -50,8 +53,9 @@ export function ContratoModalView({
   contrato,
   empresa,
   assinatura,
-  tenantNome = 'Rumo Consultoria Contábil',
-  tenantCnpj = '12.345.678/0001-90',
+  tenant: tenantProp,
+  tenantNome: tenantNomeProp,
+  tenantCnpj: tenantCnpjProp,
   canSign = false,
   canReject = false,
   onAssinar,
@@ -59,6 +63,10 @@ export function ContratoModalView({
   actionLoading = false,
 }: ContratoModalViewProps) {
   const printAreaRef = useRef<HTMLDivElement>(null)
+  const { tenant: authTenant } = useAuth()
+  const tenant = tenantProp || authTenant
+  const tenantNome = tenantNomeProp || tenant?.nome || 'Rumo Consultoria Contábil'
+  const tenantCnpj = tenantCnpjProp || tenant?.cnpj || '12.345.678/0001-90'
 
   if (!contrato) return null
 
@@ -155,7 +163,7 @@ export function ContratoModalView({
                     Assessoria, Auditoria & Consultoria Contábil
                   </p>
                   <p className="text-[11px] text-[#64748B]">
-                    CNPJ: {tenantCnpj} • CRC/SP 2SP034821/O
+                    CNPJ: {tenantCnpj} • {tenant?.crc_responsavel || 'CRC/SP 2SP034821/O'}
                   </p>
                 </div>
               </div>
@@ -196,8 +204,10 @@ export function ContratoModalView({
                 contábeis, inscrita no CNPJ sob o nº{' '}
                 <span className="font-mono font-semibold">{tenantCnpj}</span> e no Conselho Regional
                 de Contabilidade sob o registro{' '}
-                <span className="font-semibold text-[#0FA3A3]">CRC/SP 2SP034821/O</span>, com sede
-                na Avenida Paulista, São Paulo/SP.
+                <span className="font-semibold text-[#0FA3A3]">
+                  {tenant?.crc_responsavel || 'CRC/SP 2SP034821/O'}
+                </span>
+                , com sede na Avenida Paulista, São Paulo/SP.
               </p>
               <p className="leading-relaxed">
                 <strong className="text-[#0B1F3A]">CONTRATANTE / TOMADORA:</strong>{' '}
@@ -360,8 +370,12 @@ export function ContratoModalView({
 
               <div className="space-y-1">
                 <div className="border-t border-slate-800 w-3/4 mx-auto" />
-                <p className="font-bold text-[#0B1F3A]">Contador Responsável Técnico</p>
-                <p className="text-[10px] text-[#64748B]">CRC/SP 2SP034821/O • {tenantNome}</p>
+                <p className="font-bold text-[#0B1F3A]">
+                  {tenant?.responsavel_tecnico || 'Contador Responsável Técnico'}
+                </p>
+                <p className="text-[10px] text-[#64748B]">
+                  {tenant?.crc_responsavel || 'CRC/SP 2SP034821/O'} • {tenantNome}
+                </p>
               </div>
             </div>
 

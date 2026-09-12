@@ -800,6 +800,21 @@ export function ComparadorCenariosModal({
             </div>
           </div>
 
+          {/* RESSALVA DE TRANSPARÊNCIA E CONFORMIDADE CFC */}
+          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-950">
+            <Info className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Ressalva Metodológica Regulatória (CFC):</span>
+              <p className="mt-0.5 text-[11px] text-amber-900 leading-normal">
+                Este comparativo consolida{' '}
+                <b>projeções e estimativas preliminares com base na EC 132/2023 e LC 214/2025</b>,
+                não consubstanciando parecer tributário definitivo ou vinculante. As decisões de
+                gestão e migração de regime devem ser validadas individualmente com o responsável
+                técnico contábil.
+              </p>
+            </div>
+          </div>
+
           {/* Assinatura do Contador / Responsável Técnico */}
           <div className="pt-8 border-t border-slate-300 flex justify-between items-end text-xs">
             <div>

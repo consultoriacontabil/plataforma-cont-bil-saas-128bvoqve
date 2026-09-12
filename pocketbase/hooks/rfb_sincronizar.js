@@ -275,7 +275,7 @@ routerAdd(
             "empresa = '" +
               empresaId +
               "' && (tipo = 'receita_pgfn_cnd' || tipo = 'receita_pgfn_cpen')",
-            'data_validade DESC',
+            '-data_validade',
             1,
             0,
           )

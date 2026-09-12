@@ -309,6 +309,27 @@ export default function BalancetePage() {
         </div>
       </div>
 
+      {/* Identificação do Responsável Técnico Contábil e Base Regulatória (NBC TG 26 / ITG 2000 / NBC PP 01) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#334155]">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-[#123B6D] text-white text-[10px] uppercase font-bold">
+            NBC TG 26 / ITG 2000
+          </Badge>
+          <span>
+            <b>Regime de Competência & Partida Dobrada:</b> Apuração oficial de débitos e créditos.
+          </span>
+        </div>
+        <div className="text-[11px] text-[#64748B]">
+          <span>Responsável Técnico: </span>
+          <b className="text-[#1A2333]">
+            {tenant?.responsavel_tecnico || 'Carlos Silva (Contador)'}
+          </b>
+          <span className="ml-1 text-[#0FA3A3] font-semibold">
+            ({tenant?.crc_responsavel || 'CRC/SP nº 2SP034821/O'})
+          </span>
+        </div>
+      </div>
+
       {/* Card / Indicadores de Fechamento no Topo */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">

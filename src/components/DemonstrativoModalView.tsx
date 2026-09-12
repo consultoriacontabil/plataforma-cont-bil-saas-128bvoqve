@@ -13,7 +13,8 @@ import {
   ExternalLink,
   Fingerprint,
 } from 'lucide-react'
-import type { DemonstrativoRecord, Empresa, AssinaturaDemonstrativoRecord } from '@/types'
+import { useAuth } from '@/contexts/AuthContext'
+import type { DemonstrativoRecord, Empresa, AssinaturaDemonstrativoRecord, Tenant } from '@/types'
 import { assinaturasService } from '@/services/assinaturas'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +34,7 @@ interface DemonstrativoModalViewProps {
   onOpenChange: (open: boolean) => void
   demonstrativo: DemonstrativoRecord | null
   empresa?: Empresa | null
+  tenant?: Tenant | null
   // Ações de aprovação (no caso de exibição no Portal do Cliente)
   canApprove?: boolean
   onAprovar?: () => void
@@ -45,12 +47,16 @@ export function DemonstrativoModalView({
   onOpenChange,
   demonstrativo,
   empresa,
+  tenant: tenantProp,
   canApprove = false,
   onAprovar,
   onReprovar,
   approving = false,
 }: DemonstrativoModalViewProps) {
   const printRef = useRef<HTMLDivElement>(null)
+  const { tenant: authTenant } = useAuth()
+  const tenant = tenantProp || authTenant
+  const tenantNome = tenant?.nome || 'Rumo Consultoria Contábil'
   const [assinaturas, setAssinaturas] = useState<AssinaturaDemonstrativoRecord[]>([])
 
   useEffect(() => {
@@ -144,10 +150,12 @@ export function DemonstrativoModalView({
                 </h3>
               </div>
               <p className="text-[11px] text-[#64748B]">
-                CRC/SP nº 2SP034821/O • assessoria@rumoconsultoriacontabil.com.br
+                {tenant?.crc_responsavel || 'CRC/SP nº 2SP034821/O'} •{' '}
+                {tenant?.email_contato || 'assessoria@rumoconsultoriacontabil.com.br'}
               </p>
               <p className="text-[10px] text-[#94A3B8]">
-                Av. Paulista, 1578, Conjunto 802, Bela Vista - São Paulo / SP
+                {tenant?.endereco_completo ||
+                  'Av. Paulista, 1578, Conjunto 802, Bela Vista - São Paulo / SP'}
               </p>
             </div>
 
@@ -559,9 +567,11 @@ export function DemonstrativoModalView({
 
               <div className="space-y-1">
                 <div className="border-t border-slate-800 w-3/4 mx-auto" />
-                <p className="font-bold text-[#1A2333]">Contador Responsável Técnico</p>
+                <p className="font-bold text-[#1A2333]">
+                  {tenant?.responsavel_tecnico || 'Carlos Silva (Contador Responsável Técnico)'}
+                </p>
                 <p className="text-[10px] text-[#64748B]">
-                  CRC/SP 2SP034821/O • Rumo Consultoria Contábil
+                  {tenant?.crc_responsavel || 'CRC/SP nº 2SP034821/O'} • {tenantNome}
                 </p>
               </div>
             </div>

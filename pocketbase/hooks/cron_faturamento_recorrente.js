@@ -17,7 +17,7 @@ cronAdd('monthly_faturamento_recorrente', '0 4 1 * *', () => {
     const contratos = $app.findRecordsByFilter(
       'contratos_honorarios',
       "status = 'assinado' || status = 'enviado'",
-      'created ASC',
+      'created',
       500,
       0,
     )

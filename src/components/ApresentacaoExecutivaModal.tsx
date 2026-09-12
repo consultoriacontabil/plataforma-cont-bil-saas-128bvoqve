@@ -445,6 +445,23 @@ export function ApresentacaoExecutivaModal({
             </div>
           </div>
 
+          {/* RESSALVA DE TRANSPARÊNCIA E CONFORMIDADE CFC */}
+          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-950">
+            <Info className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">Ressalva Metodológica Regulatória (CFC):</span>
+              <p className="mt-0.5 text-[11px] text-amber-900 leading-normal">
+                Este dossiê consiste em{' '}
+                <b>
+                  projeção e estimativa preliminar baseada em modelos matemáticos e cenários fiscais
+                </b>{' '}
+                da EC 132/2023 e LC 214/2025. Não representa parecer tributário definitivo nem
+                garantia de resultado patrimonial, dependendo da publicação de atos executivos do
+                Comitê Gestor do IBS e da Secretaria Especial da Receita Federal do Brasil.
+              </p>
+            </div>
+          </div>
+
           {/* CAMPO DE ASSINATURA DO RESPONSÁVEL TÉCNICO */}
           <div className="pt-8 border-t border-slate-300 flex justify-between items-end text-xs">
             <div>

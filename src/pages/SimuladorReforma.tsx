@@ -565,6 +565,11 @@ export default function SimuladorReformaPage() {
             Planejamento de transição 2026–2033, impacto de alíquotas, apropriação de créditos e
             suporte consultivo a clientes.
           </p>
+          <p className="text-[11px] text-amber-700 font-medium mt-1 bg-amber-50/80 border border-amber-200/60 px-2.5 py-1 rounded-lg inline-block">
+            ⚖ <b>Aviso de Conformidade CFC:</b> Projeções e estimativas preliminares com base na EC
+            132/2023 e LC 214/2025. Não substitui o parecer individualizado do contador responsável
+            técnico.
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

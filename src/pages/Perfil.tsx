@@ -8,6 +8,7 @@ import {
   Loader2,
   Building2,
   Shield,
+  FileBadge,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usersService } from '@/services/users'
@@ -30,6 +31,21 @@ export default function Perfil() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
+
+  // Dados do Escritório / Responsabilidade Técnica (NBC PP 01 / CFC)
+  const [responsavelTecnico, setResponsavelTecnico] = useState(
+    tenant?.responsavel_tecnico || 'Carlos Silva (Contador Responsável)',
+  )
+  const [crcResponsavel, setCrcResponsavel] = useState(
+    tenant?.crc_responsavel || 'CRC/SP nº 2SP034821/O',
+  )
+  const [emailContato, setEmailContato] = useState(
+    tenant?.email_contato || 'assessoria@rumoconsultoriacontabil.com.br',
+  )
+  const [enderecoCompleto, setEnderecoCompleto] = useState(
+    tenant?.endereco_completo || 'Av. Paulista, 1578, Conjunto 802, Bela Vista - São Paulo / SP',
+  )
+  const [savingEscritorio, setSavingEscritorio] = useState(false)
 
   // Notification email preference
   const [emailNotifPrazo, setEmailNotifPrazo] = useState<boolean>(
@@ -250,6 +266,118 @@ export default function Perfil() {
                 className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
               >
                 {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Card: Responsável Técnico Contábil e CRC (NBC PP 01 / CFC) */}
+        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-1.5">
+                <FileBadge className="h-4 w-4 text-[#0FA3A3]" />
+                <span>Responsabilidade Técnica (CFC / NBC PP 01)</span>
+              </CardTitle>
+              <Badge className="bg-blue-100 text-blue-800 text-[10px] font-bold">NBC PP 01</Badge>
+            </div>
+            <CardDescription className="text-xs text-[#64748B]">
+              Nome do contabilista e registro CRC exibidos em todos os demonstrativos oficiais,
+              pareceres e contratos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault()
+                if (!tenant?.id) return
+                setSavingEscritorio(true)
+                try {
+                  await pb.collection('tenants').update(tenant.id, {
+                    responsavel_tecnico: responsavelTecnico.trim(),
+                    crc_responsavel: crcResponsavel.trim(),
+                    email_contato: emailContato.trim(),
+                    endereco_completo: enderecoCompleto.trim(),
+                  })
+                  await refreshAuth()
+                  toast({
+                    title: 'Dados técnicos atualizados!',
+                    description: 'O CRC e responsável técnico foram salvos com sucesso.',
+                  })
+                } catch (err) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'Erro ao salvar dados técnicos',
+                    description: 'Falha ao atualizar informações do escritório.',
+                  })
+                } finally {
+                  setSavingEscritorio(false)
+                }
+              }}
+              className="space-y-3.5"
+            >
+              <div className="space-y-1">
+                <Label htmlFor="resp_tec" className="text-xs font-semibold text-[#1A2333]">
+                  Contador Responsável Técnico
+                </Label>
+                <Input
+                  id="resp_tec"
+                  value={responsavelTecnico}
+                  onChange={(e) => setResponsavelTecnico(e.target.value)}
+                  placeholder="Nome completo do Contador"
+                  className="h-9 text-xs rounded-xl border-[#E2E8F0]"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="crc_field" className="text-xs font-semibold text-[#1A2333]">
+                  Registro no Conselho Regional de Contabilidade (CRC)
+                </Label>
+                <Input
+                  id="crc_field"
+                  value={crcResponsavel}
+                  onChange={(e) => setCrcResponsavel(e.target.value)}
+                  placeholder="Ex: CRC/SP nº 2SP034821/O"
+                  className="h-9 text-xs rounded-xl border-[#E2E8F0] font-mono"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label htmlFor="email_cont" className="text-xs font-semibold text-[#1A2333]">
+                    E-mail do Escritório
+                  </Label>
+                  <Input
+                    id="email_cont"
+                    type="email"
+                    value={emailContato}
+                    onChange={(e) => setEmailContato(e.target.value)}
+                    placeholder="assessoria@escritorio.com.br"
+                    className="h-9 text-xs rounded-xl border-[#E2E8F0]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="end_cont" className="text-xs font-semibold text-[#1A2333]">
+                    Endereço Completo
+                  </Label>
+                  <Input
+                    id="end_cont"
+                    value={enderecoCompleto}
+                    onChange={(e) => setEnderecoCompleto(e.target.value)}
+                    placeholder="Av. Paulista, 1578..."
+                    className="h-9 text-xs rounded-xl border-[#E2E8F0]"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={savingEscritorio}
+                className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 shadow-xs"
+              >
+                {savingEscritorio ? 'Salvando...' : 'Salvar Responsável Técnico & CRC'}
               </Button>
             </form>
           </CardContent>

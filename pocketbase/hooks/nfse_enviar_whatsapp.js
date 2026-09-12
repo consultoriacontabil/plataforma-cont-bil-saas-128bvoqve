@@ -36,6 +36,8 @@ routerAdd(
         const rawHist = solRec.get('historico_mensagens_json')
         if (Array.isArray(rawHist)) {
           historico = rawHist
+        } else if (typeof rawHist === 'string' && rawHist.trim().startsWith('[')) {
+          historico = JSON.parse(rawHist)
         }
       } catch (_) {}
 
@@ -46,7 +48,7 @@ routerAdd(
         data: agora,
       })
 
-      solRec.set('historico_mensagens_json', historico)
+      solRec.set('historico_mensagens_json', JSON.stringify(historico))
       $app.save(solRec)
 
       // Se houver Evolution API configurada, tentar envio real
