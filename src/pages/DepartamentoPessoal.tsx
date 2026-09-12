@@ -32,7 +32,11 @@ import { PainelEsocial } from '@/components/PainelEsocial'
 import { PainelReinfDctfweb } from '@/components/PainelReinfDctfweb'
 import { PainelFeriasDecimo } from '@/components/PainelFeriasDecimo'
 import { PainelRescisoes } from '@/components/PainelRescisoes'
-import { Palmtree, UserMinus } from 'lucide-react'
+import { Palmtree, UserMinus, Bus, Scale } from 'lucide-react'
+import { PainelBeneficios } from '@/components/PainelBeneficios'
+import { PainelConvencoes } from '@/components/PainelConvencoes'
+import { beneficiosService } from '@/services/beneficios'
+import { convencoesService } from '@/services/convencoes'
 import type {
   Funcionario,
   FolhaPagamento,
@@ -44,6 +48,9 @@ import type {
   GrauInstrucaoEsocial,
   RacaCorEsocial,
   EstadoCivilEsocial,
+  BeneficioConcedidoRecord,
+  ConvencaoColetivaRecord,
+  HistoricoSalarialRecord,
 } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -81,6 +88,8 @@ export default function DepartamentoPessoal() {
     | 'ferias_decimo'
     | 'rescisoes'
     | 'verbas'
+    | 'beneficios'
+    | 'convencoes'
     | 'eventuais'
     | 'esocial'
     | 'reinf_dctfweb'
@@ -129,6 +138,11 @@ export default function DepartamentoPessoal() {
   const [selectedCompetencia, setSelectedCompetencia] = useState<string>('09/2026')
   const [processingFolha, setProcessingFolha] = useState(false)
 
+  // === Novas Abas: Benefícios (VT/VA/VR) e Convenções Coletivas ===
+  const [beneficios, setBeneficios] = useState<BeneficioConcedidoRecord[]>([])
+  const [convencoes, setConvencoes] = useState<ConvencaoColetivaRecord[]>([])
+  const [historicosSalariais, setHistoricosSalariais] = useState<HistoricoSalarialRecord[]>([])
+
   // === Aba 3: Eventos DP ===
   const [eventos, setEventos] = useState<EventoDp[]>([])
   const [filtroTipoEvento, setFiltroTipoEvento] = useState<string>('todos')
@@ -147,7 +161,7 @@ export default function DepartamentoPessoal() {
     if (!tenant?.id) return
     setLoading(true)
     try {
-      const [emps, funcs, folha, evts] = await Promise.all([
+      const [emps, funcs, folha, evts, bens, convs, hists] = await Promise.all([
         empresasService.list(tenant.id),
         dpService.listFuncionarios(tenant.id, {
           empresaId: selectedEmpresaId,
@@ -162,11 +176,22 @@ export default function DepartamentoPessoal() {
           empresaId: selectedEmpresaId,
           tipo: filtroTipoEvento,
         }),
+        beneficiosService.listBeneficios(tenant.id, {
+          empresaId: selectedEmpresaId,
+          competencia: selectedCompetencia,
+        }),
+        convencoesService.listConvencoes(tenant.id, selectedEmpresaId),
+        convencoesService.listHistoricoSalarial(tenant.id, {
+          empresaId: selectedEmpresaId,
+        }),
       ])
       setEmpresas(emps)
       setFuncionarios(funcs)
       setFolhaRecords(folha)
       setEventos(evts)
+      setBeneficios(bens)
+      setConvencoes(convs)
+      setHistoricosSalariais(hists)
     } catch (err) {
       console.error('Erro ao carregar DP:', err)
       toast({
@@ -584,6 +609,22 @@ export default function DepartamentoPessoal() {
           <TabsTrigger value="verbas" className="gap-2 text-xs font-semibold rounded-lg">
             <Coins className="h-4 w-4 text-[#0FA3A3]" />
             <span>Verbas & Descontos (CLT)</span>
+          </TabsTrigger>
+          <TabsTrigger value="beneficios" className="gap-2 text-xs font-semibold rounded-lg">
+            <Bus className="h-4 w-4 text-sky-600" />
+            <span>Benefícios (VT / VA / VR)</span>
+            {beneficios.length > 0 && (
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-4">
+                {beneficios.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="convencoes" className="gap-2 text-xs font-semibold rounded-lg">
+            <Scale className="h-4 w-4 text-amber-600" />
+            <span>Convenções Coletivas</span>
+            {convencoes.some((c) => c.status_vigencia !== 'vigente') && (
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            )}
           </TabsTrigger>
           <TabsTrigger value="eventuais" className="gap-2 text-xs font-semibold rounded-lg">
             <History className="h-4 w-4" />
@@ -1199,6 +1240,33 @@ export default function DepartamentoPessoal() {
             selectedCompetencia={selectedCompetencia}
             onSelectCompetencia={setSelectedCompetencia}
             onFolhaRecalculated={() => loadData()}
+          />
+        </TabsContent>
+
+        {/* === TAB: BENEFÍCIOS (VT / VA / VR) === */}
+        <TabsContent value="beneficios" className="space-y-4 mt-4">
+          <PainelBeneficios
+            empresaSelecionadaId={selectedEmpresaId}
+            empresas={empresas}
+            competenciaAtual={selectedCompetencia}
+            funcionarios={funcionarios}
+            beneficios={beneficios}
+            loading={loading}
+            onRefresh={loadData}
+          />
+        </TabsContent>
+
+        {/* === TAB: CONVENÇÕES COLETIVAS (MONITORAMENTO & 1 CLIQUE) === */}
+        <TabsContent value="convencoes" className="space-y-4 mt-4">
+          <PainelConvencoes
+            empresaSelecionadaId={selectedEmpresaId}
+            empresas={empresas}
+            competenciaAtual={selectedCompetencia}
+            funcionarios={funcionarios}
+            convencoes={convencoes}
+            historicosSalariais={historicosSalariais}
+            loading={loading}
+            onRefresh={loadData}
           />
         </TabsContent>
 

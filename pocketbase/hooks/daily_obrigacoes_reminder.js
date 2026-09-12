@@ -956,6 +956,170 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       console.log('[CRON] Error scanning dctfweb_declaracoes:', errDctfCron)
     }
 
+    // 1.09 Scan for convencoes_coletivas expiring within 60/30/7 days or already overdue
+    try {
+      const activeConvencoes = $app.findRecordsByFilter(
+        'convencoes_coletivas',
+        '',
+        'vigencia_fim',
+        200,
+        0,
+      )
+      console.log('[CRON] Found', activeConvencoes.length, 'convencoes coletivas to check')
+
+      for (let cv = 0; cv < activeConvencoes.length; cv++) {
+        const cct = activeConvencoes[cv]
+        const cctTenantId = cct.getString('tenant_id')
+        const cctEmpresaId = cct.getString('empresa')
+        const cctTitulo = cct.getString('titulo')
+        const cctSindicato = cct.getString('sindicato_laboral')
+        const cctVigenciaFimStr = cct.getString('vigencia_fim')
+        const cctDiasConfig = cct.getInt('alerta_dias_config') || 60
+
+        if (!cctVigenciaFimStr) continue
+        const cctVigenciaFim = new Date(cctVigenciaFimStr)
+        const diffCctTime = cctVigenciaFim.getTime() - now.getTime()
+        const diffCctDays = Math.ceil(diffCctTime / (1000 * 60 * 60 * 24))
+
+        let novoStatus = 'vigente'
+        if (diffCctDays <= 0) {
+          novoStatus = 'vencida'
+        } else if (diffCctDays <= 7) {
+          novoStatus = 'a_vencer_7'
+        } else if (diffCctDays <= 30) {
+          novoStatus = 'a_vencer_30'
+        } else if (diffCctDays <= cctDiasConfig) {
+          novoStatus = 'a_vencer_60'
+        }
+
+        // Atualizar status na coleção se mudou
+        if (cct.getString('status_vigencia') !== novoStatus && novoStatus !== 'vigente') {
+          try {
+            cct.set('status_vigencia', novoStatus)
+            $app.save(cct)
+          } catch (_) {}
+        }
+
+        // Notificar se estiver a vencer no período de alerta ou vencida
+        if (diffCctDays <= cctDiasConfig) {
+          const isCctExpired = diffCctDays <= 0
+          let empNome = 'Empresa'
+          try {
+            const empRec = $app.findRecordById('empresas', cctEmpresaId)
+            empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          } catch (_) {}
+
+          const cctNotifTitle = isCctExpired
+            ? 'Convenção Coletiva Vencida: ' + cctTitulo + ' - ' + empNome
+            : 'Convenção Coletiva Vence em ' + diffCctDays + ' dias: ' + cctTitulo + ' - ' + empNome
+
+          // Anti-flood: 20 horas
+          const twentyHoursAgoCct = new Date(now.getTime() - 20 * 3600000).toISOString()
+          const existCctNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              cctTenantId +
+              "' && titulo = '" +
+              cctNotifTitle +
+              "' && created >= '" +
+              twentyHoursAgoCct +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existCctNotif.length === 0) {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                cctTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifCct = new Record(notificacoesCol)
+              notifCct.set('tenant_id', cctTenantId)
+              notifCct.set('usuario_destino_id', staffUserId)
+              notifCct.set('titulo', cctNotifTitle)
+              notifCct.set(
+                'mensagem',
+                isCctExpired
+                  ? 'A Convenção Coletiva de Trabalho "' +
+                      cctTitulo +
+                      '" (' +
+                      cctSindicato +
+                      ') da empresa ' +
+                      empNome +
+                      ' expirou em ' +
+                      cctVigenciaFim.toLocaleDateString('pt-BR') +
+                      '. Solicite a nova minuta homologada para atualizar os parâmetros de folha.'
+                  : 'A Convenção Coletiva de Trabalho "' +
+                      cctTitulo +
+                      '" (' +
+                      cctSindicato +
+                      ') da empresa ' +
+                      empNome +
+                      ' vencerá em ' +
+                      diffCctDays +
+                      ' dia(s) (' +
+                      cctVigenciaFim.toLocaleDateString('pt-BR') +
+                      '). Acompanhe as negociações sindicais na aba Convenções Coletivas do DP.',
+              )
+              notifCct.set('tipo', isCctExpired ? 'atrasada' : 'prazo_proximo')
+              notifCct.set('link', '/departamento-pessoal')
+              notifCct.set('lida', false)
+              $app.save(notifCct)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[DP Convenções] ' + cctNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Monitoramento Automatizado de Convenções Coletivas:</p>' +
+                      '<div style="background:' +
+                      (isCctExpired ? '#FEE2E2' : '#FEF3C7') +
+                      ';padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:' +
+                      (isCctExpired ? '#991B1B' : '#92400E') +
+                      ';">' +
+                      (isCctExpired
+                        ? '⚠️ CONVENÇÃO COLETIVA VENCIDA'
+                        : '⏳ VENCIMENTO PRÓXIMO DE CONVENÇÃO COLETIVA') +
+                      '</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Empresa:</b> ' +
+                      empNome +
+                      '<br/><b>Instrumento:</b> ' +
+                      cctTitulo +
+                      '<br/><b>Sindicato:</b> ' +
+                      cctSindicato +
+                      '<br/><b>Vigência Final:</b> ' +
+                      cctVigenciaFim.toLocaleDateString('pt-BR') +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse a aba Convenções Coletivas no módulo Departamento Pessoal para cadastrar a nova CCT e atualizar os parâmetros na folha com 1 clique.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errCctCron) {
+      console.log('[CRON] Error scanning convencoes_coletivas:', errCctCron)
+    }
+
     // 1.1 Scan for pending impostos_retidos due within 7 days or overdue
     try {
       const pendingImpostos = $app.findRecordsByFilter(

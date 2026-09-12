@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T13:37:32.842Z",
+  "generatedAt": "2026-09-12T18:23:48.346Z",
   "collections": [
     {
       "name": "users",
@@ -7263,6 +7263,471 @@
         "CREATE INDEX idx_rescisoes_func ON rescisoes (funcionario)",
         "CREATE INDEX idx_rescisoes_status ON rescisoes (status)",
         "CREATE INDEX idx_rescisoes_data ON rescisoes (data_desligamento)"
+      ]
+    },
+    {
+      "name": "beneficios_concedidos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["vale_transporte", "vale_alimentacao", "vale_refeicao"]
+        },
+        {
+          "name": "dias_uteis",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_dia",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_unitario",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_total_beneficio",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "desconto_colaborador",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "custo_empresa",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operadora",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_cartao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "entregue", "cancelado"]
+        },
+        {
+          "name": "data_entrega",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_beneficios_tenant_emp_comp ON beneficios_concedidos (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_beneficios_func_comp ON beneficios_concedidos (funcionario, competencia)",
+        "CREATE INDEX idx_beneficios_tipo ON beneficios_concedidos (tipo)"
+      ]
+    },
+    {
+      "name": "convencoes_coletivas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sindicato_laboral",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sindicato_patronal",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "categoria_profissional",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero_registro_mte",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_base",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vigencia_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vigencia_fim",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo_pdf",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "piso_salarial",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "percentual_reajuste",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_aplicacao_reajuste",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adicional_hora_extra",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adicional_noturno",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adicional_insalubridade_minimo",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ticket_refeicao_diario",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "auxilio_creche",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parametros_adicionais_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_vigencia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "vigente",
+            "a_vencer_60",
+            "a_vencer_30",
+            "a_vencer_7",
+            "vencida",
+            "em_negociacao"
+          ]
+        },
+        {
+          "name": "alerta_dias_config",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_aplicacao_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_convencoes_tenant_emp ON convencoes_coletivas (tenant_id, empresa)",
+        "CREATE INDEX idx_convencoes_vigencia ON convencoes_coletivas (vigencia_fim)",
+        "CREATE INDEX idx_convencoes_status ON convencoes_coletivas (status_vigencia)"
+      ]
+    },
+    {
+      "name": "historico_salarial",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "convencao_origem",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "convencoes_coletivas"
+        },
+        {
+          "name": "data_alteracao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "competencia_vigencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "motivo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "reajuste_convencao_coletiva",
+            "promocao",
+            "merito",
+            "enquadramento_piso",
+            "reversao_rollback"
+          ]
+        },
+        {
+          "name": "salario_anterior",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "salario_novo",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "percentual_aplicado",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "diferenca_mensal",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retroativo_sugerido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "meses_retroativos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lote_reajuste_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revertido",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_reversao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_histsal_tenant_emp ON historico_salarial (tenant_id, empresa)",
+        "CREATE INDEX idx_histsal_func ON historico_salarial (funcionario)",
+        "CREATE INDEX idx_histsal_lote ON historico_salarial (lote_reajuste_id)",
+        "CREATE INDEX idx_histsal_convencao ON historico_salarial (convencao_origem)"
       ]
     }
   ]

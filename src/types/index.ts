@@ -1915,3 +1915,117 @@ export interface RescisaoRecord {
     concluido_por?: User
   }
 }
+
+// === BENEFÍCIOS (VT / VA / VR) ===
+export type BeneficioTipo = 'vale_transporte' | 'vale_alimentacao' | 'vale_refeicao'
+export type BeneficioStatus = 'pendente' | 'entregue' | 'cancelado'
+
+export interface BeneficioConcedidoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  competencia: string // MM/AAAA
+  tipo: BeneficioTipo
+  dias_uteis?: number
+  quantidade_dia?: number
+  valor_unitario?: number
+  valor_total_beneficio: number
+  desconto_colaborador?: number
+  custo_empresa?: number
+  operadora?: string
+  numero_cartao?: string
+  status: BeneficioStatus
+  data_entrega?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+  }
+}
+
+// === CONVENÇÕES COLETIVAS & REAJUSTES ===
+export type ConvencaoStatusVigencia =
+  | 'vigente'
+  | 'a_vencer_60'
+  | 'a_vencer_30'
+  | 'a_vencer_7'
+  | 'vencida'
+  | 'em_negociacao'
+
+export interface ParametroAdicionalConvencao {
+  nome: string
+  valor: number
+  tipo: 'valor_fixo' | 'percentual' | 'dias' | 'texto'
+  unidade?: string
+}
+
+export interface ConvencaoColetivaRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  titulo: string
+  sindicato_laboral: string
+  sindicato_patronal?: string
+  categoria_profissional: string
+  numero_registro_mte?: string
+  data_base: string
+  vigencia_inicio: string
+  vigencia_fim: string
+  arquivo_pdf?: string
+  piso_salarial?: number
+  percentual_reajuste?: number
+  data_aplicacao_reajuste?: string
+  adicional_hora_extra?: number
+  adicional_noturno?: number
+  adicional_insalubridade_minimo?: number
+  ticket_refeicao_diario?: number
+  auxilio_creche?: number
+  parametros_adicionais_json?: ParametroAdicionalConvencao[]
+  status_vigencia: ConvencaoStatusVigencia
+  alerta_dias_config?: number
+  ultima_aplicacao_em?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
+export type HistoricoSalarialMotivo =
+  | 'reajuste_convencao_coletiva'
+  | 'promocao'
+  | 'merito'
+  | 'enquadramento_piso'
+  | 'reversao_rollback'
+
+export interface HistoricoSalarialRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  funcionario: string
+  convencao_origem?: string
+  data_alteracao: string
+  competencia_vigencia: string
+  motivo: HistoricoSalarialMotivo
+  salario_anterior: number
+  salario_novo: number
+  percentual_aplicado?: number
+  diferenca_mensal?: number
+  retroativo_sugerido?: number
+  meses_retroativos?: number
+  lote_reajuste_id?: string
+  revertido?: boolean
+  data_reversao?: string
+  detalhes_json?: Record<string, unknown>
+  expand?: {
+    empresa?: Empresa
+    funcionario?: Funcionario
+    convencao_origem?: ConvencaoColetivaRecord
+  }
+}
