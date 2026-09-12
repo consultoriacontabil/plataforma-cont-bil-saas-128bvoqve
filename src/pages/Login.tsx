@@ -254,19 +254,6 @@ export default function Login() {
               Solicite acesso ao seu escritório
             </Link>
           </div>
-
-          <div className="mt-4 rounded-xl bg-slate-50 p-3 text-[11px] text-[#64748B] border border-slate-100">
-            <p className="font-semibold text-[#1A2333] mb-1">Acesso de Demonstração (MVP):</p>
-            <p>
-              E-mail:{' '}
-              <code className="bg-slate-200 px-1 py-0.5 rounded">
-                rumo@rumoconsultoriacontabil.com.br
-              </code>
-            </p>
-            <p>
-              Senha: <code className="bg-slate-200 px-1 py-0.5 rounded">Skip@Pass</code>
-            </p>
-          </div>
         </div>
       </div>
     </div>
