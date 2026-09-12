@@ -65,27 +65,30 @@ import { cn } from '@/lib/utils'
 
 interface PainelVerbasProps {
   tenantId: string
-  userId: string
-  canManage: boolean
+  usuarioId: string
+  perfilUsuario?: string
   empresas: Empresa[]
   selectedEmpresaId: string
-  onSelectEmpresaId: (id: string) => void
+  onEmpresaChange: (id: string) => void
   selectedCompetencia: string
   onSelectCompetencia: (comp: string) => void
   onFolhaRecalculated?: () => void
+  onAbrirFichaColaborador?: (funcionarioId: string) => void
 }
-
 export function PainelVerbas({
   tenantId,
-  userId,
-  canManage,
+  usuarioId,
+  perfilUsuario,
   empresas,
   selectedEmpresaId,
-  onSelectEmpresaId,
+  onEmpresaChange,
   selectedCompetencia,
   onSelectCompetencia,
   onFolhaRecalculated,
+  onAbrirFichaColaborador,
 }: PainelVerbasProps) {
+  const userId = usuarioId
+  const canManage = perfilUsuario === 'administrador' || perfilUsuario === 'contador'
   const { toast } = useToast()
 
   const [subTab, setSubTab] = useState<'lancamentos' | 'catalogo'>('lancamentos')
@@ -740,7 +743,17 @@ export function PainelVerbas({
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3 px-4 font-semibold text-[#1A2333]">
-                          {f?.nome_completo || 'Colaborador'}
+                          {f?.id && onAbrirFichaColaborador ? (
+                            <button
+                              type="button"
+                              onClick={() => onAbrirFichaColaborador(f.id)}
+                              className="text-left font-bold text-[#1A2333] hover:text-[#0FA3A3] hover:underline cursor-pointer block"
+                            >
+                              {f.nome_completo}
+                            </button>
+                          ) : (
+                            <span>{f?.nome_completo || 'Colaborador'}</span>
+                          )}
                           <p className="text-[11px] font-normal text-[#64748B]">
                             {f?.cargo || 'Cargo'} • Salário: R$ {(f?.salario || 0).toFixed(2)}
                           </p>

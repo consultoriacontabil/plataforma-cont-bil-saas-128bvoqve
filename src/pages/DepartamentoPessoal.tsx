@@ -31,6 +31,7 @@ import { empresasService } from '@/services/empresas'
 import { PainelEsocial } from '@/components/PainelEsocial'
 import { PainelReinfDctfweb } from '@/components/PainelReinfDctfweb'
 import { PainelFeriasDecimo } from '@/components/PainelFeriasDecimo'
+import { FichaColaboradorModal } from '@/components/FichaColaboradorModal'
 import { PainelRescisoes } from '@/components/PainelRescisoes'
 import { Palmtree, UserMinus, Bus, Scale } from 'lucide-react'
 import { PainelBeneficios } from '@/components/PainelBeneficios'
@@ -107,6 +108,8 @@ export default function DepartamentoPessoal() {
   const [filtroStatusFunc, setFiltroStatusFunc] = useState<string>('todos')
   const [modalFuncOpen, setModalFuncOpen] = useState(false)
   const [editingFuncionario, setEditingFuncionario] = useState<Funcionario | null>(null)
+  const [fichaColaboradorId, setFichaColaboradorId] = useState<string | null>(null)
+  const [fichaColaboradorOpen, setFichaColaboradorOpen] = useState(false)
 
   // Form Funcionário
   const [formFuncEmpresa, setFormFuncEmpresa] = useState('')
@@ -713,7 +716,16 @@ export default function DepartamentoPessoal() {
                     funcionarios.map((f) => (
                       <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3.5 px-4">
-                          <p className="font-bold text-[#1A2333]">{f.nome_completo}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFichaColaboradorId(f.id)
+                              setFichaColaboradorOpen(true)
+                            }}
+                            className="font-bold text-[#1A2333] hover:text-[#0FA3A3] hover:underline cursor-pointer text-left block"
+                          >
+                            {f.nome_completo}
+                          </button>
                           <p className="text-[11px] text-[#64748B]">CPF: {maskCpf(f.cpf)}</p>
                         </td>
                         <td className="py-3.5 px-4 font-medium text-[#475569]">
@@ -1026,7 +1038,22 @@ export default function DepartamentoPessoal() {
                         <React.Fragment key={item.id}>
                           <tr className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3.5 px-4 font-bold text-[#1A2333]">
-                              {item.expand?.funcionario?.nome_completo || 'Colaborador'}
+                              {item.funcionario ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFichaColaboradorId(item.funcionario)
+                                    setFichaColaboradorOpen(true)
+                                  }}
+                                  className="font-bold text-[#1A2333] hover:text-[#0FA3A3] hover:underline cursor-pointer text-left block"
+                                >
+                                  {item.expand?.funcionario?.nome_completo || 'Colaborador'}
+                                </button>
+                              ) : (
+                                <span>
+                                  {item.expand?.funcionario?.nome_completo || 'Colaborador'}
+                                </span>
+                              )}
                               <p className="text-[11px] font-normal text-[#64748B]">
                                 {item.expand?.funcionario?.cargo || 'Cargo'}
                               </p>
@@ -1232,14 +1259,18 @@ export default function DepartamentoPessoal() {
         <TabsContent value="verbas" className="space-y-4 mt-4">
           <PainelVerbas
             tenantId={tenant?.id || ''}
-            userId={member?.user_id || ''}
-            canManage={canManage}
+            usuarioId={member?.user_id || ''}
+            perfilUsuario={member?.perfil}
             empresas={empresas}
             selectedEmpresaId={selectedEmpresaId}
-            onSelectEmpresaId={setSelectedEmpresaId}
+            onEmpresaChange={setSelectedEmpresaId}
             selectedCompetencia={selectedCompetencia}
             onSelectCompetencia={setSelectedCompetencia}
             onFolhaRecalculated={() => loadData()}
+            onAbrirFichaColaborador={(id) => {
+              setFichaColaboradorId(id)
+              setFichaColaboradorOpen(true)
+            }}
           />
         </TabsContent>
 
@@ -1253,6 +1284,10 @@ export default function DepartamentoPessoal() {
             beneficios={beneficios}
             loading={loading}
             onRefresh={loadData}
+            onAbrirFichaColaborador={(id) => {
+              setFichaColaboradorId(id)
+              setFichaColaboradorOpen(true)
+            }}
           />
         </TabsContent>
 
@@ -1279,10 +1314,14 @@ export default function DepartamentoPessoal() {
             empresas={empresas}
             selectedEmpresaId={selectedEmpresaId}
             onEmpresaChange={setSelectedEmpresaId}
+            onAbrirFichaColaborador={(id) => {
+              setFichaColaboradorId(id)
+              setFichaColaboradorOpen(true)
+            }}
           />
         </TabsContent>
 
-        {/* === TAB: RESCISÃO DE CONTRATO (CLT) === */}
+        {/* === TAB: RESCISÕES & TRCT (CLT) === */}
         <TabsContent value="rescisoes" className="space-y-4 mt-4">
           <PainelRescisoes
             tenantId={tenant?.id || ''}
@@ -1292,9 +1331,12 @@ export default function DepartamentoPessoal() {
             selectedEmpresaId={selectedEmpresaId}
             onEmpresaChange={setSelectedEmpresaId}
             onNavegarEsocial={() => setActiveTab('esocial')}
+            onAbrirFichaColaborador={(id) => {
+              setFichaColaboradorId(id)
+              setFichaColaboradorOpen(true)
+            }}
           />
         </TabsContent>
-
         {/* === TAB 3: EVENTUAIS / EVENTOS DP === */}
         <TabsContent value="eventuais" className="space-y-4 mt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
@@ -1381,6 +1423,10 @@ export default function DepartamentoPessoal() {
             onSelectEmpresaId={setSelectedEmpresaId}
             selectedCompetencia={selectedCompetencia}
             onSelectCompetencia={setSelectedCompetencia}
+            onAbrirFichaColaborador={(id) => {
+              setFichaColaboradorId(id)
+              setFichaColaboradorOpen(true)
+            }}
           />
         </TabsContent>
 
@@ -1706,6 +1752,21 @@ export default function DepartamentoPessoal() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Ficha E-Social do Colaborador (Visão 360º & Timeline Completa) */}
+      <FichaColaboradorModal
+        funcionarioId={fichaColaboradorId}
+        tenantId={tenant?.id || ''}
+        userRole={member?.perfil}
+        open={fichaColaboradorOpen}
+        onOpenChange={setFichaColaboradorOpen}
+        onEditarColaborador={(func) => {
+          handleOpenFuncModal(func)
+        }}
+        onNavegarAba={(aba) => {
+          setActiveTab(aba)
+        }}
+      />
 
       {/* Modal: Registrar Evento Eventual */}
       <Dialog open={modalEventoOpen} onOpenChange={setModalEventoOpen}>

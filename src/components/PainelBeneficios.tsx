@@ -63,9 +63,9 @@ interface PainelBeneficiosProps {
   funcionarios: Funcionario[]
   beneficios: BeneficioConcedidoRecord[]
   loading: boolean
-  onRefresh: () => Promise<void>
+  onRefresh: () => void
+  onAbrirFichaColaborador?: (funcionarioId: string) => void
 }
-
 export function PainelBeneficios({
   empresaSelecionadaId,
   empresas,
@@ -74,6 +74,7 @@ export function PainelBeneficios({
   beneficios,
   loading,
   onRefresh,
+  onAbrirFichaColaborador,
 }: PainelBeneficiosProps) {
   const { user, tenant } = useAuth()
   const isReadOnly = user?.perfil === 'auxiliar' || user?.perfil === 'cliente'
@@ -574,7 +575,17 @@ export function PainelBeneficios({
                     return (
                       <TableRow key={b.id} className="hover:bg-muted/30">
                         <TableCell className="py-2.5">
-                          <div className="font-medium text-xs text-foreground">{funcNome}</div>
+                          {b.funcionario && onAbrirFichaColaborador ? (
+                            <button
+                              type="button"
+                              onClick={() => onAbrirFichaColaborador(b.funcionario)}
+                              className="font-medium text-xs text-foreground hover:text-[#0FA3A3] hover:underline cursor-pointer text-left block"
+                            >
+                              {funcNome}
+                            </button>
+                          ) : (
+                            <div className="font-medium text-xs text-foreground">{funcNome}</div>
+                          )}
                           <div className="text-[11px] text-muted-foreground">
                             {funcCargo} {funcCpf && `• CPF: ${funcCpf}`}
                           </div>

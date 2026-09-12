@@ -67,13 +67,13 @@ import type {
 interface PainelRescisoesProps {
   tenantId: string
   usuarioId: string
-  perfilUsuario: string
+  perfilUsuario?: string
   empresas: Empresa[]
   selectedEmpresaId: string
-  onEmpresaChange: (empresaId: string) => void
+  onEmpresaChange: (id: string) => void
   onNavegarEsocial?: () => void
+  onAbrirFichaColaborador?: (funcionarioId: string) => void
 }
-
 export function PainelRescisoes({
   tenantId,
   usuarioId,
@@ -82,6 +82,7 @@ export function PainelRescisoes({
   selectedEmpresaId,
   onEmpresaChange,
   onNavegarEsocial,
+  onAbrirFichaColaborador,
 }: PainelRescisoesProps) {
   const { toast } = useToast()
 
@@ -344,9 +345,19 @@ export function PainelRescisoes({
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-base text-foreground">
-                          {func?.nome_completo || 'Colaborador'}
-                        </span>
+                        {func?.id && onAbrirFichaColaborador ? (
+                          <button
+                            type="button"
+                            onClick={() => onAbrirFichaColaborador(func.id)}
+                            className="font-semibold text-base text-foreground hover:text-[#0FA3A3] hover:underline cursor-pointer text-left"
+                          >
+                            {func.nome_completo}
+                          </button>
+                        ) : (
+                          <span className="font-semibold text-base text-foreground">
+                            {func?.nome_completo || 'Colaborador'}
+                          </span>
+                        )}
                         <Badge variant="outline" className="text-xs">
                           {func?.cargo || 'CLT'}
                         </Badge>

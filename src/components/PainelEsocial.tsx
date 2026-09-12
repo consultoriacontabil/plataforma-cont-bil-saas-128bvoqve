@@ -65,6 +65,7 @@ interface PainelEsocialProps {
   onSelectEmpresaId: (id: string) => void
   selectedCompetencia: string
   onSelectCompetencia: (comp: string) => void
+  onAbrirFichaColaborador?: (funcionarioId: string) => void
 }
 
 export const PainelEsocial: React.FC<PainelEsocialProps> = ({
@@ -76,6 +77,7 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
   onSelectEmpresaId,
   selectedCompetencia,
   onSelectCompetencia,
+  onAbrirFichaColaborador,
 }) => {
   const { toast } = useToast()
 
@@ -686,12 +688,22 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <p className="font-semibold text-[#1A2333]">
-                          {ev.expand?.funcionario?.nome_completo ||
-                            ev.expand?.empresa?.nome_fantasia ||
-                            ev.expand?.empresa?.razao_social ||
-                            '—'}
-                        </p>
+                        {ev.funcionario && onAbrirFichaColaborador ? (
+                          <button
+                            type="button"
+                            onClick={() => onAbrirFichaColaborador(ev.funcionario!)}
+                            className="text-left font-semibold text-[#1A2333] hover:text-[#0FA3A3] hover:underline cursor-pointer block"
+                          >
+                            {ev.expand?.funcionario?.nome_completo || 'Colaborador'}
+                          </button>
+                        ) : (
+                          <p className="font-semibold text-[#1A2333]">
+                            {ev.expand?.funcionario?.nome_completo ||
+                              ev.expand?.empresa?.nome_fantasia ||
+                              ev.expand?.empresa?.razao_social ||
+                              '—'}
+                          </p>
+                        )}
                         <p className="text-[11px] text-[#64748B]">
                           {ev.expand?.funcionario
                             ? `CPF: ${ev.expand.funcionario.cpf}`
