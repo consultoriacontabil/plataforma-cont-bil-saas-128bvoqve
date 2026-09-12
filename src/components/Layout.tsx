@@ -144,8 +144,11 @@ export default function Layout() {
     if (path.startsWith('/workflow')) return 'Gestão de Workflows'
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/simulador-reforma')) return 'Simulador da Reforma Tributária (IBS/CBS)'
+    if (path.startsWith('/analytics-tributario')) return 'Analytics Tributário da Carteira'
+    if (path.startsWith('/monitoramento-legislativo'))
+      return 'Monitoramento Legislativo & Alíquotas'
     if (path.startsWith('/nfse-whatsapp')) return 'Emissão Inteligente de NFS-e via WhatsApp'
-    if (path.startsWith('/fiscal')) return 'Controle Fiscal'
+    if (path.startsWith('/fiscal')) return 'Controle Fiscal & SPED'
     if (path.startsWith('/departamento-pessoal')) return 'Departamento Pessoal (DP)'
     if (path.startsWith('/impostos-retidos')) return 'Gestão de Impostos Retidos'
     if (path.startsWith('/contabil/lancamentos')) return 'Lançamentos Contábeis'
@@ -283,7 +286,19 @@ export default function Layout() {
             | 'cliente'
           )[],
         },
-        { label: 'Fiscal', to: '/fiscal', icon: Calculator },
+        { label: 'Fiscal & SPED', to: '/fiscal', icon: Calculator },
+        {
+          label: 'Analytics Tributário',
+          to: '/analytics-tributario',
+          icon: TrendingUp,
+          badge: 'NOVO',
+        },
+        {
+          label: 'Monitor Legislativo',
+          to: '/monitoramento-legislativo',
+          icon: Compass,
+          badge: '08h',
+        },
         {
           label: 'NFS-e WhatsApp',
           to: '/nfse-whatsapp',

@@ -2141,3 +2141,179 @@ export interface ResumoGuiasPagamentosEmpresa {
   parcelamentosVencendo7d: number
   regularidadeTributaria: 'regular' | 'alerta' | 'irregular'
 }
+
+// ==========================================
+// 1. MÓDULO SPED & ESCRITURAÇÃO (ECD / ECF / EFD)
+// ==========================================
+
+export type SpedTipoArquivo = 'ecd' | 'ecf' | 'efd_icms_ipi' | 'efd_contribuicoes'
+export type SpedStatus = 'gerado' | 'validado' | 'transmitido_manual'
+export type SpedFinalidade = 'original' | 'retificadora'
+
+export interface SpedArquivoRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  tipo: SpedTipoArquivo
+  competencia: string
+  ano_calendario: number
+  versao_layout: string
+  finalidade: SpedFinalidade
+  status: SpedStatus
+  hash_md5: string
+  total_linhas: number
+  tamanho_bytes?: number
+  conteudo_txt?: string
+  arquivo_sped?: string
+  resumo_blocos_json?: Record<string, number>
+  recibo_transmissao_pva?: string
+  data_transmissao_pva?: string
+  observacoes?: string
+  gerado_por?: string
+  expand?: {
+    empresa?: Empresa
+    gerado_por?: User
+  }
+}
+
+export interface ValidacaoSpedItem {
+  campo: string
+  mensagem: string
+  bloqueante: boolean
+}
+
+export interface ValidacaoSpedResult {
+  valido: boolean
+  erros: ValidacaoSpedItem[]
+  avisos: ValidacaoSpedItem[]
+}
+
+// ==========================================
+// 2. MÓDULO ANALYTICS TRIBUTÁRIO DA CARTEIRA
+// ==========================================
+
+export type DivergenciaSeveridade = 'info' | 'alerta' | 'critico'
+
+export interface InsightDivergencia {
+  id: string
+  empresaId: string
+  empresaNome: string
+  competencia: string
+  tipo:
+    | 'salto_carga'
+    | 'valor_zerado'
+    | 'aliquota_anomala'
+    | 'credito_esquecido'
+    | 'descompasso_folha'
+  titulo: string
+  explicacao: string
+  severidade: DivergenciaSeveridade
+  link: string
+  impactoEstimado?: number
+}
+
+export interface MesCargaTributaria {
+  competencia: string
+  mesAnoLabel: string
+  faturamento: number
+  impostosFederais: number
+  impostosEstaduaisMunicipais: number
+  impostosTrabalhistasPrevidenciarios: number
+  totalTributos: number
+  aliquotaEfetiva: number // %
+  variacaoMoM?: number // %
+  variacaoYoY?: number // %
+}
+
+export interface RankingEmpresaCarga {
+  empresaId: string
+  razaoSocial: string
+  nomeFantasia: string
+  cnpj: string
+  regime: string
+  faturamentoTotalPeriodo: number
+  tributosTotalPeriodo: number
+  aliquotaEfetivaMedia: number
+  tendencia: 'alta' | 'estavel' | 'baixa'
+  oportunidades: string[]
+  temDivergenciaCritica: boolean
+}
+
+export interface AnalyticsTributarioCarteira {
+  periodoMeses: 6 | 12 | 24
+  totalFaturamentoCarteira: number
+  totalTributosCarteira: number
+  aliquotaMediaCarteira: number
+  serieMensalConsolidada: MesCargaTributaria[]
+  seriesPorEmpresa: Record<string, MesCargaTributaria[]>
+  rankingEmpresas: RankingEmpresaCarga[]
+  insightsDivergencias: InsightDivergencia[]
+}
+
+// ==========================================
+// 3. MÓDULO MONITORAMENTO LEGISLATIVO
+// ==========================================
+
+export type PublicacaoFonte = 'dou' | 'rfb' | 'comite_gestor_ibs' | 'sefaz_estadual' | 'outros'
+export type PublicacaoClassificacao = 'aliquota' | 'obrigacao_acessoria' | 'prazo' | 'norma_geral'
+export type PublicacaoCriticidade = 'alta' | 'media' | 'baixa'
+export type PublicacaoStatus = 'nova' | 'analisada' | 'arquivada'
+export type PublicacaoOrigemCaptura =
+  | 'manual_supervisionado'
+  | 'importacao_json'
+  | 'api_dou_simulada'
+  | 'conector_externo'
+
+export interface EmpresaImpactadaCalculo {
+  empresaId: string
+  nome: string
+  uf?: string
+  regime?: string
+  setor?: string
+  faturamentoMedioMensal: number
+  custoAnteriorMensal: number
+  custoNovoMensal: number
+  impactoFinanceiro: number
+  impactoPercentual: number
+  orientacao: string
+}
+
+export interface ImpactoCalculadoJson {
+  totalEmpresasAfetadas: number
+  variacaoPercentualAliquota?: number
+  impactoFinanceiroMensalTotal: number
+  detalhesPorEmpresa: EmpresaImpactadaCalculo[]
+}
+
+export interface PublicacaoLegislativaRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  titulo: string
+  numero_norma: string
+  fonte: PublicacaoFonte
+  data_publicacao: string
+  data_vigencia?: string
+  classificacao: PublicacaoClassificacao
+  criticidade: PublicacaoCriticidade
+  resumo: string
+  conteudo_completo?: string
+  link_oficial?: string
+  tributo_afetado?: string
+  aliquota_anterior?: number
+  aliquota_nova?: number
+  regimes_afetados_json?: string[]
+  setores_afetados_json?: string[]
+  impacto_calculado_json?: ImpactoCalculadoJson
+  status: PublicacaoStatus
+  origem_captura: PublicacaoOrigemCaptura
+  analisado_por?: string
+  analisado_em?: string
+  notas_analise?: string
+  expand?: {
+    analisado_por?: User
+  }
+}

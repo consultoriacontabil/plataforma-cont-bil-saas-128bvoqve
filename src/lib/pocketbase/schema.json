@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T19:00:30.926Z",
+  "generatedAt": "2026-09-12T19:16:29.127Z",
   "collections": [
     {
       "name": "users",
@@ -8039,6 +8039,331 @@
         "CREATE INDEX idx_parc_prox_venc ON parcelamentos_federais (proxima_parcela_vencimento)",
         "CREATE INDEX idx_parc_numero ON parcelamentos_federais (empresa, numero_parcelamento)",
         "CREATE INDEX idx_parc_created ON parcelamentos_federais (created DESC)"
+      ]
+    },
+    {
+      "name": "sped_arquivos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ecd", "ecf", "efd_icms_ipi", "efd_contribuicoes"]
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ano_calendario",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "versao_layout",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "finalidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["original", "retificadora"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["gerado", "validado", "transmitido_manual"]
+        },
+        {
+          "name": "hash_md5",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "total_linhas",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tamanho_bytes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conteudo_txt",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo_sped",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resumo_blocos_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recibo_transmissao_pva",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_transmissao_pva",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gerado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sped_tenant_emp ON sped_arquivos (tenant_id, empresa)",
+        "CREATE INDEX idx_sped_tipo_comp ON sped_arquivos (tipo, competencia)",
+        "CREATE INDEX idx_sped_status ON sped_arquivos (status)",
+        "CREATE INDEX idx_sped_created ON sped_arquivos (created DESC)"
+      ]
+    },
+    {
+      "name": "publicacoes_legislativas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero_norma",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "fonte",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["dou", "rfb", "comite_gestor_ibs", "sefaz_estadual", "outros"]
+        },
+        {
+          "name": "data_publicacao",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_vigencia",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "classificacao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aliquota", "obrigacao_acessoria", "prazo", "norma_geral"]
+        },
+        {
+          "name": "criticidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["alta", "media", "baixa"]
+        },
+        {
+          "name": "resumo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "conteudo_completo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_oficial",
+          "type": "url",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tributo_afetado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_anterior",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_nova",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regimes_afetados_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "setores_afetados_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacto_calculado_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["nova", "analisada", "arquivada"]
+        },
+        {
+          "name": "origem_captura",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "manual_supervisionado",
+            "importacao_json",
+            "api_dou_simulada",
+            "conector_externo"
+          ]
+        },
+        {
+          "name": "analisado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "analisado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notas_analise",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pub_tenant_data ON publicacoes_legislativas (tenant_id, data_publicacao DESC)",
+        "CREATE INDEX idx_pub_classificacao ON publicacoes_legislativas (classificacao)",
+        "CREATE INDEX idx_pub_criticidade ON publicacoes_legislativas (criticidade)",
+        "CREATE INDEX idx_pub_status ON publicacoes_legislativas (status)",
+        "CREATE INDEX idx_pub_created ON publicacoes_legislativas (created DESC)"
       ]
     }
   ]

@@ -14,6 +14,9 @@ import {
   Download,
   Loader2,
   MoreVertical,
+  BookOpen,
+  FileCode,
+  Layers,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { fiscalService } from '@/services/fiscal'
@@ -48,7 +51,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
+import { SpedEscrituracaoTab } from '@/components/SpedEscrituracaoTab'
 
 const OBRIGACOES: Array<{ id: FiscalTipoObrigacao; label: string }> = [
   { id: 'ecf', label: 'ECF (Escrituração Contábil Fiscal)' },
@@ -266,202 +271,236 @@ export default function Fiscal() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">Controle Fiscal</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">
+            Controle & Gestão Fiscal
+          </h2>
           <p className="text-xs text-[#64748B]">
-            Gestão, transmissão e arquivo de recibos de obrigações federais, estaduais e municipais
+            Obrigações acessórias, geração de arquivos SPED oficiais e transmissão no PVA/RFB
           </p>
         </div>
-        <Button
-          onClick={() => setCreateModalOpen(true)}
-          className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Nova Obrigação</span>
-        </Button>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-xs md:flex-row md:items-center md:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por empresa, tipo de obrigação ou período MM/YYYY..."
-            className="h-10 pl-9 pr-4 rounded-xl text-xs border-[#E2E8F0]"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={tipoFilter}
-            onValueChange={(val: 'todos' | FiscalTipoObrigacao) => setTipoFilter(val)}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setCreateModalOpen(true)}
+            className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
           >
-            <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0] w-48">
-              <SelectValue placeholder="Obrigação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas as obrigações</SelectItem>
-              {OBRIGACOES.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={statusFilter}
-            onValueChange={(val: 'todos' | FiscalStatus) => setStatusFilter(val)}
-          >
-            <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0] w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos status</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="em_andamento">Em Andamento</SelectItem>
-              <SelectItem value="entregue">Entregue</SelectItem>
-              <SelectItem value="rejeitado">Rejeitado</SelectItem>
-            </SelectContent>
-          </Select>
+            <Plus className="h-4 w-4" />
+            <span>Nova Obrigação</span>
+          </Button>
         </div>
       </div>
 
-      {/* Table of Fiscal Records */}
-      <Card className="rounded-2xl border-[#E2E8F0] shadow-xs overflow-hidden">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                  <th className="py-3.5 px-4">Empresa</th>
-                  <th className="py-3.5 px-4">Obrigação</th>
-                  <th className="py-3.5 px-4">Período de Apuração</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Data de Entrega</th>
-                  <th className="py-3.5 px-4">Recibo PDF</th>
-                  <th className="py-3.5 px-4 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-[#64748B]">
-                      Carregando obrigações fiscais...
-                    </td>
-                  </tr>
-                ) : filteredRecords.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-[#94A3B8]">
-                      Nenhuma obrigação localizada com os filtros selecionados.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRecords.map((item) => {
-                    const reciboUrl = item.recibo_arquivo
-                      ? fiscalService.getFileUrl(item, item.recibo_arquivo)
-                      : null
-                    return (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-slate-50/75 transition-colors cursor-pointer"
-                        onClick={() => setSelectedRecord(item)}
-                      >
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-[#1A2333]">
-                            {item.expand?.empresa_id?.nome_fantasia ||
-                              item.expand?.empresa_id?.razao_social ||
-                              'Empresa'}
-                          </div>
-                          <div className="text-[11px] font-mono text-[#64748B]">
-                            {item.expand?.empresa_id?.cnpj}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <Badge variant="outline" className="text-[11px] font-bold uppercase">
-                            {item.tipo_obrigacao.replace('_', ' ')}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4 font-mono font-medium text-[#1A2333]">
-                          {item.periodo_apuracao}
-                        </td>
-                        <td className="py-3 px-4">{getStatusBadge(item.status)}</td>
-                        <td className="py-3 px-4 text-[#64748B]">
-                          {formatDatePtBr(item.data_entrega)}
-                        </td>
-                        <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                          {reciboUrl ? (
-                            <Button
-                              asChild
-                              size="sm"
-                              variant="outline"
-                              className="h-7 gap-1 text-[11px] rounded-lg text-[#0FA3A3] border-teal-200 hover:bg-teal-50"
-                            >
-                              <a href={reciboUrl} target="_blank" rel="noreferrer">
-                                <FileCheck className="h-3.5 w-3.5" />
-                                <span>Ver Recibo</span>
-                              </a>
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-[#94A3B8]">Sem anexo</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-[#64748B]"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onClick={() => setSelectedRecord(item)}
-                                className="gap-2 text-xs cursor-pointer"
-                              >
-                                <Eye className="h-3.5 w-3.5 text-[#0FA3A3]" />
-                                <span>Ver detalhes</span>
-                              </DropdownMenuItem>
-                              {item.status !== 'entregue' && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedRecord(item)
-                                    setEntregarModalOpen(true)
-                                  }}
-                                  className="gap-2 text-xs text-emerald-600 focus:text-emerald-700 cursor-pointer"
-                                >
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>Marcar como Entregue</span>
-                                </DropdownMenuItem>
-                              )}
-                              {item.status !== 'rejeitado' && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedRecord(item)
-                                    setRejeitarModalOpen(true)
-                                  }}
-                                  className="gap-2 text-xs text-red-600 focus:text-red-700 cursor-pointer"
-                                >
-                                  <XCircle className="h-3.5 w-3.5" />
-                                  <span>Rejeitar / Inconsistência</span>
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+      <Tabs defaultValue="obrigacoes" className="w-full space-y-6">
+        <TabsList className="bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger
+            value="obrigacoes"
+            className="gap-2 text-xs py-2 px-4 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-xs"
+          >
+            <Layers className="w-3.5 h-3.5 text-teal-600" />
+            Obrigações & Apurações
+          </TabsTrigger>
+          <TabsTrigger
+            value="sped"
+            className="gap-2 text-xs py-2 px-4 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-xs"
+          >
+            <FileCode className="w-3.5 h-3.5 text-blue-600" />
+            SPED & Escrituração (ECD / ECF / EFD)
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ABA 1: OBRIGAÇÕES */}
+        <TabsContent value="obrigacoes" className="space-y-6 m-0">
+          {/* Filter Bar */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-xs md:flex-row md:items-center md:justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por empresa, tipo de obrigação ou período MM/YYYY..."
+                className="h-10 pl-9 pr-4 rounded-xl text-xs border-[#E2E8F0]"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={tipoFilter}
+                onValueChange={(val: 'todos' | FiscalTipoObrigacao) => setTipoFilter(val)}
+              >
+                <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0] w-48">
+                  <SelectValue placeholder="Obrigação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as obrigações</SelectItem>
+                  {OBRIGACOES.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={statusFilter}
+                onValueChange={(val: 'todos' | FiscalStatus) => setStatusFilter(val)}
+              >
+                <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0] w-36">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos status</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                  <SelectItem value="entregue">Entregue</SelectItem>
+                  <SelectItem value="rejeitado">Rejeitado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Table of Fiscal Records */}
+          <Card className="rounded-2xl border-[#E2E8F0] shadow-xs overflow-hidden">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                      <th className="py-3.5 px-4">Empresa</th>
+                      <th className="py-3.5 px-4">Obrigação</th>
+                      <th className="py-3.5 px-4">Período de Apuração</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4">Data de Entrega</th>
+                      <th className="py-3.5 px-4">Recibo PDF</th>
+                      <th className="py-3.5 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-[#64748B]">
+                          Carregando obrigações fiscais...
                         </td>
                       </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                    ) : filteredRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-[#94A3B8]">
+                          Nenhuma obrigação localizada com os filtros selecionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRecords.map((item) => {
+                        const reciboUrl = item.recibo_arquivo
+                          ? fiscalService.getFileUrl(item, item.recibo_arquivo)
+                          : null
+                        return (
+                          <tr
+                            key={item.id}
+                            className="hover:bg-slate-50/75 transition-colors cursor-pointer"
+                            onClick={() => setSelectedRecord(item)}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-[#1A2333]">
+                                {item.expand?.empresa_id?.nome_fantasia ||
+                                  item.expand?.empresa_id?.razao_social ||
+                                  'Empresa'}
+                              </div>
+                              <div className="text-[11px] font-mono text-[#64748B]">
+                                {item.expand?.empresa_id?.cnpj}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="outline" className="text-[11px] font-bold uppercase">
+                                {item.tipo_obrigacao.replace('_', ' ')}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 font-mono font-medium text-[#1A2333]">
+                              {item.periodo_apuracao}
+                            </td>
+                            <td className="py-3 px-4">{getStatusBadge(item.status)}</td>
+                            <td className="py-3 px-4 text-[#64748B]">
+                              {formatDatePtBr(item.data_entrega)}
+                            </td>
+                            <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                              {reciboUrl ? (
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 gap-1 text-[11px] rounded-lg text-[#0FA3A3] border-teal-200 hover:bg-teal-50"
+                                >
+                                  <a href={reciboUrl} target="_blank" rel="noreferrer">
+                                    <FileCheck className="h-3.5 w-3.5" />
+                                    <span>Ver Recibo</span>
+                                  </a>
+                                </Button>
+                              ) : (
+                                <span className="text-[11px] text-[#94A3B8]">Sem anexo</span>
+                              )}
+                            </td>
+                            <td
+                              className="py-3 px-4 text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-[#64748B]"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={() => setSelectedRecord(item)}
+                                    className="gap-2 text-xs cursor-pointer"
+                                  >
+                                    <Eye className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                                    <span>Ver detalhes</span>
+                                  </DropdownMenuItem>
+                                  {item.status !== 'entregue' && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedRecord(item)
+                                        setEntregarModalOpen(true)
+                                      }}
+                                      className="gap-2 text-xs text-emerald-600 focus:text-emerald-700 cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                      <span>Marcar como Entregue</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {item.status !== 'rejeitado' && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedRecord(item)
+                                        setRejeitarModalOpen(true)
+                                      }}
+                                      className="gap-2 text-xs text-red-600 focus:text-red-700 cursor-pointer"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      <span>Rejeitar / Inconsistência</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 2: SPED & ESCRITURAÇÃO */}
+        <TabsContent value="sped" className="m-0">
+          <SpedEscrituracaoTab empresas={empresas} selectedEmpresaId={createEmpresaId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Modal: Nova Obrigação */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>

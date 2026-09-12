@@ -1473,6 +1473,122 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       console.log('[CRON] Error scanning guias_pagamentos:', errGuiasCron)
     }
 
+    // 1.12 Monitoramento Legislativo Diário das 08h: Varre publicações de alta criticidade com data recente e anti-flood
+    try {
+      const pubCol = $app.findCollectionByNameOrId('publicacoes_legislativas')
+      if (pubCol) {
+        // Buscar publicações cadastradas/publicadas nas últimas 48h com criticidade alta e status nova
+        const twoDaysAgo = new Date(now.getTime() - 48 * 3600000).toISOString().slice(0, 10)
+        const highPubs = $app.findRecordsByFilter(
+          'publicacoes_legislativas',
+          "criticidade = 'alta' && data_publicacao >= '" + twoDaysAgo + "'",
+          '-data_publicacao',
+          20,
+          0,
+        )
+        console.log(
+          '[CRON] Found',
+          highPubs.length,
+          'high-criticidade publicacoes legislativas to process',
+        )
+
+        for (let pb = 0; pb < highPubs.length; pb++) {
+          const pub = highPubs[pb]
+          const pubTenantId = pub.getString('tenant_id')
+          const pubTitulo = pub.getString('titulo')
+          const pubNorma = pub.getString('numero_norma')
+          const pubClass = pub.getString('classificacao')
+          const pubResumo = pub.getString('resumo')
+          const pubTributo = pub.getString('tributo_afetado') || 'Tributário Geral'
+          const pubId = pub.id
+
+          const pubNotifTitle = 'Alerta Legislativo: ' + pubNorma + ' (' + pubTributo + ')'
+
+          // Anti-flood: Verificar se já notificou sobre esta norma nas últimas 24h
+          const twentyFourHoursAgoPub = new Date(now.getTime() - 24 * 3600000).toISOString()
+          const existPubNotif = $app.findRecordsByFilter(
+            'notificacoes',
+            "tenant_id = '" +
+              pubTenantId +
+              "' && titulo = '" +
+              pubNotifTitle +
+              "' && created >= '" +
+              twentyFourHoursAgoPub +
+              "'",
+            '',
+            1,
+            0,
+          )
+
+          if (existPubNotif.length === 0) {
+            // Notificar administradores e contadores do tenant
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" +
+                pubTenantId +
+                "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+
+            for (let m = 0; m < staffMembers.length; m++) {
+              const staffUserId = staffMembers[m].getString('user_id')
+              const notifLeg = new Record(notificacoesCol)
+              notifLeg.set('tenant_id', pubTenantId)
+              notifLeg.set('usuario_destino_id', staffUserId)
+              notifLeg.set('titulo', pubNotifTitle)
+              notifLeg.set(
+                'mensagem',
+                'Nova publicação relevante com criticidade ALTA: ' +
+                  pubTitulo +
+                  '. ' +
+                  pubResumo +
+                  ' Acesse o Monitoramento Legislativo para avaliar os impactos nas empresas da carteira.',
+              )
+              notifLeg.set('tipo', 'sistema')
+              notifLeg.set('link', '/monitoramento-legislativo')
+              notifLeg.set('lida', false)
+              $app.save(notifLeg)
+
+              try {
+                const staffUser = $app.findRecordById('_pb_users_auth_', staffUserId)
+                if (staffUser && staffUser.getBool('email_notificacoes_prazo')) {
+                  sendEmailGraceful(
+                    staffUser.getString('email'),
+                    '[Rumo Legislação] ' + pubNotifTitle,
+                    '<div style="font-family:sans-serif;color:#1A2333;max-width:600px;margin:0 auto;padding:20px;border:1px solid #E2E8F0;border-radius:12px;">' +
+                      '<h2 style="color:#0B1F3A;margin-top:0;">Rumo Consultoria Contábil</h2>' +
+                      '<p>Olá <b>' +
+                      staffUser.getString('name') +
+                      '</b>,</p>' +
+                      '<p>Alerta do Monitoramento Legislativo Diário das 08h (Criticidade ALTA):</p>' +
+                      '<div style="background:#FEE2E2;padding:12px;border-radius:8px;margin:16px 0;">' +
+                      '<p style="margin:0;font-weight:bold;color:#991B1B;">⚠️ ALTERAÇÃO NORMATIVA RELEVANTE</p>' +
+                      '<p style="margin:4px 0 0 0;font-size:13px;color:#1A2333;"><b>Norma:</b> ' +
+                      pubNorma +
+                      '<br/><b>Tributo/Matéria:</b> ' +
+                      pubTributo +
+                      '<br/><b>Título:</b> ' +
+                      pubTitulo +
+                      '</p>' +
+                      '<p style="margin:8px 0 0 0;font-size:12px;color:#475569;">' +
+                      pubResumo +
+                      '</p>' +
+                      '</div>' +
+                      '<p style="font-size:13px;color:#64748B;">Acesse a tela de Monitoramento Legislativo na plataforma para ver as empresas afetadas e simular o impacto financeiro.</p>' +
+                      '</div>',
+                  )
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (errPubCron) {
+      console.log('[CRON] Error scanning publicacoes_legislativas:', errPubCron)
+    }
+
     for (let i = 0; i < pendingObrigacoes.length; i++) {
       const ob = pendingObrigacoes[i]
       const tenantId = ob.getString('tenant_id')

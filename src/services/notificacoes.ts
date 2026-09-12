@@ -46,4 +46,23 @@ export const notificacoesService = {
   async delete(id: string) {
     return pb.collection('notificacoes').delete(id)
   },
+
+  async criarNotificacao(data: {
+    tenant_id: string
+    usuario_destino_id?: string
+    titulo: string
+    mensagem: string
+    tipo?: string
+    link?: string
+  }) {
+    return pb.collection('notificacoes').create<NotificacaoRecord>({
+      tenant_id: data.tenant_id,
+      usuario_destino_id: data.usuario_destino_id || null,
+      titulo: data.titulo,
+      mensagem: data.mensagem,
+      tipo: data.tipo || 'sistema',
+      link: data.link || '',
+      lida: false,
+    })
+  },
 }

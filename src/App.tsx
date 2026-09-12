@@ -38,6 +38,8 @@ import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
 import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
 import SimuladorReformaPage from '@/pages/SimuladorReforma'
 import NfseWhatsappPage from '@/pages/NfseWhatsapp'
+import AnalyticsTributarioPage from '@/pages/AnalyticsTributario'
+import MonitoramentoLegislativoPage from '@/pages/MonitoramentoLegislativo'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -76,6 +78,8 @@ export default function App() {
           <Route path="/workflow/:id" element={<WorkflowPage />} />
           <Route path="/obrigacoes" element={<Obrigacoes />} />
           <Route path="/fiscal" element={<Fiscal />} />
+          <Route path="/analytics-tributario" element={<AnalyticsTributarioPage />} />
+          <Route path="/monitoramento-legislativo" element={<MonitoramentoLegislativoPage />} />
           <Route path="/nfse-whatsapp" element={<NfseWhatsappPage />} />
           <Route path="/simulador-reforma" element={<SimuladorReformaPage />} />
 
