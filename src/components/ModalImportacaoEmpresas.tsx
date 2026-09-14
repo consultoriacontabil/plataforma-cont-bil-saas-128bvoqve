@@ -450,7 +450,7 @@ export function ModalImportacaoEmpresas({
                       : 'bg-slate-100 text-slate-500'
                 }`}
               >
-                4. Certificados
+                4. Certificados (Opcional)
               </span>
               <span>→</span>
               <span
@@ -865,22 +865,43 @@ export function ModalImportacaoEmpresas({
           {/* ETAPA 5: ANEXO DE CERTIFICADOS DIGITAIS A1 (.PFX/.P12) */}
           {etapa === 'certificados' && (
             <div className="space-y-4">
+              {/* Destaque informativo: Etapa 100% Opcional */}
+              <div className="p-4 rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50/80 via-emerald-50/40 to-white flex items-start gap-3">
+                <div className="h-9 w-9 rounded-xl bg-[#0FA3A3]/10 text-[#0FA3A3] flex items-center justify-center shrink-0 mt-0.5">
+                  <Info className="h-5 w-5" />
+                </div>
+                <div className="space-y-1 text-xs flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-bold text-[#1A2333]">Anexo de Certificados Digitais A1</h4>
+                    <Badge
+                      variant="outline"
+                      className="border-teal-300 bg-white text-[#0FA3A3] text-[10px] font-bold uppercase tracking-wider"
+                    >
+                      Etapa Opcional
+                    </Badge>
+                  </div>
+                  <p className="text-[#475569] leading-relaxed">
+                    Você <strong>não precisa anexar certificados agora</strong> para concluir a
+                    migração das empresas. Se preferir, avance diretamente: os certificados e suas
+                    respectivas senhas podem ser vinculados a qualquer momento depois, na ficha
+                    individual de cada empresa (aba <em>Certificado Digital</em>).
+                  </p>
+                </div>
+              </div>
+
               {/* Card de Aviso de Segurança de Senha */}
-              <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50/70 flex items-start gap-3">
-                <ShieldAlert className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs">
-                  <h4 className="font-bold text-amber-950">
-                    Acesso e Segurança do Certificado Digital e-CNPJ A1
-                  </h4>
-                  <p className="text-amber-900 leading-relaxed">
-                    Você pode anexar os arquivos <strong>.pfx ou .p12</strong> (até 10MB) de cada
-                    empresa nesta etapa. Por conformidade e segurança da informação,{' '}
+              <div className="p-3.5 rounded-2xl border border-amber-200 bg-amber-50/60 flex items-start gap-3">
+                <ShieldAlert className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-xs">
+                  <h5 className="font-semibold text-amber-950">Segurança e Sigilo de Senhas</h5>
+                  <p className="text-amber-900/90 text-[11px] leading-relaxed">
+                    Por conformidade com a LGPD e segurança da informação,{' '}
                     <strong>
                       senhas de certificados nunca devem ser enviadas em planilhas ou importações em
                       lote
                     </strong>
-                    . As senhas dos certificados serão informadas pontualmente na ficha individual
-                    de cada empresa.
+                    . As senhas devem ser cadastradas individualmente na ficha da empresa após a
+                    importação.
                   </p>
                 </div>
               </div>
@@ -931,9 +952,14 @@ export function ModalImportacaoEmpresas({
               {/* Tabela de Associação Certificado <-> Empresa */}
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
                 <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1A2333]">
-                    Associação de Certificados ({certificadosAnexados.length} anexado(s))
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#1A2333]">
+                      Associação de Certificados ({certificadosAnexados.length} anexado(s))
+                    </span>
+                    <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600">
+                      Opcional
+                    </Badge>
+                  </div>
                   <span className="text-[11px] text-[#64748B]">
                     {
                       certificadosAnexados.filter((c) =>
@@ -948,11 +974,18 @@ export function ModalImportacaoEmpresas({
 
                 <div className="max-h-[300px] overflow-y-auto">
                   {certificadosAnexados.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-[#64748B] space-y-1">
-                      <p>Nenhum certificado .pfx anexado ainda.</p>
-                      <p className="text-[11px] text-slate-400">
-                        Opcional: Você pode avançar sem anexar certificados agora e cadastrá-los
-                        depois na ficha da empresa.
+                    <div className="py-8 px-4 text-center text-xs text-[#64748B] space-y-2">
+                      <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-slate-100 text-slate-400 mb-1">
+                        <KeyRound className="h-5 w-5" />
+                      </div>
+                      <p className="font-medium text-slate-700">
+                        Nenhum certificado digital anexado nesta etapa.
+                      </p>
+                      <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                        Tudo bem! Você pode clicar em{' '}
+                        <strong>&quot;Importar sem Certificados&quot;</strong> abaixo para concluir
+                        a migração agora mesmo. Os certificados poderão ser adicionados
+                        individualmente na ficha de cada empresa quando desejar.
                       </p>
                     </div>
                   ) : (
@@ -1122,16 +1155,32 @@ export function ModalImportacaoEmpresas({
 
                   <div className="p-2.5 bg-white/90 rounded-xl border border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <ShieldAlert className="h-4 w-4 text-amber-500" />
+                      <KeyRound className="h-4 w-4 text-slate-400" />
                       <span className="text-xs font-semibold text-slate-700">
                         Empresas sem Certificado A1 Anexado
                       </span>
                     </div>
-                    <Badge variant="outline" className="text-xs border-amber-300 text-amber-800">
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-slate-300 text-slate-600 bg-slate-50"
+                    >
                       {resultadoMigracao.resumo.semCertificado ?? 0}
                     </Badge>
                   </div>
                 </div>
+
+                {/* Nota informativa amigável para empresas sem certificado */}
+                {(resultadoMigracao.resumo.semCertificado ?? 0) > 0 && (
+                  <div className="p-3 bg-white/90 rounded-xl border border-teal-100 flex items-start gap-2 text-xs text-slate-600">
+                    <Info className="h-4 w-4 text-[#0FA3A3] shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      <strong>Nota informativa:</strong> {resultadoMigracao.resumo.semCertificado}{' '}
+                      empresa(s) foram migradas sem certificado digital e estão plenamente
+                      operacionais. Você poderá vincular o arquivo .pfx e configurar a senha a
+                      qualquer momento na ficha de cada empresa (aba <em>Certificado Digital</em>).
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Detalhamento das linhas */}
@@ -1164,14 +1213,14 @@ export function ModalImportacaoEmpresas({
                             {r.tem_certificado ? (
                               <Badge className="bg-emerald-100 text-emerald-800 text-[10px] gap-1">
                                 <ShieldCheck className="h-3 w-3" />
-                                Certificado OK
+                                Anexado
                               </Badge>
                             ) : (
                               <Badge
                                 variant="outline"
                                 className="border-slate-200 text-slate-500 text-[10px]"
                               >
-                                Sem Certificado
+                                Não anexado (vincular depois)
                               </Badge>
                             )}
                           </td>
@@ -1269,7 +1318,7 @@ export function ModalImportacaoEmpresas({
                 disabled={totalValidas + totalComAvisos === 0}
                 className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 px-5 shadow-xs"
               >
-                <span>Avançar para Certificados Digitais</span>
+                <span>Avançar para Certificados (Opcional)</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -1290,11 +1339,9 @@ export function ModalImportacaoEmpresas({
                   <>
                     <CheckCircle2 className="h-4 w-4" />
                     <span>
-                      Confirmar e Importar ({totalValidas + totalComAvisos} empresas
                       {certificadosAnexados.length > 0
-                        ? ` + ${certificadosAnexados.length} certs`
-                        : ''}
-                      )
+                        ? `Confirmar e Importar (${totalValidas + totalComAvisos} empresas + ${certificadosAnexados.length} certs)`
+                        : `Importar sem Certificados (${totalValidas + totalComAvisos} empresas)`}
                     </span>
                   </>
                 )}
