@@ -33,6 +33,25 @@ export const certificadosService = {
   /**
    * Lista todos os certificados do tenant
    */
+  /**
+   * Lista certificados vinculados a uma empresa específica
+   */
+  async listByEmpresa(empresaId: string): Promise<CertificadoDigitalRecord[]> {
+    try {
+      const records = await pb
+        .collection('certificados_digitais')
+        .getFullList<CertificadoDigitalRecord>({
+          filter: `empresa = "${empresaId}"`,
+          sort: '-validade,-created',
+          requestKey: null,
+        })
+      return records
+    } catch (err) {
+      console.error('Erro ao listar certificados da empresa:', err)
+      return []
+    }
+  },
+
   async list(tenantId: string, filter?: string): Promise<CertificadoDigitalRecord[]> {
     const filters = [`tenant_id = "${tenantId}"`]
     if (filter) filters.push(filter)

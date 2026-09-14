@@ -60,7 +60,7 @@ export default function Documentos() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [tipoFilter, setTipoFilter] = useState<'todos' | DocumentoTipo>('todos')
+  const [tipoFilter, setTipoFilter] = useState<'todos' | DocumentoTipo | 'busca_sefaz'>('todos')
   const [statusFilter, setStatusFilter] = useState<'todos' | DocumentoStatus>('todos')
 
   // Modals
@@ -118,7 +118,11 @@ export default function Documentos() {
           doc.expand.empresa_id.nome_fantasia.toLowerCase().includes(search.toLowerCase())) ||
         (doc.expand?.empresa_id?.cnpj && doc.expand.empresa_id.cnpj.includes(search))
 
-      const matchTipo = tipoFilter === 'todos' || doc.tipo === tipoFilter
+      const matchTipo =
+        tipoFilter === 'todos' ||
+        (tipoFilter === 'busca_sefaz'
+          ? doc.origem_documento === 'busca_sefaz'
+          : doc.tipo === tipoFilter)
       const matchStatus = statusFilter === 'todos' || doc.status === statusFilter
 
       return matchSearch && matchTipo && matchStatus
@@ -279,17 +283,18 @@ export default function Documentos() {
         <div className="flex flex-wrap items-center gap-2">
           <Select
             value={tipoFilter}
-            onValueChange={(val: 'todos' | DocumentoTipo) => setTipoFilter(val)}
+            onValueChange={(val: 'todos' | DocumentoTipo | 'busca_sefaz') => setTipoFilter(val)}
           >
-            <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0] w-44">
+            <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0] w-48">
               <SelectValue placeholder="Tipo de Documento" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os tipos</SelectItem>
+              <SelectItem value="busca_sefaz">🔍 Busca SEFAZ (DFe)</SelectItem>
+              <SelectItem value="nota_fiscal">Nota Fiscal</SelectItem>
               <SelectItem value="contrato_social">Contrato Social</SelectItem>
               <SelectItem value="alteracao_contratual">Alteração Contratual</SelectItem>
               <SelectItem value="fatura">Fatura</SelectItem>
-              <SelectItem value="nota_fiscal">Nota Fiscal</SelectItem>
               <SelectItem value="procuracoes">Procurações</SelectItem>
               <SelectItem value="relatorios">Relatórios</SelectItem>
               <SelectItem value="outros">Outros</SelectItem>
@@ -343,12 +348,19 @@ export default function Documentos() {
                         {getFileIcon(doc.nome_arquivo)}
                       </div>
                       <div className="overflow-hidden">
-                        <h4
-                          className="text-xs font-bold text-[#1A2333] truncate group-hover:text-[#0FA3A3] transition-colors"
-                          title={doc.nome_arquivo}
-                        >
-                          {doc.nome_arquivo}
-                        </h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4
+                            className="text-xs font-bold text-[#1A2333] truncate group-hover:text-[#0FA3A3] transition-colors"
+                            title={doc.nome_arquivo}
+                          >
+                            {doc.nome_arquivo}
+                          </h4>
+                          {doc.origem_documento === 'busca_sefaz' && (
+                            <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-[9px] font-semibold py-0 h-4">
+                              Busca SEFAZ
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[#64748B]">
                           <Building2 className="h-3 w-3 text-[#94A3B8] shrink-0" />
                           <span className="truncate">
@@ -369,11 +381,27 @@ export default function Documentos() {
                         {doc.tipo.replace('_', ' ')}
                       </span>
                     </div>
+                    {doc.origem_documento && (
+                      <div className="flex items-center justify-between">
+                        <span>Origem:</span>
+                        <span className="font-medium text-slate-800 capitalize">
+                          {doc.origem_documento === 'busca_sefaz'
+                            ? 'Busca SEFAZ (DFe)'
+                            : doc.origem_documento.replace('_', ' ')}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <span>Data de Envio:</span>
                       <span>{formatDatePtBr(doc.created)}</span>
                     </div>
                   </div>
+
+                  {doc.chave_acesso_nfe && (
+                    <div className="p-1.5 rounded-lg bg-teal-50/50 border border-teal-100 text-[10px] font-mono text-teal-900 truncate">
+                      Chave: {doc.chave_acesso_nfe}
+                    </div>
+                  )}
 
                   {doc.observacoes && (
                     <p className="text-[11px] text-[#64748B] line-clamp-2 italic">
@@ -640,19 +668,43 @@ export default function Documentos() {
                     </p>
                   </div>
                   <div>
+                    <span className="text-[#64748B]">Origem:</span>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      {selectedDoc.origem_documento === 'busca_sefaz' ? (
+                        <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-[10px] font-semibold">
+                          Busca SEFAZ (DFe)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {selectedDoc.origem_documento?.replace('_', ' ') || 'Upload manual'}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {selectedDoc.chave_acesso_nfe && (
+                    <div>
+                      <span className="text-[#64748B]">Chave de Acesso NF-e (44 Dígitos):</span>
+                      <p className="font-mono text-[11px] text-[#1A2333] break-all bg-slate-50 p-2 rounded-lg border border-slate-200 mt-1">
+                        {selectedDoc.chave_acesso_nfe}
+                      </p>
+                    </div>
+                  )}
+                  <div>
                     <span className="text-[#64748B]">Status:</span>
                     <div className="mt-1">{getStatusBadge(selectedDoc.status)}</div>
                   </div>
                   <div>
                     <span className="text-[#64748B]">Responsável pelo Envio:</span>
                     <p className="font-semibold text-[#1A2333]">
-                      {selectedDoc.expand?.usuario_upload_id?.name || 'Administrador'}
+                      {selectedDoc.expand?.usuario_upload_id?.name || 'Robô SEFAZ / Sistema'}
                     </p>
                   </div>
                   {selectedDoc.observacoes && (
                     <div>
-                      <span className="text-[#64748B]">Anotações:</span>
-                      <p className="text-[#1A2333] mt-0.5">{selectedDoc.observacoes}</p>
+                      <span className="text-[#64748B]">Metadados / Anotações:</span>
+                      <p className="text-[#1A2333] mt-0.5 bg-slate-50 p-2 rounded-lg border border-slate-200 break-words">
+                        {selectedDoc.observacoes}
+                      </p>
                     </div>
                   )}
 

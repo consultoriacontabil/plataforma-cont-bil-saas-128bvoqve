@@ -30,10 +30,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
-import {
-  nfeDestinatarioService,
-  type SalvarNfeConfigInput,
-} from '@/services/nfeDestinatario'
+import { nfeDestinatarioService, type SalvarNfeConfigInput } from '@/services/nfeDestinatario'
 import { certificadosService } from '@/services/certificados'
 import { documentosService } from '@/services/documentos'
 import { auditService } from '@/services/audit'
@@ -69,12 +66,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface EmpresaNfeRecebidasTabProps {
   empresa: Empresa
@@ -127,7 +119,8 @@ export function EmpresaNfeRecebidasTab({
   // Manifestação Modal State
   const [manifestarModalOpen, setManifestarModalOpen] = useState(false)
   const [notaSelecionada, setNotaSelecionada] = useState<NfeRecebidaRecord | null>(null)
-  const [tipoManifSelecionada, setTipoManifSelecionada] = useState<NfeStatusManifestacao>('confirmada')
+  const [tipoManifSelecionada, setTipoManifSelecionada] =
+    useState<NfeStatusManifestacao>('confirmada')
   const [justificativaManif, setJustificativaManif] = useState('')
   const [enviandoManif, setEnviandoManif] = useState(false)
 
@@ -223,7 +216,9 @@ export function EmpresaNfeRecebidasTab({
 
   const isModoSupervisao = useMemo(() => {
     if (!config) return true
-    return config.status_conexao === 'modo_supervisao' || config.status_conexao === 'erro_credenciais'
+    return (
+      config.status_conexao === 'modo_supervisao' || config.status_conexao === 'erro_credenciais'
+    )
   }, [config])
 
   // Salvar Configurações
@@ -488,7 +483,10 @@ export function EmpresaNfeRecebidasTab({
       case 'sem_manifestacao':
       default:
         return (
-          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-300 text-[11px]">
+          <Badge
+            variant="outline"
+            className="bg-slate-50 text-slate-700 border-slate-300 text-[11px]"
+          >
             Sem Manifestação
           </Badge>
         )
@@ -498,7 +496,10 @@ export function EmpresaNfeRecebidasTab({
   const renderStatusConexaoBadge = () => {
     if (!config || !config.busca_automatica_ativa) {
       return (
-        <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-300 gap-1.5 py-1 px-3">
+        <Badge
+          variant="outline"
+          className="bg-slate-50 text-slate-600 border-slate-300 gap-1.5 py-1 px-3"
+        >
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span>Busca Inativa</span>
         </Badge>
@@ -546,8 +547,9 @@ export function EmpresaNfeRecebidasTab({
               </div>
               <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
                 Varredura direta no WebService <strong>nfeDistDFeInteresse</strong> da SEFAZ para
-                captura de todas as notas fiscais eletrônicas (entradas e devoluções) emitidas contra o
-                CNPJ <strong>{maskCnpj(empresa.cnpj)}</strong> com importação automática para o GED.
+                captura de todas as notas fiscais eletrônicas (entradas e devoluções) emitidas
+                contra o CNPJ <strong>{maskCnpj(empresa.cnpj)}</strong> com importação automática
+                para o GED.
               </p>
             </div>
 
@@ -586,8 +588,8 @@ export function EmpresaNfeRecebidasTab({
                 <p className="text-amber-100 text-[11px] leading-relaxed">
                   A SEFAZ exige certificado <strong>e-CNPJ A1 com senha</strong> para o canal seguro
                   mTLS de Distribuição DF-e. Enquanto as credenciais não forem preenchidas na aba
-                  Configuração, você pode consultar notas individualmente pela <strong>chave de 44 dígitos</strong> ou
-                  anexar arquivos XML/DANFE no GED.
+                  Configuração, você pode consultar notas individualmente pela{' '}
+                  <strong>chave de 44 dígitos</strong> ou anexar arquivos XML/DANFE no GED.
                 </p>
               </div>
             </div>
@@ -684,10 +686,7 @@ export function EmpresaNfeRecebidasTab({
             </div>
 
             <div>
-              <Select
-                value={statusManifFilter}
-                onValueChange={(val) => setStatusManifFilter(val)}
-              >
+              <Select value={statusManifFilter} onValueChange={(val) => setStatusManifFilter(val)}>
                 <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0]">
                   <SelectValue placeholder="Manifestação" />
                 </SelectTrigger>
@@ -741,8 +740,8 @@ export function EmpresaNfeRecebidasTab({
                     ) : notas.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-slate-400">
-                          Nenhuma NF-e localizada para este filtro. Clique em &quot;Buscar NF-e Agora&quot;
-                          ou &quot;Importar Chave 44 Dígitos&quot;.
+                          Nenhuma NF-e localizada para este filtro. Clique em &quot;Buscar NF-e
+                          Agora&quot; ou &quot;Importar Chave 44 Dígitos&quot;.
                         </td>
                       </tr>
                     ) : (
@@ -774,13 +773,19 @@ export function EmpresaNfeRecebidasTab({
                           </td>
 
                           <td className="py-3 px-4">
-                            <div className="font-semibold text-slate-900 truncate max-w-xs" title={nota.razao_social_emitente}>
+                            <div
+                              className="font-semibold text-slate-900 truncate max-w-xs"
+                              title={nota.razao_social_emitente}
+                            >
                               {nota.nome_fantasia_emitente || nota.razao_social_emitente}
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
                               <span>{maskCnpj(nota.cnpj_emitente)}</span>
                               {nota.uf_emitente && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 uppercase">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1 py-0 h-4 uppercase"
+                                >
                                   {nota.uf_emitente}
                                 </Badge>
                               )}
@@ -796,7 +801,11 @@ export function EmpresaNfeRecebidasTab({
                             </span>
                             {nota.valor_icms && nota.valor_icms > 0 ? (
                               <div className="text-[10px] text-slate-500">
-                                ICMS: {nota.valor_icms.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                ICMS:{' '}
+                                {nota.valor_icms.toLocaleString('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                })}
                               </div>
                             ) : null}
                           </td>
@@ -886,9 +895,7 @@ export function EmpresaNfeRecebidasTab({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Ambiente */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-900">
-                      Ambiente SEFAZ *
-                    </Label>
+                    <Label className="text-xs font-semibold text-slate-900">Ambiente SEFAZ *</Label>
                     <Select
                       value={ambiente}
                       onValueChange={(val: 'producao' | 'homologacao') => setAmbiente(val)}
@@ -991,8 +998,8 @@ export function EmpresaNfeRecebidasTab({
                         Importação Automática para o GED
                       </Label>
                       <p className="text-[11px] text-slate-500">
-                        Cada nota localizada gera um documento com XML no GED da empresa com badge de
-                        origem &quot;Busca SEFAZ&quot;.
+                        Cada nota localizada gera um documento com XML no GED da empresa com badge
+                        de origem &quot;Busca SEFAZ&quot;.
                       </p>
                     </div>
                     <Switch
@@ -1050,7 +1057,7 @@ export function EmpresaNfeRecebidasTab({
                 <CardDescription className="text-xs text-[#64748B]">
                   Auditoria de todas as consultas executadas via robô ou manualmente
                 </CardDescription>
-              </CardHeader>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -1319,8 +1326,8 @@ export function EmpresaNfeRecebidasTab({
 
               {isModoSupervisao && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-800">
-                  <strong>Modo Supervisão:</strong> A manifestação será registrada no banco de dados e
-                  histórico de auditoria, e será transmitida automaticamente à SEFAZ assim que as
+                  <strong>Modo Supervisão:</strong> A manifestação será registrada no banco de dados
+                  e histórico de auditoria, e será transmitida automaticamente à SEFAZ assim que as
                   credenciais A1 forem informadas.
                 </div>
               )}
@@ -1391,7 +1398,9 @@ export function EmpresaNfeRecebidasTab({
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-500">CFOP Principal:</span>
-                  <p className="font-semibold text-slate-900">{notaSelecionada.cfop_principal || '—'}</p>
+                  <p className="font-semibold text-slate-900">
+                    {notaSelecionada.cfop_principal || '—'}
+                  </p>
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-500">Data de Emissão:</span>
@@ -1413,7 +1422,9 @@ export function EmpresaNfeRecebidasTab({
 
               <div className="space-y-1 border border-slate-200 rounded-xl p-3">
                 <span className="font-bold text-slate-900 text-xs">Dados do Emitente</span>
-                <p className="text-slate-800 font-semibold">{notaSelecionada.razao_social_emitente}</p>
+                <p className="text-slate-800 font-semibold">
+                  {notaSelecionada.razao_social_emitente}
+                </p>
                 <div className="flex items-center gap-3 text-slate-500 text-[11px]">
                   <span>CNPJ: {maskCnpj(notaSelecionada.cnpj_emitente)}</span>
                   <span>UF: {notaSelecionada.uf_emitente || '—'}</span>
@@ -1499,8 +1510,8 @@ export function EmpresaNfeRecebidasTab({
               Importar NF-e por Chave Pública de 44 Dígitos
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Permite importar qualquer nota fiscal eletrônica colando a chave de acesso. Os metadados
-              principais são extraídos e o documento é arquivado no GED.
+              Permite importar qualquer nota fiscal eletrônica colando a chave de acesso. Os
+              metadados principais são extraídos e o documento é arquivado no GED.
             </DialogDescription>
           </DialogHeader>
 
@@ -1552,8 +1563,8 @@ export function EmpresaNfeRecebidasTab({
               <span className="font-semibold text-slate-900">Como funciona:</span>
               <p>
                 O sistema valida a chave, extrai a UF, CNPJ do emitente, número e série da nota,
-                verifica a anti-duplicidade e cria automaticamente o registro na coleção do GED
-                com a flag de origem &quot;Busca SEFAZ&quot;.
+                verifica a anti-duplicidade e cria automaticamente o registro na coleção do GED com
+                a flag de origem &quot;Busca SEFAZ&quot;.
               </p>
             </div>
 
@@ -1570,7 +1581,9 @@ export function EmpresaNfeRecebidasTab({
               <Button
                 type="submit"
                 size="sm"
-                disabled={importandoChaveManual || chaveManualInput.replace(/\D/g, '').length !== 44}
+                disabled={
+                  importandoChaveManual || chaveManualInput.replace(/\D/g, '').length !== 44
+                }
                 className="bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs rounded-xl font-semibold shadow-xs"
               >
                 {importandoChaveManual ? 'Importando...' : 'Importar para o GED'}

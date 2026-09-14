@@ -63,7 +63,7 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function EmpresaDetail() {
   const { id } = useParams<{ id: string }>()
-  const { tenant } = useAuth()
+  const { user, tenant } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -572,12 +572,31 @@ export default function EmpresaDetail() {
                     >
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-[#0FA3A3]" />
-                        <div>
-                          <p className="text-xs font-semibold text-[#1A2333]">{doc.nome_arquivo}</p>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs font-semibold text-[#1A2333]">
+                              {doc.nome_arquivo}
+                            </p>
+                            {doc.origem_documento === 'busca_sefaz' && (
+                              <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-[10px] font-semibold py-0 h-5">
+                                Busca SEFAZ
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-[11px] text-[#64748B] capitalize">
                             Tipo: {doc.tipo.replace('_', ' ')} • Enviado em{' '}
                             {formatDatePtBr(doc.created)}
                           </p>
+                          {doc.chave_acesso_nfe && (
+                            <p className="text-[10px] font-mono text-slate-400 truncate max-w-md">
+                              Chave: {doc.chave_acesso_nfe}
+                            </p>
+                          )}
+                          {doc.observacoes && doc.origem_documento === 'busca_sefaz' && (
+                            <p className="text-[10px] text-teal-800 line-clamp-1 italic">
+                              {doc.observacoes}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <Badge
@@ -644,10 +663,12 @@ export default function EmpresaDetail() {
         <TabsContent value="nfe_recebidas" className="space-y-6">
           <EmpresaNfeRecebidasTab
             empresa={empresa}
-            canEdit={userRole === 'administrador' || userRole === 'contador'}
+            canEdit={!user?.role || user.role === 'administrador' || user.role === 'contador'}
             onSyncCompleted={async () => {
-              const docsList = await documentosService.listByEmpresa(empresa.id)
-              setDocumentos(docsList)
+              if (tenant?.id) {
+                const docsList = await documentosService.listByEmpresa(empresa.id)
+                setDocumentos(docsList)
+              }
             }}
           />
         </TabsContent>

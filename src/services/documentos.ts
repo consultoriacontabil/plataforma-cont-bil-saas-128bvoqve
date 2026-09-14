@@ -12,6 +12,14 @@ export const documentosService = {
     })
   },
 
+  async listByEmpresa(empresaId: string, sort = '-created') {
+    return pb.collection('documentos').getFullList<Documento>({
+      filter: `empresa_id = "${empresaId}"`,
+      sort,
+      expand: 'empresa_id,usuario_upload_id',
+    })
+  },
+
   async create(formData: FormData) {
     return pb.collection('documentos').create<Documento>(formData)
   },

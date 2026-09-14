@@ -17,6 +17,7 @@ import {
   BookOpen,
   FileCode,
   Layers,
+  Sparkles,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { fiscalService } from '@/services/fiscal'
@@ -550,7 +551,7 @@ export default function Fiscal() {
               <EmpresaNfeRecebidasTab
                 key={empAtiva.id}
                 empresa={empAtiva}
-                canEdit={userRole === 'administrador' || userRole === 'contador'}
+                canEdit={!user?.role || user.role === 'administrador' || user.role === 'contador'}
               />
             )
           })()}
