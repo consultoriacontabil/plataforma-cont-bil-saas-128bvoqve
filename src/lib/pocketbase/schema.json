@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T20:56:19.643Z",
+  "generatedAt": "2026-09-14T20:00:41.045Z",
   "collections": [
     {
       "name": "users",
@@ -451,12 +451,26 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "origem_documento",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["upload_manual", "busca_sefaz", "integracao_rfb", "sistema"]
+        },
+        {
+          "name": "chave_acesso_nfe",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_documentos_tenant_empresa ON documentos (tenant_id, empresa_id)",
         "CREATE INDEX idx_documentos_tipo_status ON documentos (tipo, status)",
-        "CREATE INDEX idx_documentos_created ON documentos (created DESC)"
+        "CREATE INDEX idx_documentos_created ON documentos (created DESC)",
+        "CREATE INDEX `idx_documentos_chave_nfe` ON `documentos` (empresa_id, chave_acesso_nfe)"
       ]
     },
     {
@@ -8632,6 +8646,439 @@
       "indexes": [
         "CREATE INDEX idx_wa_msg_conv ON wa_atendimento_mensagens (conversa, created)",
         "CREATE INDEX idx_wa_msg_tenant ON wa_atendimento_mensagens (tenant_id)"
+      ]
+    },
+    {
+      "name": "nfe_config",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "busca_automatica_ativa",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ambiente",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["producao", "homologacao"]
+        },
+        {
+          "name": "certificado_a1",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "certificados_digitais"
+        },
+        {
+          "name": "senha_certificado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_nsu",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_nsu",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "auto_importar_ged",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "auto_ciencia_operacao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_conexao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["conectado", "modo_supervisao", "erro_credenciais", "desconectado"]
+        },
+        {
+          "name": "ultimo_diagnostico_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_sincronizacao_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_notas_recebidas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_nfe_config_empresa ON nfe_config (empresa)",
+        "CREATE INDEX idx_nfe_config_tenant ON nfe_config (tenant_id)",
+        "CREATE INDEX idx_nfe_config_ativa ON nfe_config (busca_automatica_ativa)"
+      ]
+    },
+    {
+      "name": "nfe_recebidas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "chave_acesso",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "serie",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj_emitente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "razao_social_emitente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome_fantasia_emitente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "uf_emitente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_emissao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_autorizacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_total",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_icms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cfop_principal",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "natureza_operacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nsu",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_operacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["0_entrada", "1_saida"]
+        },
+        {
+          "name": "status_sefaz",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["autorizada", "cancelada", "denegada"]
+        },
+        {
+          "name": "status_manifestacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "sem_manifestacao",
+            "ciencia",
+            "confirmada",
+            "desconhecida",
+            "nao_realizada"
+          ]
+        },
+        {
+          "name": "data_manifestacao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justificativa_manifestacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "manifestado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "documento_ged",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "documentos"
+        },
+        {
+          "name": "xml_armazenado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_captura",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["busca_sefaz_auto", "chave_manual_publica", "importacao_xml"]
+        },
+        {
+          "name": "metadados_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_nfe_recebidas_empresa_chave ON nfe_recebidas (empresa, chave_acesso)",
+        "CREATE INDEX idx_nfe_recebidas_tenant ON nfe_recebidas (tenant_id)",
+        "CREATE INDEX idx_nfe_recebidas_status_manif ON nfe_recebidas (status_manifestacao)",
+        "CREATE INDEX idx_nfe_recebidas_data_emissao ON nfe_recebidas (data_emissao DESC)"
+      ]
+    },
+    {
+      "name": "nfe_sync_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "origem_acionamento",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["manual", "cron_diario", "teste_credenciais", "consulta_chave_manual"]
+        },
+        {
+          "name": "sucesso",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modo_operacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["sefaz_distribuicao_real", "modo_supervisao", "consulta_publica"]
+        },
+        {
+          "name": "notas_encontradas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notas_novas_importadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_nsu_consultado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duracao_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "detalhes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_nfe_logs_empresa ON nfe_sync_logs (empresa, created DESC)",
+        "CREATE INDEX idx_nfe_logs_tenant ON nfe_sync_logs (tenant_id)",
+        "CREATE INDEX idx_nfe_logs_created ON nfe_sync_logs (created DESC)"
       ]
     }
   ]

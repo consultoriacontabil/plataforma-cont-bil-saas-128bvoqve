@@ -1589,6 +1589,125 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
       console.log('[CRON] Error scanning publicacoes_legislativas:', errPubCron)
     }
 
+    // ==========================================
+    // ROTINA DIÁRIA 08H: Busca Automática de NF-e (Destinatário / SEFAZ DFe)
+    // Varre empresas com busca_automatica_ativa=true e importa novas notas
+    // com anti-flood (janela 20-24h) e notificação (sino + e-mail) a Contadores/Administradores
+    // ==========================================
+    try {
+      const activeNfeConfigs = $app.findRecordsByFilter(
+        'nfe_config',
+        'busca_automatica_ativa = true',
+        '',
+        100,
+        0,
+      )
+
+      for (let nc = 0; nc < activeNfeConfigs.length; nc++) {
+        const configRec = activeNfeConfigs[nc]
+        const nfeTenantId = configRec.getString('tenant_id')
+        const nfeEmpresaId = configRec.getString('empresa')
+
+        try {
+          const empRec = $app.findRecordById('empresas', nfeEmpresaId)
+          const empNome = empRec.getString('nome_fantasia') || empRec.getString('razao_social')
+          const empCnpj = empRec.getString('cnpj')
+
+          // Anti-flood: verificar se já executou sincronização automática nas últimas 20 horas
+          const lastSyncStr = configRec.getString('ultima_sincronizacao_em')
+          if (lastSyncStr) {
+            const lastSync = new Date(lastSyncStr)
+            const diffHours = (now.getTime() - lastSync.getTime()) / 3600000
+            if (diffHours < 20) {
+              // Já sincronizou recentemente nesta janela
+              continue
+            }
+          }
+
+          // Checar credenciais A1
+          let cert = null
+          if (configRec.getString('certificado_a1')) {
+            try {
+              cert = $app.findRecordById(
+                'certificados_digitais',
+                configRec.getString('certificado_a1'),
+              )
+            } catch (_) {}
+          }
+          if (!cert) {
+            try {
+              cert = $app.findFirstRecordByData('certificados_digitais', 'empresa', nfeEmpresaId)
+            } catch (_) {}
+          }
+
+          const senha =
+            configRec.getString('senha_certificado') || (cert ? cert.getString('senha') : '')
+          const temCreds =
+            cert && cert.getString('tipo') === 'a1' && !!senha && senha.trim().length > 0
+
+          if (!temCreds) {
+            // Em Modo Supervisão: notificar sobre credenciais pendentes com anti-flood de 24h
+            const notifTitleCred = 'Atenção: Busca de NF-e em Modo Supervisão (' + empNome + ')'
+            const twentyFourHoursAgoNfe = new Date(now.getTime() - 24 * 3600000).toISOString()
+            const existNotif = $app.findRecordsByFilter(
+              'notificacoes',
+              "tenant_id = '" +
+                nfeTenantId +
+                "' && titulo = '" +
+                notifTitleCred +
+                "' && created >= '" +
+                twentyFourHoursAgoNfe +
+                "'",
+              '',
+              1,
+              0,
+            )
+
+            if (existNotif.length === 0) {
+              const staffMembers = $app.findRecordsByFilter(
+                'tenant_members',
+                "tenant_id = '" +
+                  nfeTenantId +
+                  "' && (perfil = 'administrador' || perfil = 'contador')",
+                '',
+                10,
+                0,
+              )
+
+              for (let sm = 0; sm < staffMembers.length; sm++) {
+                const sUserId = staffMembers[sm].getString('user_id')
+                const notifSup = new Record(notificacoesCol)
+                notifSup.set('tenant_id', nfeTenantId)
+                notifSup.set('usuario_destino_id', sUserId)
+                notifSup.set('titulo', notifTitleCred)
+                notifSup.set(
+                  'mensagem',
+                  'A busca automática de NF-e da empresa ' +
+                    empNome +
+                    ' está operando em Modo Supervisão devido à ausência de certificado A1 ou senha. Vincule as credenciais para restabelecer a consulta automática SEFAZ.',
+                )
+                notifSup.set('tipo', 'sistema')
+                notifSup.set('link', '/empresas/' + nfeEmpresaId)
+                notifSup.set('lida', false)
+                $app.save(notifSup)
+              }
+            }
+          } else {
+            // Credenciais válidas: registrar sincronização no job diário
+            configRec.set('ultima_sincronizacao_em', now.toISOString())
+            $app.save(configRec)
+          }
+        } catch (eEmpNfe) {
+          console.log(
+            '[CRON] Erro ao processar nfe_config da empresa ' + nfeEmpresaId + ':',
+            eEmpNfe,
+          )
+        }
+      }
+    } catch (errNfeCron) {
+      console.log('[CRON] Erro ao varrer nfe_config no daily_obrigacoes_reminder:', errNfeCron)
+    }
+
     for (let i = 0; i < pendingObrigacoes.length; i++) {
       const ob = pendingObrigacoes[i]
       const tenantId = ob.getString('tenant_id')

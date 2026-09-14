@@ -54,6 +54,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { SpedEscrituracaoTab } from '@/components/SpedEscrituracaoTab'
+import { EmpresaNfeRecebidasTab } from '@/components/EmpresaNfeRecebidasTab'
 
 const OBRIGACOES: Array<{ id: FiscalTipoObrigacao; label: string }> = [
   { id: 'ecf', label: 'ECF (Escrituração Contábil Fiscal)' },
@@ -305,6 +306,13 @@ export default function Fiscal() {
             <FileCode className="w-3.5 h-3.5 text-blue-600" />
             SPED & Escrituração (ECD / ECF / EFD)
           </TabsTrigger>
+          <TabsTrigger
+            value="busca_nfe"
+            className="gap-2 text-xs py-2 px-4 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-xs text-[#0FA3A3]"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#0FA3A3]" />
+            Busca NF-e (Destinatário / SEFAZ DFe)
+          </TabsTrigger>
         </TabsList>
 
         {/* ABA 1: OBRIGAÇÕES */}
@@ -499,6 +507,53 @@ export default function Fiscal() {
         {/* ABA 2: SPED & ESCRITURAÇÃO */}
         <TabsContent value="sped" className="m-0">
           <SpedEscrituracaoTab empresas={empresas} selectedEmpresaId={createEmpresaId} />
+        </TabsContent>
+
+        {/* ABA 3: BUSCA NF-E (DESTINATÁRIO SEFAZ DFe) */}
+        <TabsContent value="busca_nfe" className="space-y-4 m-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white rounded-2xl border border-[#E2E8F0]">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">
+                Módulo Busca NF-e por Empresa Cadastrada
+              </h3>
+              <p className="text-xs text-slate-500">
+                Selecione a empresa da carteira para gerenciar a varredura SEFAZ DFe, credenciais A1
+                e manifestação
+              </p>
+            </div>
+            <div className="w-full sm:w-72">
+              <Select value={createEmpresaId} onValueChange={setCreateEmpresaId}>
+                <SelectTrigger className="h-10 text-xs rounded-xl border-[#E2E8F0]">
+                  <SelectValue placeholder="Selecione a empresa" />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {empresas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nome_fantasia || e.razao_social}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {(() => {
+            const empAtiva = empresas.find((e) => e.id === createEmpresaId) || empresas[0]
+            if (!empAtiva) {
+              return (
+                <div className="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border border-slate-200">
+                  Nenhuma empresa cadastrada para visualização do módulo.
+                </div>
+              )
+            }
+            return (
+              <EmpresaNfeRecebidasTab
+                key={empAtiva.id}
+                empresa={empAtiva}
+                canEdit={userRole === 'administrador' || userRole === 'contador'}
+              />
+            )
+          })()}
         </TabsContent>
       </Tabs>
 

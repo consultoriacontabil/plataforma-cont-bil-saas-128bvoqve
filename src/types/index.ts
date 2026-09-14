@@ -81,6 +81,8 @@ export type DocumentoTipo =
   | 'outros'
 export type DocumentoStatus = 'pendente' | 'processado' | 'rejeitado'
 
+export type OrigemDocumentoGed = 'upload_manual' | 'busca_sefaz' | 'integracao_rfb' | 'sistema'
+
 export interface Documento extends RecordModel {
   tenant_id: string
   empresa_id: string
@@ -89,6 +91,8 @@ export interface Documento extends RecordModel {
   status: DocumentoStatus
   observacoes?: string
   arquivo?: string
+  origem_documento?: OrigemDocumentoGed
+  chave_acesso_nfe?: string
   usuario_upload_id: string
   data_upload: string
   expand?: {
@@ -2377,4 +2381,161 @@ export interface PublicacaoLegislativaRecord {
   expand?: {
     analisado_por?: User
   }
+}
+
+// ==========================================
+// 4. MÓDULO BUSCA AUTOMÁTICA DE NF-e (DESTINATÁRIO / SEFAZ DFe)
+// ==========================================
+
+export type NfeAmbiente = 'producao' | 'homologacao'
+export type NfeStatusConexao = 'conectado' | 'modo_supervisao' | 'erro_credenciais' | 'desconectado'
+export type NfeStatusSefaz = 'autorizada' | 'cancelada' | 'denegada'
+export type NfeStatusManifestacao =
+  | 'sem_manifestacao'
+  | 'ciencia'
+  | 'confirmada'
+  | 'desconhecida'
+  | 'nao_realizada'
+export type NfeOrigemCaptura = 'busca_sefaz_auto' | 'chave_manual_publica' | 'importacao_xml'
+export type NfeOrigemAcionamento =
+  | 'manual'
+  | 'cron_diario'
+  | 'teste_credenciais'
+  | 'consulta_chave_manual'
+export type NfeModoOperacao = 'sefaz_distribuicao_real' | 'modo_supervisao' | 'consulta_publica'
+
+export interface NfeDiagnosticoItens {
+  empresa_cnpj?: string
+  certificado_detectado: boolean
+  certificado_tipo_a1?: boolean
+  certificado_arquivo_pfx?: boolean
+  certificado_valido?: boolean
+  dias_restantes?: number
+  titular?: string
+  emissor?: string
+  senha_presente: boolean
+  ambiente: NfeAmbiente
+  comunicacao_sefaz_dist_dfe?: boolean
+  suporte_consulta_publica_chave?: boolean
+}
+
+export interface NfeDiagnosticoResult {
+  status: NfeStatusConexao
+  mensagem: string
+  data_verificacao: string
+  itens_checados: NfeDiagnosticoItens
+}
+
+export interface NfeConfigRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  busca_automatica_ativa: boolean
+  ambiente: NfeAmbiente
+  certificado_a1?: string
+  senha_certificado?: string
+  ultimo_nsu?: string
+  max_nsu?: string
+  auto_importar_ged: boolean
+  auto_ciencia_operacao: boolean
+  status_conexao: NfeStatusConexao
+  ultimo_diagnostico_json?: NfeDiagnosticoResult
+  ultima_sincronizacao_em?: string
+  total_notas_recebidas?: number
+  expand?: {
+    empresa?: Empresa
+    certificado_a1?: CertificadoDigitalRecord
+  }
+}
+
+export interface NfeRecebidaRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  chave_acesso: string
+  numero?: string
+  serie?: string
+  cnpj_emitente: string
+  razao_social_emitente: string
+  nome_fantasia_emitente?: string
+  uf_emitente?: string
+  data_emissao?: string
+  data_autorizacao?: string
+  valor_total: number
+  valor_icms?: number
+  cfop_principal?: string
+  natureza_operacao?: string
+  nsu?: string
+  tipo_operacao?: '0_entrada' | '1_saida'
+  status_sefaz: NfeStatusSefaz
+  status_manifestacao: NfeStatusManifestacao
+  data_manifestacao?: string
+  justificativa_manifestacao?: string
+  manifestado_por?: string
+  documento_ged?: string
+  xml_armazenado?: string
+  origem_captura: NfeOrigemCaptura
+  metadados_json?: Record<string, unknown>
+  expand?: {
+    empresa?: Empresa
+    manifestado_por?: User
+    documento_ged?: Documento
+  }
+}
+
+export interface NfeSyncLogRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  empresa: string
+  origem_acionamento: NfeOrigemAcionamento
+  sucesso: boolean
+  modo_operacao: NfeModoOperacao
+  notas_encontradas: number
+  notas_novas_importadas: number
+  ultimo_nsu_consultado?: string
+  duracao_ms: number
+  mensagem: string
+  detalhes_json?: Record<string, unknown>
+  executado_por?: string
+  expand?: {
+    empresa?: Empresa
+    executado_por?: User
+  }
+}
+
+export interface NfeSincronizarResult {
+  sucesso: boolean
+  modo_operacao: NfeModoOperacao
+  notas_encontradas: number
+  notas_novas_importadas: number
+  ultimo_nsu?: string
+  mensagem: string
+  duracao_ms: number
+  error?: string
+}
+
+export interface NfeManifestarResult {
+  sucesso: boolean
+  mensagem: string
+  evento?: Record<string, unknown>
+  error?: string
+}
+
+export interface NfeConsultarChaveResult {
+  sucesso: boolean
+  mensagem: string
+  nfe_id?: string
+  chave_acesso?: string
+  numero?: string
+  serie?: string
+  emitente?: string
+  valor_total?: number
+  documento_ged_id?: string
+  error?: string
 }

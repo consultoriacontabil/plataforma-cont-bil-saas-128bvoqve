@@ -25,6 +25,7 @@ import { fiscalService } from '@/services/fiscal'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
 import { certidoesService, ecacService } from '@/services/regularidade'
 import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
+import { EmpresaNfeRecebidasTab } from '@/components/EmpresaNfeRecebidasTab'
 import {
   ShieldCheck,
   ShieldAlert,
@@ -245,6 +246,13 @@ export default function EmpresaDetail() {
           <TabsTrigger value="workflows" className="rounded-lg text-xs font-semibold gap-2">
             <GitPullRequest className="h-4 w-4" />
             <span>Workflows ({workflows.length})</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="nfe_recebidas"
+            className="rounded-lg text-xs font-semibold gap-2 text-[#0FA3A3] data-[state=active]:text-[#0FA3A3]"
+          >
+            <Layers className="h-4 w-4" />
+            <span>Busca NF-e (Destinatário)</span>
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="rounded-lg text-xs font-semibold gap-2">
             <Calculator className="h-4 w-4" />
@@ -632,6 +640,18 @@ export default function EmpresaDetail() {
           </Card>
         </TabsContent>
 
+        {/* Tab: Busca NF-e (Destinatário SEFAZ DFe) */}
+        <TabsContent value="nfe_recebidas" className="space-y-6">
+          <EmpresaNfeRecebidasTab
+            empresa={empresa}
+            canEdit={userRole === 'administrador' || userRole === 'contador'}
+            onSyncCompleted={async () => {
+              const docsList = await documentosService.listByEmpresa(empresa.id)
+              setDocumentos(docsList)
+            }}
+          />
+        </TabsContent>
+
         {/* Tab 4: Fiscal */}
         <TabsContent value="fiscal">
           <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
@@ -693,14 +713,28 @@ export default function EmpresaDetail() {
               </Badge>
             </Card>
 
-            <Card className="rounded-2xl border border-slate-200 p-4 shadow-xs">
-              <h4 className="text-xs font-bold text-[#1A2333]">SEFAZ / Prefeituras</h4>
+            <Card className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-[#1A2333]">SEFAZ Distribuição DF-e</h4>
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                  Disponível
+                </Badge>
+              </div>
               <p className="text-[11px] text-[#64748B] mt-1">
-                Importação automática de notas fiscais e arquivos XML/DANFE.
+                Busca contínua de notas emitidas contra o CNPJ com manifestação e arquivamento no
+                GED.
               </p>
-              <Badge variant="outline" className="mt-3 text-[10px] text-[#94A3B8]">
-                Em breve (P1)
-              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const el = document.querySelector('[value="nfe_recebidas"]') as HTMLElement
+                  if (el) el.click()
+                }}
+                className="mt-3 text-xs h-7 text-[#0FA3A3] border-teal-300 hover:bg-teal-100"
+              >
+                Acessar Busca NF-e
+              </Button>
             </Card>
 
             <Card className="rounded-2xl border border-slate-200 p-4 shadow-xs">
