@@ -15,6 +15,24 @@ export const empresasService = {
     return pb.collection('empresas').getOne<Empresa>(id)
   },
 
+  async getByCnpj(tenantId: string, cnpj: string, ignoreId?: string) {
+    const cleanCnpj = cnpj.replace(/\D/g, '')
+    if (!cleanCnpj) return null
+    let filter = `tenant_id = "${tenantId}" && (cnpj = "${cleanCnpj}" || cnpj = "${cnpj}")`
+    if (ignoreId) {
+      filter += ` && id != "${ignoreId}"`
+    }
+    try {
+      const records = await pb.collection('empresas').getList<Empresa>(1, 1, {
+        filter,
+        requestKey: null,
+      })
+      return records.items[0] || null
+    } catch (_) {
+      return null
+    }
+  },
+
   async create(data: Partial<Empresa>) {
     return pb.collection('empresas').create<Empresa>(data)
   },

@@ -526,6 +526,29 @@ export function validarLinhasMigracao(
       }
     }
 
+    // Checar se há CNPJs repetidos na própria planilha
+    if (obj.cnpj) {
+      const cleanCnpj = obj.cnpj.replace(/\D/g, '')
+      if (cleanCnpj.length === 14) {
+        const duplicadasNoArquivo = linhasBrutas.filter((outraLinha, outraIdx) => {
+          if (outraIdx === idx) return false
+          let outroCnpj = ''
+          cabecalhosArquivo.forEach((colName, cIdx) => {
+            if (mapeamento[colName] === 'cnpj' && outraLinha[cIdx]) {
+              outroCnpj = outraLinha[cIdx].replace(/\D/g, '')
+            }
+          })
+          return outroCnpj === cleanCnpj
+        })
+
+        if (duplicadasNoArquivo.length > 0) {
+          avisos.push(
+            `CNPJ repetido em outra linha desta planilha. A regra de anti-duplicidade selecionada será aplicada.`,
+          )
+        }
+      }
+    }
+
     // 3. Validação de CEP
     if (obj.cep) {
       const cleanCep = obj.cep.replace(/\D/g, '')

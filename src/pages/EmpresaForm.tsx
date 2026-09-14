@@ -98,6 +98,8 @@ export default function EmpresaForm() {
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
   const [lookingUpCep, setLookingUpCep] = useState(false)
+  const [checkingCnpjDuplicado, setCheckingCnpjDuplicado] = useState(false)
+  const [empresaDuplicada, setEmpresaDuplicada] = useState<Empresa | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Estado para Busca Automática por CNPJ (APIs públicas)
@@ -159,6 +161,38 @@ export default function EmpresaForm() {
     observacoes: '',
     status: 'ativo',
   })
+
+  // Validação em tempo real de CNPJ duplicado na carteira do tenant
+  useEffect(() => {
+    const rawCnpj = formData.cnpj?.replace(/\D/g, '') || ''
+    if (rawCnpj.length !== 14 || !tenant?.id) {
+      setEmpresaDuplicada(null)
+      return
+    }
+
+    let isMounted = true
+    setCheckingCnpjDuplicado(true)
+
+    const timer = setTimeout(async () => {
+      try {
+        const existente = await empresasService.getByCnpj(tenant.id, rawCnpj, id)
+        if (isMounted) {
+          setEmpresaDuplicada(existente)
+        }
+      } catch (err) {
+        console.error('Erro ao verificar CNPJ duplicado:', err)
+      } finally {
+        if (isMounted) {
+          setCheckingCnpjDuplicado(false)
+        }
+      }
+    }, 400)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
+  }, [formData.cnpj, tenant?.id, id])
 
   // Load existing data if editing
   useEffect(() => {
@@ -277,6 +311,10 @@ export default function EmpresaForm() {
       errs.cnpj = 'CNPJ é obrigatório.'
     } else if (!isValidCnpj(formData.cnpj)) {
       errs.cnpj = 'CNPJ inválido (dígitos verificadores incorretos).'
+    } else if (empresaDuplicada) {
+      const nomeExistente =
+        empresaDuplicada.razao_social || empresaDuplicada.nome_fantasia || 'Empresa existente'
+      errs.cnpj = `CNPJ já cadastrado na carteira: ${nomeExistente}`
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -303,6 +341,27 @@ export default function EmpresaForm() {
       })
       focarCampo('cnpj')
       return
+    }
+
+    // Verificar se a empresa já está cadastrada no escritório antes da consulta
+    if (tenant?.id) {
+      try {
+        const jaCadastrada = await empresasService.getByCnpj(tenant.id, clean, id)
+        if (jaCadastrada) {
+          setEmpresaDuplicada(jaCadastrada)
+          const nomeEmpresa =
+            jaCadastrada.razao_social || jaCadastrada.nome_fantasia || 'Empresa existente'
+          toast({
+            variant: 'destructive',
+            title: 'Empresa já cadastrada na carteira!',
+            description: `O CNPJ ${maskCnpj(clean)} já pertence a "${nomeEmpresa}". O cadastro em duplicidade está bloqueado. Use o atalho para abrir ou editar a empresa existente.`,
+          })
+          focarCampo('cnpj')
+          return
+        }
+      } catch (dupErr) {
+        console.warn('Erro ao verificar duplicidade na busca pública:', dupErr)
+      }
     }
 
     setBuscandoCnpjPublico(true)
@@ -391,15 +450,46 @@ export default function EmpresaForm() {
     if (dadosExtraidos.cep) {
       handleCepChange(dadosExtraidos.cep)
     }
+
+    // Se veio CNPJ preenchido, checar se já existe no tenant
+    if (dadosExtraidos.cnpj && tenant?.id) {
+      const cleanExtraido = String(dadosExtraidos.cnpj).replace(/\D/g, '')
+      empresasService
+        .getByCnpj(tenant.id, cleanExtraido, id)
+        .then((existente) => {
+          if (existente) {
+            setEmpresaDuplicada(existente)
+            toast({
+              variant: 'destructive',
+              title: 'CNPJ do documento já cadastrado!',
+              description: `A empresa "${existente.razao_social}" já está cadastrada na sua carteira com este CNPJ.`,
+            })
+          }
+        })
+        .catch(console.error)
+    }
   }
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
+
+    if (empresaDuplicada) {
+      const nomeExistente =
+        empresaDuplicada.razao_social || empresaDuplicada.nome_fantasia || 'Empresa existente'
+      toast({
+        variant: 'destructive',
+        title: 'CNPJ já cadastrado',
+        description: `Não é possível salvar. CNPJ já cadastrado na carteira: ${nomeExistente}`,
+      })
+      focarCampo('cnpj')
+      return
+    }
+
     if (!validate()) {
       toast({
         variant: 'destructive',
         title: 'Verifique o formulário',
-        description: 'Existem campos obrigatórios com preenchimento incorreto.',
+        description: errors.cnpj || 'Existem campos obrigatórios com preenchimento incorreto.',
       })
       return
     }
@@ -494,7 +584,14 @@ export default function EmpresaForm() {
       navigate(`/empresas/${empresaIdSalva}`)
     } catch (err: unknown) {
       console.error('Error saving empresa:', err)
-      const msg = err instanceof Error ? err.message : 'Erro ao persistir cadastro.'
+      let msg = err instanceof Error ? err.message : 'Erro ao persistir cadastro.'
+      if (
+        msg.includes('já cadastrado') ||
+        msg.includes('UNIQUE constraint failed') ||
+        msg.includes('idx_empresas_tenant_cnpj')
+      ) {
+        msg = `Este CNPJ já está cadastrado em outra empresa da sua carteira. Verifique os dados para evitar duplicidade.`
+      }
       toast({
         variant: 'destructive',
         title: 'Falha ao salvar empresa',
@@ -575,8 +672,8 @@ export default function EmpresaForm() {
           </Button>
           <Button
             onClick={() => handleSubmit()}
-            disabled={saving}
-            className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 shadow-xs"
+            disabled={saving || Boolean(empresaDuplicada)}
+            className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 shadow-xs disabled:opacity-50"
           >
             {saving ? (
               <>
@@ -718,21 +815,29 @@ export default function EmpresaForm() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="cnpj" className="text-xs font-semibold text-[#1A2333]">
-                  CNPJ (com validação) *
+                  CNPJ (com validação e anti-duplicidade) *
                 </Label>
-                <button
-                  type="button"
-                  onClick={handleConsultarCnpjPublico}
-                  disabled={buscandoCnpjPublico}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-blue-50 transition-colors"
-                >
-                  {buscandoCnpjPublico ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Globe className="h-3 w-3" />
+                <div className="flex items-center gap-2">
+                  {checkingCnpjDuplicado && (
+                    <span className="flex items-center gap-1 text-[10px] text-[#0FA3A3]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Verificando carteira...
+                    </span>
                   )}
-                  <span>Buscar dados pelo CNPJ</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleConsultarCnpjPublico}
+                    disabled={buscandoCnpjPublico}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-blue-50 transition-colors"
+                  >
+                    {buscandoCnpjPublico ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Globe className="h-3 w-3" />
+                    )}
+                    <span>Buscar dados pelo CNPJ</span>
+                  </button>
+                </div>
               </div>
               <Input
                 id="cnpj"
@@ -740,9 +845,50 @@ export default function EmpresaForm() {
                 value={formData.cnpj}
                 onChange={(e) => setFormData({ ...formData, cnpj: maskCnpj(e.target.value) })}
                 placeholder="00.000.000/0001-00"
-                className="h-10 text-xs font-mono rounded-xl border-[#E2E8F0]"
-              />{' '}
-              {errors.cnpj && <p className="text-[11px] text-[#EF4444]">{errors.cnpj}</p>}
+                className={`h-10 text-xs font-mono rounded-xl border ${
+                  empresaDuplicada
+                    ? 'border-red-500 focus-visible:ring-red-400 bg-red-50/30'
+                    : 'border-[#E2E8F0]'
+                }`}
+              />
+
+              {empresaDuplicada ? (
+                <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2 animate-fade-in">
+                  <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <p className="font-semibold text-red-800">
+                      CNPJ já cadastrado na carteira: {empresaDuplicada.razao_social}
+                    </p>
+                    <p className="text-[11px] text-red-600">
+                      Este CNPJ já está vinculado à empresa cadastrada com status{' '}
+                      <strong className="uppercase">{empresaDuplicada.status || 'ativo'}</strong>.
+                      Não é permitido cadastrar empresas em duplicidade.
+                    </p>
+                    <div className="pt-1 flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/empresas/${empresaDuplicada.id}`)}
+                        className="h-6 px-2 text-[10px] bg-white border-red-300 text-red-700 hover:bg-red-100 rounded-lg"
+                      >
+                        Abrir ficha da empresa existente
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/empresas/${empresaDuplicada.id}/editar`)}
+                        className="h-6 px-2 text-[10px] text-red-700 hover:underline"
+                      >
+                        Editar dados dela
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : errors.cnpj ? (
+                <p className="text-[11px] text-[#EF4444]">{errors.cnpj}</p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">
@@ -1110,8 +1256,8 @@ export default function EmpresaForm() {
           </Button>
           <Button
             type="submit"
-            disabled={saving}
-            className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 px-6 shadow-xs"
+            disabled={saving || Boolean(empresaDuplicada)}
+            className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 px-6 shadow-xs disabled:opacity-50"
           >
             {saving ? (
               <>

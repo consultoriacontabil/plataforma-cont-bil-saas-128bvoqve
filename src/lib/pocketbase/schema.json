@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T21:57:03.691Z",
+  "generatedAt": "2026-09-14T22:15:56.836Z",
   "collections": [
     {
       "name": "users",
@@ -356,7 +356,8 @@
       ],
       "indexes": [
         "CREATE INDEX idx_empresas_tenant_status ON empresas (tenant_id, status)",
-        "CREATE INDEX idx_empresas_created ON empresas (created DESC)"
+        "CREATE INDEX idx_empresas_created ON empresas (created DESC)",
+        "CREATE UNIQUE INDEX `idx_empresas_tenant_cnpj` ON `empresas` (tenant_id, cnpj)"
       ]
     },
     {
