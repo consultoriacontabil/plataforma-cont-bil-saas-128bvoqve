@@ -18,6 +18,9 @@ import { certificadosService, type CertificadoSaudeInfo } from '@/services/certi
 import { certidoesService, ecacService } from '@/services/regularidade'
 import { guiasPagamentosService } from '@/services/guiasPagamentos'
 import { ModalImportacaoEmpresas } from '@/components/ModalImportacaoEmpresas'
+import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
+import { PainelExclusoesBackups } from '@/components/PainelExclusoesBackups'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ShieldCheck,
   ShieldAlert,
@@ -25,6 +28,8 @@ import {
   FileCheck2,
   Inbox,
   AlertTriangle,
+  Archive,
+  Trash2,
   FileSpreadsheet,
 } from 'lucide-react'
 import { maskCnpj } from '@/lib/formatters'
@@ -81,8 +86,13 @@ export default function Empresas() {
   const [importacaoModalOpen, setImportacaoModalOpen] = useState(false)
 
   // Permissão de escrita / migração (Administrador ou Contador)
-  const { member } = useAuth()
+  const { member, user } = useAuth()
   const podeImportarMigracao = member?.perfil === 'administrador' || member?.perfil === 'contador'
+  const podeExcluirEmpresa = member?.perfil === 'administrador' || member?.perfil === 'contador'
+
+  // Modal de Exclusão Segura com Backup de 24h
+  const [empresaParaExcluir, setEmpresaParaExcluir] = useState<Empresa | null>(null)
+  const [activeTab, setActiveTab] = useState<'cadastro' | 'exclusoes_backups'>('cadastro')
 
   // Close/deactivate confirmation modal
   const [empresaToClose, setEmpresaToClose] = useState<Empresa | null>(null)
@@ -374,7 +384,7 @@ export default function Empresas() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">Cadastro de Empresas</h2>
           <p className="text-xs text-[#64748B]">
-            Gerenciamento de pessoas jurídicas atendidas pelo escritório
+            Gerenciamento de pessoas jurídicas atendidas pelo escritório e salvaguarda de dados
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -399,182 +409,245 @@ export default function Empresas() {
         </div>
       </div>
 
-      {/* Filters Bar: Search & Status Chips */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-xs lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            placeholder="Buscar por razão social, nome fantasia ou CNPJ..."
-            className="h-10 pl-9 pr-4 rounded-xl text-xs border-[#E2E8F0]"
-          />
-        </div>
+      {/* Navegação entre Cadastro Ativo e Exclusões & Backups */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => setActiveTab(val as 'cadastro' | 'exclusoes_backups')}
+        className="space-y-6"
+      >
+        <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full justify-start">
+          <TabsTrigger value="cadastro" className="rounded-lg text-xs font-semibold gap-2">
+            <Building2 className="h-4 w-4" />
+            <span>Empresas Ativas & Cadastradas ({empresas.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="exclusoes_backups" className="rounded-lg text-xs font-semibold gap-2">
+            <Archive className="h-4 w-4 text-amber-600" />
+            <span>Exclusões & Backups (Retenção 24h)</span>
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Filter className="h-3.5 w-3.5 text-[#94A3B8] mr-1 hidden sm:block" />
-          {filterChips.map((chip) => (
-            <button
-              key={chip.id}
-              onClick={() => {
-                setStatusFilter(chip.id)
-                setPage(1)
-              }}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-semibold transition-all',
-                statusFilter === chip.id
-                  ? 'bg-[#0B1F3A] text-white shadow-xs'
-                  : 'bg-slate-100 text-[#64748B] hover:bg-slate-200',
-              )}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <TabsContent value="cadastro" className="space-y-6">
+          {/* Filters Bar: Search & Status Chips */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-xs lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                placeholder="Buscar por razão social, nome fantasia ou CNPJ..."
+                className="h-10 pl-9 pr-4 rounded-xl text-xs border-[#E2E8F0]"
+              />
+            </div>
 
-      {/* Empresas Table / Grid */}
-      <Card className="rounded-2xl border-[#E2E8F0] shadow-xs overflow-hidden">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                  <th className="py-3.5 px-4">Empresa</th>
-                  <th className="py-3.5 px-4">CNPJ</th>
-                  <th className="py-3.5 px-4">Regularidade & CNDs</th>
-                  <th className="py-3.5 px-4">Regime Tributário</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Ações</th>
-                </tr>{' '}
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-[#64748B]">
-                      Carregando cadastro de empresas...
-                    </td>
-                  </tr>
-                ) : paginatedEmpresas.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-[#94A3B8]">
-                      Nenhuma empresa encontrada com os filtros selecionados.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedEmpresas.map((emp) => {
-                    const initials = (emp.nome_fantasia || emp.razao_social)
-                      .slice(0, 2)
-                      .toUpperCase()
-                    return (
-                      <tr
-                        key={emp.id}
-                        onClick={() => navigate(`/empresas/${emp.id}`)}
-                        className="hover:bg-slate-50/75 transition-colors cursor-pointer group"
-                      >
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 font-bold text-[#0B1F3A] text-xs">
-                              {initials}
-                            </div>
-                            <div className="truncate max-w-xs sm:max-w-md">
-                              <p className="font-semibold text-[#1A2333] group-hover:text-[#0FA3A3] transition-colors truncate">
-                                {emp.nome_fantasia || emp.razao_social}
-                              </p>
-                              {emp.nome_fantasia && (
-                                <p className="text-[11px] text-[#64748B] truncate">
-                                  {emp.razao_social}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 font-mono text-[#64748B]">{maskCnpj(emp.cnpj)}</td>
-                        <td className="py-3 px-4">{renderRegularidadeConsolidada(emp.id)}</td>
-                        <td className="py-3 px-4">{getRegimeBadge(emp.regime_tributario)}</td>
-                        <td className="py-3 px-4">{getStatusBadge(emp.status)}</td>
-                        <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-[#64748B] hover:bg-slate-200"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem
-                                onClick={() => navigate(`/empresas/${emp.id}`)}
-                                className="gap-2 text-xs cursor-pointer"
-                              >
-                                <Eye className="h-3.5 w-3.5 text-[#0FA3A3]" />
-                                <span>Ver detalhes</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => navigate(`/empresas/${emp.id}/editar`)}
-                                className="gap-2 text-xs cursor-pointer"
-                              >
-                                <Edit className="h-3.5 w-3.5 text-[#3B82F6]" />
-                                <span>Editar</span>
-                              </DropdownMenuItem>
-                              {emp.status !== 'encerrado' && (
-                                <DropdownMenuItem
-                                  onClick={() => setEmpresaToClose(emp)}
-                                  className="gap-2 text-xs text-[#EF4444] focus:text-[#EF4444] cursor-pointer"
-                                >
-                                  <Power className="h-3.5 w-3.5" />
-                                  <span>Encerrar empresa</span>
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination (12 per page) */}
-          <div className="flex items-center justify-between border-t border-[#E2E8F0] px-4 py-3 text-xs text-[#64748B]">
-            <span>
-              Mostrando {filteredEmpresas.length === 0 ? 0 : (page - 1) * perPage + 1} a{' '}
-              {Math.min(page * perPage, filteredEmpresas.length)} de {filteredEmpresas.length}{' '}
-              empresas
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="h-8 w-8"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="px-2 font-medium">
-                Pág. {page} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="h-8 w-8"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Filter className="h-3.5 w-3.5 text-[#94A3B8] mr-1 hidden sm:block" />
+              {filterChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  onClick={() => {
+                    setStatusFilter(chip.id)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-xs font-semibold transition-all',
+                    statusFilter === chip.id
+                      ? 'bg-[#0B1F3A] text-white shadow-xs'
+                      : 'bg-slate-100 text-[#64748B] hover:bg-slate-200',
+                  )}
+                >
+                  {chip.label}
+                </button>
+              ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Empresas Table / Grid */}
+          <Card className="rounded-2xl border-[#E2E8F0] shadow-xs overflow-hidden">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                      <th className="py-3.5 px-4">Empresa</th>
+                      <th className="py-3.5 px-4">CNPJ</th>
+                      <th className="py-3.5 px-4">Regularidade & CNDs</th>
+                      <th className="py-3.5 px-4">Regime Tributário</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Ações</th>
+                    </tr>{' '}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-[#64748B]">
+                          Carregando cadastro de empresas...
+                        </td>
+                      </tr>
+                    ) : paginatedEmpresas.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-[#94A3B8]">
+                          Nenhuma empresa encontrada com os filtros selecionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedEmpresas.map((emp) => {
+                        const initials = (emp.nome_fantasia || emp.razao_social)
+                          .slice(0, 2)
+                          .toUpperCase()
+                        return (
+                          <tr
+                            key={emp.id}
+                            onClick={() => navigate(`/empresas/${emp.id}`)}
+                            className="hover:bg-slate-50/75 transition-colors cursor-pointer group"
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 font-bold text-[#0B1F3A] text-xs">
+                                  {initials}
+                                </div>
+                                <div className="truncate max-w-xs sm:max-w-md">
+                                  <p className="font-semibold text-[#1A2333] group-hover:text-[#0FA3A3] transition-colors truncate">
+                                    {emp.nome_fantasia || emp.razao_social}
+                                  </p>
+                                  {emp.nome_fantasia && (
+                                    <p className="text-[11px] text-[#64748B] truncate">
+                                      {emp.razao_social}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 font-mono text-[#64748B]">
+                              {maskCnpj(emp.cnpj)}
+                            </td>
+                            <td className="py-3 px-4">{renderRegularidadeConsolidada(emp.id)}</td>
+                            <td className="py-3 px-4">{getRegimeBadge(emp.regime_tributario)}</td>
+                            <td className="py-3 px-4">{getStatusBadge(emp.status)}</td>
+                            <td
+                              className="py-3 px-4 text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-[#64748B] hover:bg-slate-200"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(`/empresas/${emp.id}`)}
+                                    className="gap-2 text-xs cursor-pointer"
+                                  >
+                                    <Eye className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                                    <span>Ver detalhes</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => navigate(`/empresas/${emp.id}/editar`)}
+                                    className="gap-2 text-xs cursor-pointer"
+                                  >
+                                    <Edit className="h-3.5 w-3.5 text-[#3B82F6]" />
+                                    <span>Editar</span>
+                                  </DropdownMenuItem>
+                                  {emp.status !== 'encerrado' && (
+                                    <DropdownMenuItem
+                                      onClick={() => setEmpresaToClose(emp)}
+                                      className="gap-2 text-xs text-[#F59E0B] focus:text-[#F59E0B] cursor-pointer"
+                                    >
+                                      <Power className="h-3.5 w-3.5" />
+                                      <span>Encerrar empresa</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {podeExcluirEmpresa && (
+                                    <DropdownMenuItem
+                                      onClick={() => setEmpresaParaExcluir(emp)}
+                                      className="gap-2 text-xs text-[#EF4444] focus:text-[#EF4444] font-semibold cursor-pointer"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-[#EF4444]" />
+                                      <span>Excluir (backup 24h)</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination (12 per page) */}
+              <div className="flex items-center justify-between border-t border-[#E2E8F0] px-4 py-3 text-xs text-[#64748B]">
+                <span>
+                  Mostrando {filteredEmpresas.length === 0 ? 0 : (page - 1) * perPage + 1} a{' '}
+                  {Math.min(page * perPage, filteredEmpresas.length)} de {filteredEmpresas.length}{' '}
+                  empresas
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="h-8 w-8"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="px-2 font-medium">
+                    Pág. {page} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Exclusões & Backups com Retenção de 24h */}
+        <TabsContent value="exclusoes_backups">
+          {tenant?.id && (
+            <PainelExclusoesBackups
+              tenantId={tenant.id}
+              usuarioId={user?.id || ''}
+              canManage={podeExcluirEmpresa}
+              onAtualizacao={() => {
+                loadEmpresas()
+              }}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Modal de Exclusão Segura com Backup de 24 horas */}
+      <ModalExclusaoEmpresa
+        empresa={empresaParaExcluir}
+        open={Boolean(empresaParaExcluir)}
+        onOpenChange={(op) => {
+          if (!op) setEmpresaParaExcluir(null)
+        }}
+        usuarioId={user?.id || ''}
+        onExclusaoConcluida={() => {
+          setEmpresaParaExcluir(null)
+          loadEmpresas()
+          setActiveTab('exclusoes_backups')
+        }}
+      />
 
       {/* Modal de Importação em Lote para Migração */}
       {tenant?.id && (

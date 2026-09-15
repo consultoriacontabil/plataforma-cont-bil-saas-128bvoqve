@@ -2,8 +2,11 @@ import pb from '@/lib/pocketbase/client'
 import type { Empresa } from '@/types'
 
 export const empresasService = {
-  async list(tenantId: string, filter?: string, sort = '-created') {
+  async list(tenantId: string, filter?: string, sort = '-created', incluirExcluidas = false) {
     let finalFilter = `tenant_id = "${tenantId}"`
+    if (!incluirExcluidas) {
+      finalFilter += ` && (excluida_em = "" || excluida_em = null)`
+    }
     if (filter) finalFilter += ` && (${filter})`
     return pb.collection('empresas').getFullList<Empresa>({
       filter: finalFilter,

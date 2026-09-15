@@ -69,6 +69,30 @@ export interface Empresa extends RecordModel {
   site?: string
   observacoes?: string
   status: EmpresaStatus
+  excluida_em?: string
+}
+
+export type ExclusaoBackupStatus = 'retido' | 'purgado' | 'restaurado'
+
+export interface ExclusaoEmpresaBackupRecord extends RecordModel {
+  tenant_id: string
+  empresa_id: string
+  razao_social: string
+  cnpj: string
+  dados_json?: Record<string, any[]>
+  total_registros?: number
+  tamanho_bytes?: number
+  criado_por?: string
+  criado_em?: string
+  purga_em?: string
+  status: ExclusaoBackupStatus
+  restaurado_em?: string
+  restaurado_por?: string
+  purgado_em?: string
+  expand?: {
+    criado_por?: User
+    restaurado_por?: User
+  }
 }
 
 export type DocumentoTipo =

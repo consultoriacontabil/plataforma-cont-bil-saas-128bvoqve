@@ -26,6 +26,7 @@ import { certificadosService, type CertificadoSaudeInfo } from '@/services/certi
 import { certidoesService, ecacService } from '@/services/regularidade'
 import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
 import { EmpresaNfeRecebidasTab } from '@/components/EmpresaNfeRecebidasTab'
+import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
 import {
   ShieldCheck,
   ShieldAlert,
@@ -33,6 +34,8 @@ import {
   KeyRound,
   Download,
   AlertCircle,
+  Trash2,
+  Archive,
   FileCheck2,
   Inbox,
 } from 'lucide-react'
@@ -63,11 +66,13 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function EmpresaDetail() {
   const { id } = useParams<{ id: string }>()
-  const { user, tenant } = useAuth()
+  const { user, tenant, member } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const podeExcluir = member?.perfil === 'administrador' || member?.perfil === 'contador'
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
+  const [showExcluirModal, setShowExcluirModal] = useState(false)
   const [certificado, setCertificado] = useState<CertificadoDigitalRecord | null>(null)
   const [certidoes, setCertidoes] = useState<CertidaoRecord[]>([])
   const [ecacComunicacoes, setEcacComunicacoes] = useState<EcacComunicacaoRecord[]>([])
@@ -201,10 +206,21 @@ export default function EmpresaDetail() {
             <Button
               onClick={() => setShowCloseModal(true)}
               variant="outline"
-              className="h-9 gap-2 rounded-xl text-xs text-[#EF4444] hover:bg-red-50 hover:text-red-700"
+              className="h-9 gap-2 rounded-xl text-xs text-[#F59E0B] hover:bg-amber-50 hover:text-amber-700"
             >
               <Power className="h-3.5 w-3.5" />
-              <span>Encerrar Empresa</span>
+              <span>Encerrar</span>
+            </Button>
+          )}
+
+          {podeExcluir && (
+            <Button
+              onClick={() => setShowExcluirModal(true)}
+              variant="outline"
+              className="h-9 gap-2 rounded-xl text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-red-600" />
+              <span>Excluir (Backup 24h)</span>
             </Button>
           )}
         </div>
@@ -803,6 +819,17 @@ export default function EmpresaDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Exclusão Segura com Backup de 24h */}
+      <ModalExclusaoEmpresa
+        empresa={empresa}
+        open={showExcluirModal}
+        onOpenChange={setShowExcluirModal}
+        usuarioId={user?.id || ''}
+        onExclusaoConcluida={() => {
+          navigate('/empresas')
+        }}
+      />
     </div>
   )
 }
