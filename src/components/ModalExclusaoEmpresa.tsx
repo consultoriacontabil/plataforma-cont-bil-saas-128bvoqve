@@ -68,16 +68,40 @@ export function ModalExclusaoEmpresa({
 
   if (!empresa) return null
 
-  const cnpjLimpo = empresa.cnpj.replace(/\D/g, '')
-  const inputLimpo = confirmInput.replace(/\D/g, '').trim()
-  const confirmouPorCnpj = inputLimpo.length > 0 && inputLimpo === cnpjLimpo
+  // Normalização para comparação robusta: remove acentuação, pontuação excessiva e múltiplos espaços
+  const normalizarTexto = (texto?: string | null) => {
+    if (!texto) return ''
+    return texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+  }
+
+  // Normalização de CNPJ (somente dígitos) de ambos os lados
+  const cnpjEsperadoDigitos = (empresa.cnpj || '').replace(/\D/g, '')
+  const inputDigitos = confirmInput.replace(/\D/g, '')
+
+  // Verificação de CNPJ: confere se tem ao menos 11-14 dígitos e bate exatamente com os dígitos do CNPJ da empresa
+  const confirmouPorCnpj =
+    cnpjEsperadoDigitos.length > 0 &&
+    inputDigitos.length === cnpjEsperadoDigitos.length &&
+    inputDigitos === cnpjEsperadoDigitos
+
+  // Normalização textual de razão social e nome fantasia
+  const inputNormalizado = normalizarTexto(confirmInput)
+  const razaoNormalizada = normalizarTexto(empresa.razao_social)
+  const fantasiaNormalizada = normalizarTexto(empresa.nome_fantasia)
+
   const confirmouPorNome =
-    confirmInput.trim().length > 3 &&
-    (confirmInput.trim().toLowerCase() === empresa.razao_social.trim().toLowerCase() ||
-      (empresa.nome_fantasia &&
-        confirmInput.trim().toLowerCase() === empresa.nome_fantasia.trim().toLowerCase()))
+    inputNormalizado.length > 0 &&
+    ((razaoNormalizada.length > 0 && inputNormalizado === razaoNormalizada) ||
+      (fantasiaNormalizada.length > 0 && inputNormalizado === fantasiaNormalizada))
 
   const podeConfirmar = confirmouPorCnpj || confirmouPorNome
+  const digitouAlgo = confirmInput.trim().length > 0
+  const inputInvalido = digitouAlgo && !podeConfirmar
 
   const handleConfirmarExclusao = async () => {
     if (!podeConfirmar || processando) return
@@ -229,7 +253,7 @@ export function ModalExclusaoEmpresa({
 
           {/* Campo de confirmação estrita */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[#1A2333]">
+            <label className="text-xs font-semibold text-[#1A2333] block">
               Para confirmar, digite o <strong className="text-red-700">CNPJ</strong> (
               <span className="font-mono">{maskCnpj(empresa.cnpj)}</span>) ou a{' '}
               <strong className="text-red-700">Razão Social</strong> da empresa:
@@ -237,10 +261,31 @@ export function ModalExclusaoEmpresa({
             <Input
               value={confirmInput}
               onChange={(e) => setConfirmInput(e.target.value)}
-              placeholder="Digite o CNPJ ou a Razão Social..."
-              className="h-10 text-xs rounded-xl border-slate-300 focus-visible:ring-red-500"
+              placeholder="Digite o CNPJ (com ou sem pontuação) ou a Razão Social..."
+              className={`h-10 text-xs rounded-xl transition-colors ${
+                inputInvalido
+                  ? 'border-red-400 focus-visible:ring-red-500 bg-red-50/20'
+                  : podeConfirmar
+                    ? 'border-emerald-500 focus-visible:ring-emerald-500 bg-emerald-50/20'
+                    : 'border-slate-300 focus-visible:ring-red-500'
+              }`}
               autoFocus
             />
+            {inputInvalido ? (
+              <p className="text-[11px] text-red-600 font-medium">
+                O texto digitado não corresponde ao CNPJ ou à Razão Social da empresa.
+              </p>
+            ) : podeConfirmar ? (
+              <p className="text-[11px] text-emerald-600 font-medium">
+                Identificação confirmada ({confirmouPorCnpj ? 'por CNPJ' : 'por Razão Social/Nome'}
+                ). O botão de exclusão foi habilitado.
+              </p>
+            ) : (
+              <p className="text-[11px] text-[#64748B]">
+                Dica: você pode colar o CNPJ formatado ou apenas os números, ou escrever a Razão
+                Social / Nome Fantasia sem se preocupar com maiúsculas/minúsculas ou acentos.
+              </p>
+            )}
           </div>
         </div>
 
