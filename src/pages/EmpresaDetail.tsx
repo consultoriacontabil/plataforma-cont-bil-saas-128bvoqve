@@ -66,10 +66,18 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function EmpresaDetail() {
   const { id } = useParams<{ id: string }>()
-  const { user, tenant, member } = useAuth()
+  const { user, tenant, member, isGestorEmpresas } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const podeExcluir = member?.perfil === 'administrador' || member?.perfil === 'contador'
+  const podeExcluir = Boolean(
+    isGestorEmpresas ||
+    member?.perfil === 'administrador' ||
+    member?.perfil === 'contador' ||
+    (user?.role as string) === 'administrador' ||
+    (user?.role as string) === 'contador' ||
+    (user?.perfil as string) === 'administrador' ||
+    (user?.perfil as string) === 'contador',
+  )
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [showExcluirModal, setShowExcluirModal] = useState(false)

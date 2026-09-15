@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Filter,
 } from 'lucide-react'
+import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
@@ -85,14 +86,44 @@ export default function Empresas() {
   // Modal de Importação em Lote para Migração
   const [importacaoModalOpen, setImportacaoModalOpen] = useState(false)
 
-  // Permissão de escrita / migração (Administrador ou Contador)
-  const { member, user } = useAuth()
-  const podeImportarMigracao = member?.perfil === 'administrador' || member?.perfil === 'contador'
-  const podeExcluirEmpresa = member?.perfil === 'administrador' || member?.perfil === 'contador'
+  // Permissão de escrita / migração / exclusão (Administrador ou Contador)
+  const { member, user, isGestorEmpresas } = useAuth()
+  // Regra flexível e segura: se member.perfil for administrador ou contador, ou isGestorEmpresas, ou perfil no user
+  const podeGerenciarEmpresas = Boolean(
+    isGestorEmpresas ||
+    member?.perfil === 'administrador' ||
+    member?.perfil === 'contador' ||
+    (user?.role as string) === 'administrador' ||
+    (user?.role as string) === 'contador' ||
+    (user?.perfil as string) === 'administrador' ||
+    (user?.perfil as string) === 'contador',
+  )
+  const podeImportarMigracao = podeGerenciarEmpresas
+  const podeExcluirEmpresa = podeGerenciarEmpresas
 
   // Modal de Exclusão Segura com Backup de 24h
   const [empresaParaExcluir, setEmpresaParaExcluir] = useState<Empresa | null>(null)
   const [activeTab, setActiveTab] = useState<'cadastro' | 'exclusoes_backups'>('cadastro')
+  const [totalBackupsRetidos, setTotalBackupsRetidos] = useState<number>(0)
+
+  // Carregar contagem de backups retidos para badge informativo na aba
+  const carregarContagemBackups = useCallback(async () => {
+    if (!tenant?.id) return
+    try {
+      const res = await pb.collection('exclusoes_empresa_backup').getList(1, 1, {
+        filter: `tenant_id = "${tenant.id}" && status = "retido"`,
+        fields: 'id',
+        requestKey: null,
+      })
+      setTotalBackupsRetidos(res.totalItems)
+    } catch {
+      /* intentionally ignored */
+    }
+  }, [tenant?.id])
+
+  useEffect(() => {
+    carregarContagemBackups()
+  }, [carregarContagemBackups])
 
   // Close/deactivate confirmation modal
   const [empresaToClose, setEmpresaToClose] = useState<Empresa | null>(null)
@@ -423,6 +454,11 @@ export default function Empresas() {
           <TabsTrigger value="exclusoes_backups" className="rounded-lg text-xs font-semibold gap-2">
             <Archive className="h-4 w-4 text-amber-600" />
             <span>Exclusões & Backups (Retenção 24h)</span>
+            {totalBackupsRetidos > 0 && (
+              <Badge className="ml-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-1.5 py-0 rounded-full font-bold">
+                {totalBackupsRetidos}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -628,6 +664,7 @@ export default function Empresas() {
               canManage={podeExcluirEmpresa}
               onAtualizacao={() => {
                 loadEmpresas()
+                carregarContagemBackups()
               }}
             />
           )}
@@ -645,6 +682,7 @@ export default function Empresas() {
         onExclusaoConcluida={() => {
           setEmpresaParaExcluir(null)
           loadEmpresas()
+          carregarContagemBackups()
           setActiveTab('exclusoes_backups')
         }}
       />

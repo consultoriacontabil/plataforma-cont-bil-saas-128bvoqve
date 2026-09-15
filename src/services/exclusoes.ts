@@ -245,7 +245,7 @@ export const exclusoesService = {
         status: 'retido',
       })
 
-    // 3. Soft-delete na empresa
+    // 3. Soft-delete na empresa (ocultando das listagens ativas)
     await pb.collection('empresas').update(empresa.id, {
       excluida_em: now.toISOString(),
       status: 'encerrado',
@@ -287,7 +287,7 @@ export const exclusoesService = {
     if (empresaExiste) {
       // Reativa a empresa removendo excluida_em
       await pb.collection('empresas').update(backup.empresa_id, {
-        excluida_em: '',
+        excluida_em: null,
         status: 'ativo',
       })
     } else {

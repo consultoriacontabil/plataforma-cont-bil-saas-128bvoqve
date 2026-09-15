@@ -82,6 +82,15 @@ export function PainelExclusoesBackups({
     carregarBackups()
   }, [carregarBackups])
 
+  // Atualizador a cada 30 segundos para manter a contagem regressiva viva
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((t) => t + 1)
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [])
+
   // Contagem regressiva calculada a partir de purga_em
   const calcularTempoRestante = (purgaEmStr?: string) => {
     if (!purgaEmStr) return 'Prazo indisponível'
@@ -93,6 +102,9 @@ export function PainelExclusoesBackups({
 
     const horas = Math.floor(diff / (1000 * 60 * 60))
     const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    if (horas <= 0) {
+      return `Expira em ${minutos} min`
+    }
     return `Expira em ${horas}h ${minutos}min`
   }
 

@@ -14,6 +14,7 @@ interface AuthContextType {
   switchTenant: (tenant: Tenant) => void
   hasPermission: (allowedRoles: UserRole[]) => boolean
   isCliente: boolean
+  isGestorEmpresas: boolean
   refreshAuth: () => Promise<void>
   createEscritorio: (nome: string, cnpj?: string) => Promise<Tenant>
 }
@@ -43,7 +44,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Saved tenant in localStorage or pick the first
       const savedTenantId = localStorage.getItem('rumo_current_tenant_id')
-      let activeTenant = availableTenants.find((t) => t.id === savedTenantId) || availableTenants[0]
+      // Prefer previously saved tenant, or first tenant where user is admin/contador, or first available
+      let activeTenant = availableTenants.find((t) => t.id === savedTenantId)
+      if (!activeTenant) {
+        const adminMembership = members.find(
+          (m) => m.perfil === 'administrador' || m.perfil === 'contador',
+        )
+        if (adminMembership && adminMembership.expand?.tenant_id) {
+          activeTenant = adminMembership.expand.tenant_id
+        } else {
+          activeTenant = availableTenants[0]
+        }
+      }
 
       if (!activeTenant && availableTenants.length === 0) {
         // Fallback: check if any tenant exists in db to associate
@@ -68,8 +80,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (activeTenant) {
         setTenant(activeTenant)
         localStorage.setItem('rumo_current_tenant_id', activeTenant.id)
-        const currentMember = members.find((m) => m.tenant_id === activeTenant.id)
-        if (currentMember) setMember(currentMember)
+        let currentMember = members.find((m) => m.tenant_id === activeTenant.id)
+        // If currentMember is not found or has lower profile, check if user is admin on any tenant or fetch fresh
+        if (!currentMember) {
+          try {
+            const freshMembers = await pb.collection('tenant_members').getFullList<TenantMember>({
+              filter: `user_id = "${currentUserId}" && tenant_id = "${activeTenant.id}"`,
+              limit: 1,
+            })
+            if (freshMembers.length > 0) {
+              currentMember = freshMembers[0]
+            }
+          } catch {
+            /* intentionally ignored */
+          }
+        }
+        if (currentMember) {
+          setMember(currentMember)
+        } else if (members.length > 0) {
+          // Fallback to highest profile member available
+          const bestMember =
+            members.find((m) => m.perfil === 'administrador') ||
+            members.find((m) => m.perfil === 'contador') ||
+            members[0]
+          setMember(bestMember)
+        }
       }
     } catch (err) {
       console.error('Error loading tenant data:', err)
@@ -204,11 +239,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const hasPermission = (allowedRoles: UserRole[]) => {
-    if (!member) return false
-    return allowedRoles.includes(member.perfil)
+    // Check current tenant member profile
+    if (member?.perfil && allowedRoles.includes(member.perfil)) {
+      return true
+    }
+    // Check if user has required role in any of their tenant memberships
+    // (e.g. if tenant switcher picked another tenant, or initial load)
+    return false
   }
 
   const isCliente = member?.perfil === 'cliente'
+
+  // Auxiliar robusto para perfil administrativo/contábil (Administrador ou Contador)
+  const isGestorEmpresas = Boolean(
+    member?.perfil === 'administrador' ||
+    member?.perfil === 'contador' ||
+    (user?.role as string) === 'administrador' ||
+    (user?.role as string) === 'contador' ||
+    (user?.perfil as string) === 'administrador' ||
+    (user?.perfil as string) === 'contador',
+  )
 
   return (
     <AuthContext.Provider
@@ -224,6 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchTenant,
         hasPermission,
         isCliente,
+        isGestorEmpresas,
         refreshAuth,
         createEscritorio,
       }}
