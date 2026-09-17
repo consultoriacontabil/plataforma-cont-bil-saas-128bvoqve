@@ -2544,6 +2544,122 @@ export interface NfeSincronizarResult {
   error?: string
 }
 
+// ==========================================
+// MÓDULO ABERTURA DE EMPRESA (CONSTITUIÇÃO)
+// ==========================================
+
+export type NaturezaJuridicaTipo =
+  | 'slu'
+  | 'ltda'
+  | 'mei'
+  | 'ei'
+  | 'eireli_extinta'
+  | 'sa_fechada'
+  | 'sa_aberta'
+  | 'sociedade_simples_pura'
+  | 'sociedade_simples_ltda'
+  | 'associacao'
+
+export type StatusProcessoAbertura =
+  | 'nao_iniciado'
+  | 'em_andamento'
+  | 'pendencia_documental'
+  | 'protocolado_junta'
+  | 'registrado_concluido'
+  | 'cancelado'
+
+export type StatusItemChecklist = 'pendente' | 'recebido' | 'em_andamento' | 'nao_aplicavel'
+export type StatusEtapaPipeline = 'pendente' | 'em_andamento' | 'concluido' | 'com_pendencia'
+
+export interface SocioAberturaItem {
+  id: string
+  tipo_pessoa: 'PF' | 'PJ'
+  nome_razao: string
+  cpf_cnpj: string
+  percentual_cotas: number
+  quantidade_cotas?: number
+  valor_participacao: number
+  data_entrada: string
+  pais_residencia: string
+  residente_exterior: boolean
+  cargo_funcao: string
+  representante_legal?: string
+  qualificacao?: string
+  pro_labore?: boolean
+}
+
+export interface CnaeItem {
+  codigo: string
+  descricao: string
+  exigeConselho?: boolean
+  orgaoRegistro?: string
+  impedidoMei?: boolean
+  anexoSimples?: string
+}
+
+export interface CnaesAberturaConfig {
+  principal: CnaeItem
+  secundarios: CnaeItem[]
+}
+
+export interface EtapaPipelineItem {
+  id: string
+  nome: string
+  status: StatusEtapaPipeline
+  data_inicio?: string
+  data_conclusao?: string
+  responsavel?: string
+  observacao?: string
+  protocolo?: string
+  anexo_arquivo_nome?: string
+  ged_documento_id?: string
+}
+
+export interface ChecklistDocItem {
+  id: string
+  categoria:
+    | 'socios'
+    | 'empresa'
+    | 'viabilidade'
+    | 'societario'
+    | 'orgao_classe'
+    | 'mercantil'
+    | 'licencas'
+    | 'outros'
+  titulo: string
+  obrigatorio: boolean
+  status: StatusItemChecklist
+  data_recebimento?: string
+  detalhe?: string
+  ged_documento_id?: string
+  nome_arquivo?: string
+}
+
+export interface CompanyFormationRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  natureza_juridica: NaturezaJuridicaTipo
+  porte_pretendido?: EmpresaPorte
+  regime_pretendido?: 'simples_nacional' | 'simei' | 'lucro_presumido' | 'lucro_real'
+  status_processo: StatusProcessoAbertura
+  capital_social_total?: number
+  quotas_total?: number
+  valor_nominal_quota?: number
+  socios_json?: SocioAberturaItem[]
+  cnaes_json?: CnaesAberturaConfig
+  etapas_json?: EtapaPipelineItem[]
+  documentos_checklist_json?: ChecklistDocItem[]
+  base_legal_versao?: string
+  integracao_gerada?: boolean
+  dados_fiscais_integrados_em?: string
+  observacoes?: string
+  responsavel?: string
+  expand?: {
+    empresa?: Empresa
+    responsavel?: User
+  }
+}
+
 export interface NfeManifestarResult {
   sucesso: boolean
   mensagem: string

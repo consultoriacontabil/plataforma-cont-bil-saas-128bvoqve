@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T02:35:39.334Z",
+  "generatedAt": "2026-09-17T14:44:58.213Z",
   "collections": [
     {
       "name": "users",
@@ -9207,6 +9207,173 @@
         "CREATE INDEX idx_exclusoes_bkp_tenant ON exclusoes_empresa_backup (tenant_id, status)",
         "CREATE INDEX idx_exclusoes_bkp_purga ON exclusoes_empresa_backup (status, purga_em)",
         "CREATE INDEX idx_exclusoes_bkp_empresa ON exclusoes_empresa_backup (empresa_id)"
+      ]
+    },
+    {
+      "name": "company_formation",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "natureza_juridica",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "slu",
+            "ltda",
+            "mei",
+            "ei",
+            "eireli_extinta",
+            "sa_fechada",
+            "sa_aberta",
+            "sociedade_simples_pura",
+            "sociedade_simples_ltda",
+            "associacao"
+          ]
+        },
+        {
+          "name": "porte_pretendido",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["mei", "me", "epp", "demais"]
+        },
+        {
+          "name": "regime_pretendido",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["simples_nacional", "simei", "lucro_presumido", "lucro_real"]
+        },
+        {
+          "name": "status_processo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "nao_iniciado",
+            "em_andamento",
+            "pendencia_documental",
+            "protocolado_junta",
+            "registrado_concluido",
+            "cancelado"
+          ]
+        },
+        {
+          "name": "capital_social_total",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quotas_total",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_nominal_quota",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "socios_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnaes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "etapas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "documentos_checklist_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "base_legal_versao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "integracao_gerada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_fiscais_integrados_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_company_formation_tenant ON company_formation (tenant_id)",
+        "CREATE UNIQUE INDEX idx_company_formation_empresa ON company_formation (empresa)",
+        "CREATE INDEX idx_company_formation_status ON company_formation (status_processo)",
+        "CREATE INDEX idx_company_formation_natureza ON company_formation (natureza_juridica)",
+        "CREATE INDEX idx_company_formation_created ON company_formation (created DESC)"
       ]
     }
   ]

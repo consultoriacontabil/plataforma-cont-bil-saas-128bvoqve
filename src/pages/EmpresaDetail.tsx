@@ -26,6 +26,7 @@ import { certificadosService, type CertificadoSaudeInfo } from '@/services/certi
 import { certidoesService, ecacService } from '@/services/regularidade'
 import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
 import { EmpresaNfeRecebidasTab } from '@/components/EmpresaNfeRecebidasTab'
+import { EmpresaAberturaTab } from '@/components/EmpresaAberturaTab'
 import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
 import {
   ShieldCheck,
@@ -38,6 +39,7 @@ import {
   Archive,
   FileCheck2,
   Inbox,
+  Sparkles,
 } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { maskCnpj, formatDatePtBr } from '@/lib/formatters'
@@ -278,6 +280,16 @@ export default function EmpresaDetail() {
             <Layers className="h-4 w-4" />
             <span>Busca NF-e (Destinatário)</span>
           </TabsTrigger>
+          {/* Aba Abertura de Empresa: visível apenas para equipe interna (oculta para perfil cliente) */}
+          {member?.perfil !== 'cliente' && (
+            <TabsTrigger
+              value="abertura"
+              className="rounded-lg text-xs font-semibold gap-2 text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900"
+            >
+              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Abertura de Empresa</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="fiscal" className="rounded-lg text-xs font-semibold gap-2">
             <Calculator className="h-4 w-4" />
             <span>Fiscal ({fiscalList.length})</span>
@@ -696,6 +708,28 @@ export default function EmpresaDetail() {
             }}
           />
         </TabsContent>
+
+        {/* Tab: Abertura de Empresa */}
+        {member?.perfil !== 'cliente' && tenant?.id && (
+          <TabsContent value="abertura" className="space-y-6">
+            <EmpresaAberturaTab
+              empresa={empresa}
+              tenantId={tenant.id}
+              usuarioId={user?.id || ''}
+              userRole={member?.perfil}
+              canEdit={
+                member?.perfil === 'administrador' ||
+                member?.perfil === 'contador' ||
+                isGestorEmpresas ||
+                (user?.role as string) === 'administrador' ||
+                (user?.role as string) === 'contador'
+              }
+              onEmpresaAtualizada={() => {
+                loadData()
+              }}
+            />
+          </TabsContent>
+        )}
 
         {/* Tab 4: Fiscal */}
         <TabsContent value="fiscal">
