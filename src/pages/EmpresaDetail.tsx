@@ -238,11 +238,24 @@ export default function EmpresaDetail() {
 
       {/* Tabs Layout: Visão Geral, Certificado Digital, Documentos, Workflows, Fiscal, Integrações */}
       <Tabs defaultValue="visao_geral" className="space-y-6">
-        <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full justify-start overflow-x-auto">
+        <TabsList className="bg-slate-100 p-1.5 rounded-xl h-auto w-full justify-start flex-wrap gap-1">
           <TabsTrigger value="visao_geral" className="rounded-lg text-xs font-semibold gap-2">
             <Building2 className="h-4 w-4" />
             <span>Visão Geral</span>
           </TabsTrigger>
+          {/* Aba Abertura de Empresa em destaque: visível apenas para equipe interna (oculta para perfil cliente) */}
+          {member?.perfil !== 'cliente' && (
+            <TabsTrigger
+              value="abertura"
+              className="rounded-lg text-xs font-semibold gap-2 text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900"
+            >
+              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Abertura de Empresa</span>
+              <Badge className="bg-[#0FA3A3] text-white hover:bg-[#0FA3A3] text-[9px] font-bold px-1.5 py-0 uppercase tracking-wide h-4 leading-none">
+                NOVO
+              </Badge>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="certificado" className="rounded-lg text-xs font-semibold gap-2">
             <KeyRound className="h-4 w-4" />
             <span>
@@ -280,16 +293,6 @@ export default function EmpresaDetail() {
             <Layers className="h-4 w-4" />
             <span>Busca NF-e (Destinatário)</span>
           </TabsTrigger>
-          {/* Aba Abertura de Empresa: visível apenas para equipe interna (oculta para perfil cliente) */}
-          {member?.perfil !== 'cliente' && (
-            <TabsTrigger
-              value="abertura"
-              className="rounded-lg text-xs font-semibold gap-2 text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900"
-            >
-              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
-              <span>Abertura de Empresa</span>
-            </TabsTrigger>
-          )}
           <TabsTrigger value="fiscal" className="rounded-lg text-xs font-semibold gap-2">
             <Calculator className="h-4 w-4" />
             <span>Fiscal ({fiscalList.length})</span>
