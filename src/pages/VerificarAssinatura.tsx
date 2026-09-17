@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import { RumoLogo } from '@/components/RumoLogo'
 import {
-  Compass,
   ShieldCheck,
   ShieldAlert,
   Search,
@@ -99,17 +99,12 @@ export default function VerificarAssinaturaPage() {
       {/* Topbar Público */}
       <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[#E2E8F0] bg-white px-4 md:px-8 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0FA3A3] to-[#123B6D] text-white shadow-md">
-            <Compass className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-base font-bold tracking-tight text-[#1A2333]">
-              Verificador de Autenticidade Contábil
-            </span>
-            <p className="text-[10px] uppercase font-semibold text-[#64748B]">
-              Rumo Consultoria Contábil • Plataforma de Assinatura Digital
-            </p>
-          </div>
+          <RumoLogo
+            size={40}
+            variant="light"
+            title="Verificador de Autenticidade Contábil"
+            subtitle="Rumo Consultoria Contábil • Assinatura Digital"
+          />
         </div>
 
         <div>

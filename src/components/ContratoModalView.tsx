@@ -1,6 +1,6 @@
 import { useRef } from 'react'
+import { RumoLogo, RumoIcon } from '@/components/RumoLogo'
 import {
-  Compass,
   Printer,
   Download,
   CheckCircle2,
@@ -102,9 +102,7 @@ export function ContratoModalView({
         {/* Topbar com Ações */}
         <DialogHeader className="p-4 px-6 border-b border-[#E2E8F0] flex flex-row items-center justify-between no-print bg-slate-50/70">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0FA3A3] to-[#123B6D] text-white shadow-xs">
-              <Compass className="h-5 w-5" />
-            </div>
+            <RumoLogo size={36} iconOnly badgeStyle="gradient" />
             <div>
               <DialogTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
                 <span>{contrato.titulo}</span>
@@ -155,7 +153,7 @@ export function ContratoModalView({
             <div className="border-b-2 border-[#123B6D] pb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B1F3A] text-white shadow-sm shrink-0">
-                  <Compass className="h-7 w-7 text-[#0FA3A3]" />
+                  <RumoIcon size={28} color="#0FA3A3" />
                 </div>
                 <div>
                   <h1 className="text-xl font-black text-[#0B1F3A] tracking-tight">{tenantNome}</h1>

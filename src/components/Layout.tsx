@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { RumoLogo } from './RumoLogo'
 import {
   Compass,
   LayoutDashboard,
@@ -371,17 +372,13 @@ export default function Layout() {
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-[#123B6D]/60">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#0FA3A3] to-[#123B6D] text-white shadow-md">
-              <Compass className="h-6 w-6" />
-            </div>
-            {!collapsed && (
-              <div className="flex flex-col">
-                <span className="text-lg font-bold tracking-tight text-white">Rumo</span>
-                <span className="text-[10px] uppercase tracking-wider text-[#94A3B8]">
-                  Consultoria Contábil
-                </span>
-              </div>
-            )}
+            <RumoLogo
+              size={40}
+              iconOnly={collapsed}
+              variant="dark"
+              title="Rumo"
+              subtitle="Consultoria Contábil"
+            />
           </div>
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -485,10 +482,13 @@ export default function Layout() {
           <div className="relative flex w-[280px] flex-col bg-[#0B1F3A] text-white shadow-2xl">
             <div className="flex h-16 items-center justify-between border-b border-[#123B6D] px-4">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0FA3A3] text-white">
-                  <Compass className="h-5 w-5" />
-                </div>
-                <span className="font-bold text-white">Rumo Contábil</span>
+                <RumoLogo
+                  size={36}
+                  variant="dark"
+                  badgeStyle="teal"
+                  title="Rumo Contábil"
+                  hideSubtitle
+                />
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}

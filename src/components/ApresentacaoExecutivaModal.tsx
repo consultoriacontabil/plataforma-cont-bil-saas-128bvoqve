@@ -1,4 +1,5 @@
 import React, { useRef } from 'react'
+import { RumoIcon } from '@/components/RumoLogo'
 import {
   Printer,
   Calendar,
@@ -139,9 +140,9 @@ export function ApresentacaoExecutivaModal({
           {/* CABEÇALHO DO ESCRITÓRIO */}
           <div className="border-b-2 border-[#123B6D] pb-4 flex items-start justify-between">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-[#0FA3A3] text-white flex items-center justify-center font-bold text-sm print:border print:border-black">
-                  R
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#0FA3A3] to-[#123B6D] text-white flex items-center justify-center shadow-xs shrink-0 print:border print:border-black">
+                  <RumoIcon size={22} />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#123B6D]">

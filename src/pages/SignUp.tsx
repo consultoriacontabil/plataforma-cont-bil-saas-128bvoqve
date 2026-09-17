@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Compass,
   Mail,
   Lock,
   User,
@@ -11,6 +10,7 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react'
+import { RumoLogo } from '@/components/RumoLogo'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,14 +81,14 @@ export default function SignUp() {
           }}
         />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0FA3A3] to-teal-400 text-white shadow-lg">
-            <Compass className="h-7 w-7" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-white">Rumo</h1>
-            <p className="text-xs uppercase tracking-widest text-[#94A3B8]">Consultoria Contábil</p>
-          </div>
+        <div className="relative z-10">
+          <RumoLogo
+            size={48}
+            variant="dark"
+            badgeStyle="teal"
+            title="Rumo"
+            subtitle="Consultoria Contábil"
+          />
         </div>
 
         <div className="relative z-10 my-10 max-w-xl">
