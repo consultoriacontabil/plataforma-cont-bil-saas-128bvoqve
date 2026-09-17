@@ -66,11 +66,45 @@ export const dpService = {
       filterParts.push(`(nome_completo ~ "${q}" || cpf ~ "${q}" || cargo ~ "${q}")`)
     }
 
-    return pb.collection('funcionarios').getFullList<Funcionario>({
-      filter: filterParts.join(' && '),
-      sort: 'nome_completo',
-      expand: 'empresa',
-    })
+    try {
+      const records = await pb.collection('funcionarios').getFullList<Funcionario>({
+        filter: filterParts.join(' && '),
+        sort: 'nome_completo',
+        expand: 'empresa',
+      })
+      if (tenantId && (!filters?.busca || filters.busca.trim() === '')) {
+        const { offlineDb } = await import('@/lib/offline/db')
+        offlineDb.saveCollectionCache(tenantId, 'funcionarios', records).catch(() => {})
+      }
+      return records
+    } catch (err) {
+      if (tenantId) {
+        const { offlineDb } = await import('@/lib/offline/db')
+        const cached = await offlineDb.getCollectionCache<Funcionario>(tenantId, 'funcionarios')
+        if (cached.length > 0) {
+          return cached.filter((f) => {
+            if (
+              filters?.empresaId &&
+              filters.empresaId !== 'todas' &&
+              f.empresa !== filters.empresaId
+            )
+              return false
+            if (filters?.status && filters.status !== 'todos' && f.status !== filters.status)
+              return false
+            if (filters?.busca && filters.busca.trim()) {
+              const q = filters.busca.toLowerCase().trim()
+              const match =
+                (f.nome_completo || '').toLowerCase().includes(q) ||
+                (f.cpf || '').includes(q) ||
+                (f.cargo || '').toLowerCase().includes(q)
+              if (!match) return false
+            }
+            return true
+          })
+        }
+      }
+      throw err
+    }
   },
 
   async getFuncionario(id: string) {
@@ -80,31 +114,120 @@ export const dpService = {
   },
 
   async createFuncionario(data: CreateFuncionarioInput) {
-    const func = await pb.collection('funcionarios').create<Funcionario>(data)
+    const { offlineDb } = await import('@/lib/offline/db')
 
-    // Registrar automaticamente evento de admissão
     try {
-      await pb.collection('eventos_dp').create<EventoDp>({
-        tenant_id: data.tenant_id,
-        empresa: data.empresa,
-        funcionario: func.id,
-        tipo: 'admissao',
-        data_evento: data.data_admissao,
-        descricao: `Admissão de ${data.nome_completo} no cargo ${data.cargo} (Salário: R$ ${data.salario.toFixed(2)})`,
-      })
+      const func = await pb.collection('funcionarios').create<Funcionario>(data)
+
+      if (data.tenant_id) {
+        await offlineDb.putSingleCacheRecord(data.tenant_id, 'funcionarios', func)
+      }
+
+      // Registrar automaticamente evento de admissão
+      try {
+        await pb.collection('eventos_dp').create<EventoDp>({
+          tenant_id: data.tenant_id,
+          empresa: data.empresa,
+          funcionario: func.id,
+          tipo: 'admissao',
+          data_evento: data.data_admissao,
+          descricao: `Admissão de ${data.nome_completo} no cargo ${data.cargo} (Salário: R$ ${data.salario.toFixed(2)})`,
+        })
+      } catch (err) {
+        console.warn('Erro ao registrar evento de admissão automático:', err)
+      }
+
+      return func
     } catch (err) {
-      console.warn('Erro ao registrar evento de admissão automático:', err)
+      const isNetworkError =
+        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
+      if (isNetworkError && data.tenant_id) {
+        const tempId = `temp_func_${Date.now()}`
+        const localRecord: Funcionario = {
+          id: tempId,
+          created: new Date().toISOString(),
+          updated: new Date().toISOString(),
+          ...(data as unknown as Funcionario),
+        }
+        await offlineDb.enqueueMutation({
+          tenantId: data.tenant_id,
+          entity: 'funcionarios',
+          action: 'create',
+          targetId: tempId,
+          payload: data as unknown as Record<string, unknown>,
+        })
+        await offlineDb.putSingleCacheRecord(data.tenant_id, 'funcionarios', localRecord)
+        return localRecord
+      }
+      throw err
     }
-
-    return func
   },
 
-  async updateFuncionario(id: string, data: Partial<Funcionario>) {
-    return pb.collection('funcionarios').update<Funcionario>(id, data)
+  async updateFuncionario(id: string, data: Partial<Funcionario>, tenantId?: string) {
+    const { offlineDb } = await import('@/lib/offline/db')
+
+    try {
+      const updated = await pb.collection('funcionarios').update<Funcionario>(id, data)
+      if (updated.tenant_id) {
+        await offlineDb.putSingleCacheRecord(updated.tenant_id, 'funcionarios', updated)
+      }
+      return updated
+    } catch (err) {
+      const isNetworkError =
+        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
+      const resolvedTenantId = tenantId || (data as Funcionario).tenant_id
+      if (isNetworkError && resolvedTenantId) {
+        await offlineDb.enqueueMutation({
+          tenantId: resolvedTenantId,
+          entity: 'funcionarios',
+          action: 'update',
+          targetId: id,
+          originalUpdated: (data as Funcionario).updated,
+          payload: data as Record<string, unknown>,
+        })
+        const existing = await offlineDb.getRecordCache<Funcionario>(
+          resolvedTenantId,
+          'funcionarios',
+          id,
+        )
+        const merged: Funcionario = {
+          ...(existing || ({} as Funcionario)),
+          ...data,
+          id,
+          updated: new Date().toISOString(),
+        } as Funcionario
+        await offlineDb.putSingleCacheRecord(resolvedTenantId, 'funcionarios', merged)
+        return merged
+      }
+      throw err
+    }
   },
 
-  async deleteFuncionario(id: string) {
-    return pb.collection('funcionarios').delete(id)
+  async deleteFuncionario(id: string, tenantId?: string) {
+    const { offlineDb } = await import('@/lib/offline/db')
+
+    try {
+      const res = await pb.collection('funcionarios').delete(id)
+      if (tenantId) {
+        await offlineDb.removeSingleCacheRecord(tenantId, 'funcionarios', id)
+      }
+      return res
+    } catch (err) {
+      const isNetworkError =
+        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
+      if (isNetworkError && tenantId) {
+        await offlineDb.enqueueMutation({
+          tenantId,
+          entity: 'funcionarios',
+          action: 'delete',
+          targetId: id,
+          payload: {},
+        })
+        await offlineDb.removeSingleCacheRecord(tenantId, 'funcionarios', id)
+        return true
+      }
+      throw err
+    }
   },
 
   // === Folha de Pagamento ===

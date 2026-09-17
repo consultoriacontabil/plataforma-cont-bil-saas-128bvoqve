@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { OnlineProvider } from '@/contexts/OnlineContext'
+import { Toaster } from '@/components/ui/toaster'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import Layout from '@/components/Layout'
 
@@ -46,91 +48,94 @@ import NotFound from '@/pages/NotFound'
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/verificar-assinatura" element={<VerificarAssinaturaPage />} />
+      <OnlineProvider>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/verificar-assinatura" element={<VerificarAssinaturaPage />} />
 
-        {/* Protected Application Routes wrapped by Layout */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Protected Application Routes wrapped by Layout */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* Empresas */}
-          <Route path="/empresas" element={<Empresas />} />
-          <Route path="/empresas/nova" element={<EmpresaForm />} />
-          <Route path="/empresas/:id" element={<EmpresaDetail />} />
-          <Route path="/empresas/:id/editar" element={<EmpresaForm />} />
+            {/* Empresas */}
+            <Route path="/empresas" element={<Empresas />} />
+            <Route path="/empresas/nova" element={<EmpresaForm />} />
+            <Route path="/empresas/:id" element={<EmpresaDetail />} />
+            <Route path="/empresas/:id/editar" element={<EmpresaForm />} />
 
-          {/* Financeiro (P1/P2) */}
-          <Route path="/financeiro" element={<FinanceiroPage />} />
-          <Route path="/fluxo-caixa" element={<FluxoCaixaPage />} />
+            {/* Financeiro (P1/P2) */}
+            <Route path="/financeiro" element={<FinanceiroPage />} />
+            <Route path="/fluxo-caixa" element={<FluxoCaixaPage />} />
 
-          {/* Core Modules */}
-          <Route path="/documentos" element={<Documentos />} />
-          <Route path="/workflow" element={<WorkflowPage />} />
-          <Route path="/workflow/:id" element={<WorkflowPage />} />
-          <Route path="/obrigacoes" element={<Obrigacoes />} />
-          <Route path="/fiscal" element={<Fiscal />} />
-          <Route path="/analytics-tributario" element={<AnalyticsTributarioPage />} />
-          <Route path="/monitoramento-legislativo" element={<MonitoramentoLegislativoPage />} />
-          <Route path="/nfse-whatsapp" element={<NfseWhatsappPage />} />
-          <Route path="/simulador-reforma" element={<SimuladorReformaPage />} />
+            {/* Core Modules */}
+            <Route path="/documentos" element={<Documentos />} />
+            <Route path="/workflow" element={<WorkflowPage />} />
+            <Route path="/workflow/:id" element={<WorkflowPage />} />
+            <Route path="/obrigacoes" element={<Obrigacoes />} />
+            <Route path="/fiscal" element={<Fiscal />} />
+            <Route path="/analytics-tributario" element={<AnalyticsTributarioPage />} />
+            <Route path="/monitoramento-legislativo" element={<MonitoramentoLegislativoPage />} />
+            <Route path="/nfse-whatsapp" element={<NfseWhatsappPage />} />
+            <Route path="/simulador-reforma" element={<SimuladorReformaPage />} />
 
-          {/* Módulo Departamento Pessoal (P1) */}
-          <Route path="/departamento-pessoal" element={<DepartamentoPessoal />} />
-          <Route path="/impostos-retidos" element={<ImpostosRetidosPage />} />
+            {/* Módulo Departamento Pessoal (P1) */}
+            <Route path="/departamento-pessoal" element={<DepartamentoPessoal />} />
+            <Route path="/impostos-retidos" element={<ImpostosRetidosPage />} />
 
-          {/* Módulo Contábil (P1) e Fecho Automático */}
-          <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />
-          <Route path="/contabil/pre-lancamento" element={<PreLancamentoPage />} />
-          <Route path="/contabil/balancete" element={<Balancete />} />
-          <Route path="/contabil/mapeamento" element={<MapeamentoContabilPage />} />
+            {/* Módulo Contábil (P1) e Fecho Automático */}
+            <Route path="/contabil/lancamentos" element={<LancamentosContabeis />} />
+            <Route path="/contabil/pre-lancamento" element={<PreLancamentoPage />} />
+            <Route path="/contabil/balancete" element={<Balancete />} />
+            <Route path="/contabil/mapeamento" element={<MapeamentoContabilPage />} />
 
-          {/* Novos Módulos: Patrimônio, Fecho Mensal e Relatórios Contábeis */}
-          <Route path="/patrimonio" element={<PatrimonioPage />} />
-          <Route path="/fecho-mensal" element={<FechoMensalPage />} />
-          <Route path="/relatorios-contabeis" element={<RelatoriosContabeisPage />} />
-          <Route path="/contratos" element={<ContratosPage />} />
+            {/* Novos Módulos: Patrimônio, Fecho Mensal e Relatórios Contábeis */}
+            <Route path="/patrimonio" element={<PatrimonioPage />} />
+            <Route path="/fecho-mensal" element={<FechoMensalPage />} />
+            <Route path="/relatorios-contabeis" element={<RelatoriosContabeisPage />} />
+            <Route path="/contratos" element={<ContratosPage />} />
 
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/integracoes" element={<Integracoes />} />
-          <Route path="/extensao" element={<ExtensaoWhatsAppPage />} />
+            <Route path="/relatorios" element={<Relatorios />} />
+            <Route path="/integracoes" element={<Integracoes />} />
+            <Route path="/extensao" element={<ExtensaoWhatsAppPage />} />
 
-          {/* Gestão */}
-          <Route path="/pop-treinamento" element={<PopTreinamentoPage />} />
-          <Route path="/portal-acessos" element={<PortalAcessosPage />} />
-          <Route path="/usuarios" element={<Usuarios />} />
-          <Route path="/usuarios/perfis" element={<Usuarios />} />
-          <Route path="/auditoria" element={<Auditoria />} />
+            {/* Gestão */}
+            <Route path="/pop-treinamento" element={<PopTreinamentoPage />} />
+            <Route path="/portal-acessos" element={<PortalAcessosPage />} />
+            <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/usuarios/perfis" element={<Usuarios />} />
+            <Route path="/auditoria" element={<Auditoria />} />
 
-          {/* Rumo Agent (Native IA) */}
-          <Route path="/rumo-agent" element={<RumoAgentPage />} />
+            {/* Rumo Agent (Native IA) */}
+            <Route path="/rumo-agent" element={<RumoAgentPage />} />
 
-          {/* Perfil */}
-          <Route path="/perfil" element={<Perfil />} />
-        </Route>
+            {/* Perfil */}
+            <Route path="/perfil" element={<Perfil />} />
+          </Route>
 
-        {/* Portal do Cliente (Layout Simplificado Exclusivo para Empresas) */}
-        <Route
-          path="/portal"
-          element={
-            <ProtectedRoute>
-              <PortalClientePage />
-            </ProtectedRoute>
-          }
-        />
+          {/* Portal do Cliente (Layout Simplificado Exclusivo para Empresas) */}
+          <Route
+            path="/portal"
+            element={
+              <ProtectedRoute>
+                <PortalClientePage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Catch-all 404 */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          {/* Catch-all 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+      </OnlineProvider>
     </AuthProvider>
   )
 }

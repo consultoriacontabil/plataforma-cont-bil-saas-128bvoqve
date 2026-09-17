@@ -9,9 +9,15 @@ import {
   Building2,
   Shield,
   FileBadge,
+  Database,
+  Trash2,
+  HardDriveDownload,
+  Wifi,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usersService } from '@/services/users'
+import { offlineDb } from '@/lib/offline/db'
+import { useOnlineStatus } from '@/contexts/OnlineContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -58,6 +64,51 @@ export default function Perfil() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+
+  // Gerenciamento de Armazenamento Offline Local
+  const { isOnline, pendingCount, refreshPendingCount, syncNow } = useOnlineStatus()
+  const [storageStats, setStorageStats] = useState<{ cacheCount: number; outboxCount: number }>({
+    cacheCount: 0,
+    outboxCount: 0,
+  })
+  const [clearingStorage, setClearingStorage] = useState(false)
+
+  React.useEffect(() => {
+    offlineDb
+      .getStorageStats()
+      .then(setStorageStats)
+      .catch(() => {})
+  }, [pendingCount])
+
+  const handleClearLocalData = async () => {
+    if (pendingCount > 0) {
+      const confirmClear = window.confirm(
+        `Atenção: Você possui ${pendingCount} alteração(ões) pendente(s) de sincronização neste dispositivo. Se limpar os dados agora, essas alterações locais não sincronizadas serão perdidas.\n\nDeseja prosseguir mesmo assim?`,
+      )
+      if (!confirmClear) return
+    }
+
+    setClearingStorage(true)
+    try {
+      const res = await offlineDb.clearLocalData()
+      await refreshPendingCount()
+      const updatedStats = await offlineDb.getStorageStats()
+      setStorageStats(updatedStats)
+      toast({
+        title: 'Dados locais limpos com sucesso',
+        description: `${res.cachesCleared} registros do cache local removidos deste dispositivo. Os dados salvos no servidor remoto não foram afetados.`,
+      })
+    } catch (err) {
+      console.error('Erro ao limpar dados locais:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha ao limpar armazenamento',
+        description: 'Não foi possível limpar os dados locais do navegador.',
+      })
+    } finally {
+      setClearingStorage(false)
+    }
+  }
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -380,6 +431,84 @@ export default function Perfil() {
                 {savingEscritorio ? 'Salvando...' : 'Salvar Responsável Técnico & CRC'}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Card: Armazenamento e Persistência Offline */}
+        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-1.5">
+                <Database className="h-4 w-4 text-[#0FA3A3]" />
+                <span>Armazenamento Local & Modo Offline</span>
+              </CardTitle>
+              <Badge
+                className={
+                  isOnline
+                    ? 'bg-emerald-100 text-emerald-800 text-[10px] font-bold gap-1'
+                    : 'bg-amber-100 text-amber-800 text-[10px] font-bold gap-1'
+                }
+              >
+                <Wifi className="h-3 w-3" />
+                <span>{isOnline ? 'Online' : 'Offline'}</span>
+              </Badge>
+            </div>
+            <CardDescription className="text-xs text-[#64748B]">
+              Gerencie a persistência de registros em cache no navegador e a fila outbox deste
+              dispositivo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                <p className="text-lg font-bold text-[#1A2333]">{storageStats.cacheCount}</p>
+                <p className="text-[11px] text-[#64748B]">Registros em Cache Local</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                <p className="text-lg font-bold text-[#0FA3A3]">{storageStats.outboxCount}</p>
+                <p className="text-[11px] text-[#64748B]">Mutações Pendentes</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3 text-xs space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-[#1A2333]">
+                <HardDriveDownload className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                <span>Persistência Multi-tenant Segura</span>
+              </div>
+              <p className="text-[11px] text-[#64748B]">
+                Os dados de Empresas, Documentos, Obrigações, DP e Financeiro ficam gravados no
+                IndexedDB do navegador. Ao limpar os dados deste dispositivo, o servidor PocketBase
+                permanece 100% intacto.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              {isOnline && storageStats.outboxCount > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => syncNow()}
+                  className="rounded-xl border-teal-200 text-[#0FA3A3] hover:bg-teal-50 text-xs h-9"
+                >
+                  Sincronizar Fila Agora
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearLocalData}
+                disabled={
+                  clearingStorage ||
+                  (storageStats.cacheCount === 0 && storageStats.outboxCount === 0)
+                }
+                className="ml-auto rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 text-xs h-9 gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{clearingStorage ? 'Limpando...' : 'Limpar Dados Locais'}</span>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

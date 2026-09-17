@@ -46,6 +46,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { OfflineBanner } from '@/components/OfflineBanner'
 import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
 import { notificacoesService } from '@/services/notificacoes'
@@ -918,6 +919,9 @@ export default function Layout() {
           </div>
         </header>
 
+        {/* Offline & Sync State Banner */}
+        <OfflineBanner />
+
         {/* Content Area (Max 1440px centered, 24px padding) */}
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-[1440px]">
@@ -931,7 +935,7 @@ export default function Layout() {
             <p>© 2025 Rumo Consultoria Contábil. Todos os direitos reservados.</p>
             <div className="flex items-center gap-3">
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-[#1A2333]">
-                v0.0.30
+                v0.0.51
               </span>
               <span className="text-[11px] text-[#94A3B8]">Plataforma Segura SSL</span>
             </div>
