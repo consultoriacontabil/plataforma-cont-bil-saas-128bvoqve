@@ -10,13 +10,21 @@ import { offlineDb } from '@/lib/offline/db'
 import { syncEngine, type SyncResult } from '@/lib/offline/syncEngine'
 import { useToast } from '@/hooks/use-toast'
 
+import {
+  isOfflineModeEnabled,
+  setOfflineModeLocalState,
+  subscribeToOfflineModeChange,
+} from '@/lib/offline/offlineControl'
+
 interface OnlineContextType {
   isOnline: boolean
+  isOfflineModeActive: boolean
   isSyncing: boolean
   pendingCount: number
   lastSyncResult: SyncResult | null
   syncNow: () => Promise<SyncResult | null>
   refreshPendingCount: () => Promise<number>
+  toggleOfflineMode: (enabled: boolean) => Promise<boolean>
 }
 
 const OnlineContext = createContext<OnlineContextType | null>(null)
@@ -25,11 +33,23 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(() => {
     return typeof navigator !== 'undefined' ? navigator.onLine : true
   })
+  const [isOfflineModeActive, setIsOfflineModeActive] = useState<boolean>(() => {
+    return isOfflineModeEnabled()
+  })
   const [isSyncing, setIsSyncing] = useState<boolean>(false)
   const [pendingCount, setPendingCount] = useState<number>(0)
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const wasOfflineRef = useRef<boolean>(false)
   const { toast } = useToast()
+
+  // Sincronizar estado local de modo offline
+  useEffect(() => {
+    setIsOfflineModeActive(isOfflineModeEnabled())
+    const unsub = subscribeToOfflineModeChange((enabled) => {
+      setIsOfflineModeActive(enabled)
+    })
+    return () => unsub()
+  }, [])
 
   const refreshPendingCount = useCallback(async () => {
     try {
@@ -44,12 +64,21 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
   // Sincronizar fila manualmente ou ao retornar online
   const syncNow = useCallback(async (): Promise<SyncResult | null> => {
     if (!navigator.onLine) {
-      toast({
-        variant: 'destructive',
-        title: 'Sem conexão com a internet',
-        description:
-          'Não é possível sincronizar no momento. As alterações continuam salvas no dispositivo.',
-      })
+      if (isOfflineModeEnabled()) {
+        toast({
+          variant: 'destructive',
+          title: 'Sem conexão com a internet',
+          description:
+            'Não é possível sincronizar no momento. As alterações continuam salvas no dispositivo.',
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Sem conexão com a internet',
+          description:
+            'Não é possível sincronizar no momento. Conecte-se à internet para continuar.',
+        })
+      }
       return null
     }
 
@@ -111,10 +140,12 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
 
       if (reachable && wasOfflineRef.current) {
         wasOfflineRef.current = false
-        // Se voltou a ter sinal e temos pendências, disparar sync automático
-        const count = await offlineDb.getOutboxCount()
-        if (count > 0) {
-          syncNow()
+        // Se voltou a ter sinal, somente dispara sync se o modo offline estiver ATIVO e houver pendências
+        if (isOfflineModeEnabled()) {
+          const count = await offlineDb.getOutboxCount()
+          if (count > 0) {
+            syncNow()
+          }
         }
       }
       return reachable
@@ -124,6 +155,55 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
       return false
     }
   }, [syncNow])
+
+  // Alternar modo offline para o tenant atual
+  const toggleOfflineMode = useCallback(
+    async (enabled: boolean): Promise<boolean> => {
+      const tenantId = localStorage.getItem('rumo_current_tenant_id')
+      if (!tenantId) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao alterar modo offline',
+          description: 'Nenhum escritório ativo selecionado.',
+        })
+        return false
+      }
+
+      try {
+        // 1. Atualizar no backend PocketBase
+        await pb.collection('tenants').update(tenantId, {
+          modo_offline: enabled,
+        })
+
+        // 2. Se estiver desligando, limpar qualquer mutação pendente ou avisar
+        if (!enabled) {
+          await offlineDb.clearLocalData()
+          await refreshPendingCount()
+        }
+
+        // 3. Atualizar estado local
+        setOfflineModeLocalState(tenantId, enabled)
+        setIsOfflineModeActive(enabled)
+
+        toast({
+          title: enabled ? 'Modo Offline Ativado' : 'Modo Offline Desativado',
+          description: enabled
+            ? 'Alterações passarão a ser gravadas localmente quando a internet cair e sincronizadas automaticamente.'
+            : 'A plataforma agora opera exclusivamente online. Nenhuma alteração é salva localmente sem conexão.',
+        })
+        return true
+      } catch (err) {
+        console.error('Falha ao atualizar modo offline:', err)
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao salvar preferência de modo offline',
+          description: 'Não foi possível atualizar as configurações do escritório no servidor.',
+        })
+        return false
+      }
+    },
+    [refreshPendingCount, toast],
+  )
 
   useEffect(() => {
     refreshPendingCount()
@@ -163,11 +243,13 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     <OnlineContext.Provider
       value={{
         isOnline,
+        isOfflineModeActive,
         isSyncing,
         pendingCount,
         lastSyncResult,
         syncNow,
         refreshPendingCount,
+        toggleOfflineMode,
       }}
     >
       {children}

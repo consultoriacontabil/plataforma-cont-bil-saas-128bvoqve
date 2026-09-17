@@ -1,6 +1,7 @@
 import pb from '@/lib/pocketbase/client'
 import type { Documento } from '@/types'
 import { offlineDb } from '@/lib/offline/db'
+import { isOfflineModeEnabled } from '@/lib/offline/offlineControl'
 
 export const documentosService = {
   async list(tenantId: string, filter?: string, sort = '-created') {
@@ -61,7 +62,7 @@ export const documentosService = {
     } catch (err) {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      if (isNetworkError && tenantId) {
+      if (isNetworkError && tenantId && isOfflineModeEnabled(tenantId)) {
         await offlineDb.enqueueMutation({
           tenantId,
           entity: 'documentos',
@@ -93,7 +94,7 @@ export const documentosService = {
     } catch (err) {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      if (isNetworkError && tenantId) {
+      if (isNetworkError && tenantId && isOfflineModeEnabled(tenantId)) {
         await offlineDb.enqueueMutation({
           tenantId,
           entity: 'documentos',

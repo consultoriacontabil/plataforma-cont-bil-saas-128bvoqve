@@ -65,13 +65,60 @@ export default function Perfil() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
 
-  // Gerenciamento de Armazenamento Offline Local
-  const { isOnline, pendingCount, refreshPendingCount, syncNow } = useOnlineStatus()
+  // Gerenciamento de Armazenamento Offline Local & Feature Toggle
+  const {
+    isOnline,
+    isOfflineModeActive,
+    pendingCount,
+    refreshPendingCount,
+    syncNow,
+    toggleOfflineMode,
+  } = useOnlineStatus()
+  const [togglingOffline, setTogglingOffline] = useState(false)
   const [storageStats, setStorageStats] = useState<{ cacheCount: number; outboxCount: number }>({
     cacheCount: 0,
     outboxCount: 0,
   })
   const [clearingStorage, setClearingStorage] = useState(false)
+
+  // Permissões: apenas Administrador e Contador podem alterar a chave de modo offline
+  const canManageOfflineMode = member?.perfil === 'administrador' || member?.perfil === 'contador'
+
+  const handleToggleOfflineSwitch = async (checked: boolean) => {
+    if (!canManageOfflineMode) {
+      toast({
+        variant: 'destructive',
+        title: 'Acesso Restrito',
+        description:
+          'Apenas Administradores e Contadores podem alterar a configuração de Modo Offline.',
+      })
+      return
+    }
+
+    // Se estiver DESLIGANDO e houver pendências não sincronizadas no dispositivo, exigir confirmação expressa
+    if (!checked && pendingCount > 0) {
+      const confirmed = window.confirm(
+        `Atenção: Existem ${pendingCount} alteração(ões) pendente(s) gravada(s) localmente neste dispositivo.\n\n` +
+          `Ao desativar o Modo Offline agora, as mutações pendentes locais serão descartadas e a plataforma passará a operar estritamente online.\n\n` +
+          `Deseja realmente desativar e descartar as alterações não sincronizadas?`,
+      )
+      if (!confirmed) {
+        return
+      }
+    }
+
+    setTogglingOffline(true)
+    try {
+      const ok = await toggleOfflineMode(checked)
+      if (ok) {
+        await refreshAuth()
+        const updatedStats = await offlineDb.getStorageStats()
+        setStorageStats(updatedStats)
+      }
+    } finally {
+      setTogglingOffline(false)
+    }
+  }
 
   React.useEffect(() => {
     offlineDb
@@ -442,23 +489,93 @@ export default function Perfil() {
                 <Database className="h-4 w-4 text-[#0FA3A3]" />
                 <span>Armazenamento Local & Modo Offline</span>
               </CardTitle>
-              <Badge
-                className={
-                  isOnline
-                    ? 'bg-emerald-100 text-emerald-800 text-[10px] font-bold gap-1'
-                    : 'bg-amber-100 text-amber-800 text-[10px] font-bold gap-1'
-                }
-              >
-                <Wifi className="h-3 w-3" />
-                <span>{isOnline ? 'Online' : 'Offline'}</span>
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                {/* Badge de status do Modo Offline */}
+                <Badge
+                  className={
+                    isOfflineModeActive
+                      ? 'bg-teal-100 text-teal-800 text-[10px] font-bold'
+                      : 'bg-slate-100 text-slate-700 text-[10px] font-bold'
+                  }
+                >
+                  {isOfflineModeActive ? 'OFFLINE ATIVO' : 'Somente online'}
+                </Badge>
+                {/* Badge de conexão de rede */}
+                <Badge
+                  className={
+                    isOnline
+                      ? 'bg-emerald-100 text-emerald-800 text-[10px] font-bold gap-1'
+                      : 'bg-amber-100 text-amber-800 text-[10px] font-bold gap-1'
+                  }
+                >
+                  <Wifi className="h-3 w-3" />
+                  <span>{isOnline ? 'Online' : 'Offline'}</span>
+                </Badge>
+              </div>
             </div>
             <CardDescription className="text-xs text-[#64748B]">
-              Gerencie a persistência de registros em cache no navegador e a fila outbox deste
-              dispositivo.
+              Gerencie a persistência de registros em cache no navegador e o comportamento offline
+              deste escritório.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4 space-y-4">
+            {/* Interruptor (Toggle) do Modo Offline solicitado pelo usuário */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 flex items-center justify-between gap-3">
+              <div className="space-y-1 pr-2">
+                <div className="flex items-center gap-2">
+                  <Label
+                    htmlFor="offline-mode-switch"
+                    className="text-xs font-bold text-[#1A2333] cursor-pointer"
+                  >
+                    Modo offline
+                  </Label>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                    {isOfflineModeActive ? 'Ligado' : 'Desligado'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#64748B]">
+                  Salva suas alterações no dispositivo quando a internet cai e sincroniza
+                  automaticamente ao reconectar.
+                </p>
+                {!canManageOfflineMode && (
+                  <p className="text-[10px] text-amber-700 font-medium">
+                    * Apenas Administrador e Contador podem alterar esta chave.
+                  </p>
+                )}
+              </div>
+              <Switch
+                id="offline-mode-switch"
+                checked={isOfflineModeActive}
+                onCheckedChange={handleToggleOfflineSwitch}
+                disabled={togglingOffline || !canManageOfflineMode}
+              />
+            </div>
+
+            {/* Painel Informativo sobre o Estado Atual */}
+            {!isOfflineModeActive ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-[#64748B] space-y-1">
+                <p className="font-semibold text-slate-700">
+                  Modo offline desativado — nenhum dado salvo neste dispositivo
+                </p>
+                <p className="text-[11px]">
+                  A plataforma opera com conexão direta ao servidor. Em caso de queda de sinal, as
+                  gravações serão bloqueadas honestamente e você será informado para recarregar
+                  assim que a internet retornar.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-3 text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-[#0FA3A3]">
+                  <HardDriveDownload className="h-3.5 w-3.5" />
+                  <span>Cache e Outbox Ativos</span>
+                </div>
+                <p className="text-[11px] text-[#64748B]">
+                  Empresas, Documentos, Obrigações, DP e Financeiro realizam cache no IndexedDB
+                  deste navegador e enfileiram mutações caso ocorra queda de conexão.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
                 <p className="text-lg font-bold text-[#1A2333]">{storageStats.cacheCount}</p>
@@ -468,18 +585,6 @@ export default function Perfil() {
                 <p className="text-lg font-bold text-[#0FA3A3]">{storageStats.outboxCount}</p>
                 <p className="text-[11px] text-[#64748B]">Mutações Pendentes</p>
               </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3 text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold text-[#1A2333]">
-                <HardDriveDownload className="h-3.5 w-3.5 text-[#0FA3A3]" />
-                <span>Persistência Multi-tenant Segura</span>
-              </div>
-              <p className="text-[11px] text-[#64748B]">
-                Os dados de Empresas, Documentos, Obrigações, DP e Financeiro ficam gravados no
-                IndexedDB do navegador. Ao limpar os dados deste dispositivo, o servidor PocketBase
-                permanece 100% intacto.
-              </p>
             </div>
 
             <div className="flex items-center justify-between gap-3 pt-1">
@@ -506,7 +611,7 @@ export default function Perfil() {
                 className="ml-auto rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 text-xs h-9 gap-1.5"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                <span>{clearingStorage ? 'Limpando...' : 'Limpar Dados Locais'}</span>
+                <span>{clearingStorage ? 'Limpando...' : 'Limpar dados deste dispositivo'}</span>
               </Button>
             </div>
           </CardContent>

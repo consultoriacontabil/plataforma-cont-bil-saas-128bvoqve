@@ -1,6 +1,7 @@
 import pb from '@/lib/pocketbase/client'
 import type { Empresa } from '@/types'
 import { offlineDb } from '@/lib/offline/db'
+import { isOfflineModeEnabled } from '@/lib/offline/offlineControl'
 
 export const empresasService = {
   async list(tenantId: string, filter?: string, sort = '-created', incluirExcluidas = false) {
@@ -92,10 +93,10 @@ export const empresasService = {
       }
       return created
     } catch (err) {
-      // Se estiver offline, enfileirar no outbox e salvar no cache local com id temporário
+      // Se estiver offline, enfileirar no outbox e salvar no cache local com id temporário APENAS se o modo offline estiver habilitado
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      if (isNetworkError && data.tenant_id) {
+      if (isNetworkError && data.tenant_id && isOfflineModeEnabled(data.tenant_id)) {
         const tempId = `temp_emp_${Date.now()}`
         const localEmp: Empresa = {
           id: tempId,
@@ -128,7 +129,7 @@ export const empresasService = {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
       const tenantId = data.tenant_id
-      if (isNetworkError && tenantId) {
+      if (isNetworkError && tenantId && isOfflineModeEnabled(tenantId)) {
         // Enfileirar no outbox
         await offlineDb.enqueueMutation({
           tenantId,
@@ -163,7 +164,7 @@ export const empresasService = {
     } catch (err) {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      if (isNetworkError && tenantId) {
+      if (isNetworkError && tenantId && isOfflineModeEnabled(tenantId)) {
         await offlineDb.enqueueMutation({
           tenantId,
           entity: 'empresas',

@@ -36,9 +36,16 @@ export const tenantService = {
     return { tenant: newTenant, member: newMember }
   },
 
-  // Atualizar dados do tenant (ex: CNPJ, nome, configurações)
+  // Atualizar dados do tenant (ex: CNPJ, nome, configurações, modo offline)
   async updateTenant(tenantId: string, data: Partial<Tenant>): Promise<Tenant> {
     return pb.collection('tenants').update<Tenant>(tenantId, data)
+  },
+
+  // Atualizar especificamente o toggle do Modo Offline por tenant
+  async setModoOffline(tenantId: string, enabled: boolean): Promise<Tenant> {
+    return pb.collection('tenants').update<Tenant>(tenantId, {
+      modo_offline: enabled,
+    })
   },
 
   // Atualizar progresso do onboarding

@@ -12,7 +12,8 @@ import { useLocation } from 'react-router-dom'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function OfflineBanner() {
-  const { isOnline, isSyncing, pendingCount, syncNow, lastSyncResult } = useOnlineStatus()
+  const { isOnline, isOfflineModeActive, isSyncing, pendingCount, syncNow, lastSyncResult } =
+    useOnlineStatus()
   const location = useLocation()
   const [manualSyncLoading, setManualSyncLoading] = useState(false)
 
@@ -34,11 +35,92 @@ export function OfflineBanner() {
     }
   }
 
-  // Não renderiza nada se estiver online e sem pendências de sincronização
+  // 1. Se estiver online e sem nada sincronizando/pendente, não renderiza nada
   if (isOnline && pendingCount === 0 && !isSyncing) {
     return null
   }
 
+  // 2. Quando o Modo Offline estiver DESATIVADO (padrão):
+  // Se estiver sem conexão, exibe um aviso simples e honesto de "Sem conexão", orientando recarregar ao retornar a rede,
+  // bloqueando gravações e SEM prometer que as alterações estão sendo salvas localmente.
+  if (!isOfflineModeActive) {
+    if (!isOnline) {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className="sticky top-16 z-19 w-full bg-slate-900 text-white border-b border-rose-500/40 px-4 py-2.5 shadow-md transition-all animate-in slide-in-from-top duration-300"
+        >
+          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <WifiOff className="h-4 w-4" />
+                <span className="font-semibold text-white">Sem conexão com a internet</span>
+              </div>
+              <span className="hidden sm:inline text-slate-300">
+                O modo offline está desativado. Conecte-se novamente à rede ou recarregue a página
+                quando a internet retornar para continuar salvando.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.location.reload()}
+                className="h-7 px-2.5 text-xs bg-slate-800 border-slate-600 text-white hover:bg-slate-700 hover:text-white gap-1"
+              >
+                <RefreshCw className="h-3 w-3" />
+                <span>Recarregar Página</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Se estiver online mas com pendências residuais anteriores
+    if (pendingCount > 0) {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className="sticky top-16 z-19 w-full bg-slate-900 text-white border-b border-amber-500/30 px-4 py-2.5 shadow-md transition-all animate-in slide-in-from-top duration-300"
+        >
+          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Database className="h-4 w-4" />
+                <span className="font-semibold text-white">
+                  {pendingCount} pendência(s) residual(is) no dispositivo
+                </span>
+              </div>
+              <span className="hidden sm:inline text-slate-300">
+                Você pode sincronizar ou limpar estes dados residuais em Minha Conta.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isSyncing || manualSyncLoading}
+                onClick={handleManualSync}
+                className="h-7 px-2.5 text-xs bg-slate-800 border-slate-600 text-white hover:bg-slate-700 hover:text-white"
+              >
+                <RefreshCw
+                  className={`h-3 w-3 mr-1.5 ${isSyncing || manualSyncLoading ? 'animate-spin' : ''}`}
+                />
+                {isSyncing || manualSyncLoading ? 'Sincronizando...' : 'Sincronizar Resíduos'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  // 3. Quando o Modo Offline estiver ATIVADO pelo usuário:
   return (
     <div
       role="status"

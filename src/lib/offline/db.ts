@@ -9,6 +9,8 @@
  * - Detecção de conflitos otimista (baseada no updated do servidor)
  */
 
+import { isOfflineModeEnabled } from './offlineControl'
+
 export interface OutboxItem {
   id: string // UUID local ou gerado
   tenantId: string
@@ -91,6 +93,9 @@ class OfflineDatabase {
     items: T[],
   ): Promise<void> {
     if (!tenantId || !collection) return
+    // Respeita flag global: se offline desativado, nenhum cache é gravado
+    if (!isOfflineModeEnabled(tenantId)) return
+
     const db = await this.getDB()
 
     return new Promise((resolve, reject) => {
@@ -117,6 +122,9 @@ class OfflineDatabase {
 
   async getCollectionCache<T>(tenantId: string, collection: string): Promise<T[]> {
     if (!tenantId || !collection) return []
+    // Se offline desativado, não retorna dados do cache local
+    if (!isOfflineModeEnabled(tenantId)) return []
+
     const db = await this.getDB()
 
     return new Promise((resolve, reject) => {
@@ -136,6 +144,9 @@ class OfflineDatabase {
 
   async getRecordCache<T>(tenantId: string, collection: string, id: string): Promise<T | null> {
     if (!tenantId || !collection || !id) return null
+    // Se offline desativado, não retorna registro do cache local
+    if (!isOfflineModeEnabled(tenantId)) return null
+
     const db = await this.getDB()
 
     return new Promise((resolve, reject) => {
@@ -161,6 +172,10 @@ class OfflineDatabase {
     collection: string,
     item: T,
   ): Promise<void> {
+    if (!tenantId || !collection) return
+    // Respeita flag global: se offline desativado, não grava no IndexedDB
+    if (!isOfflineModeEnabled(tenantId)) return
+
     const db = await this.getDB()
     return new Promise((resolve, reject) => {
       const tx = db.transaction('entity_cache', 'readwrite')
@@ -197,6 +212,13 @@ class OfflineDatabase {
   async enqueueMutation(
     mutation: Omit<OutboxItem, 'id' | 'createdAt' | 'attempts'>,
   ): Promise<OutboxItem> {
+    // Se o modo offline estiver desativado, NÃO enfileirar e lançar erro honesto de rede
+    if (!isOfflineModeEnabled(mutation.tenantId)) {
+      throw new Error(
+        'Modo offline desativado. É necessária conexão com a internet para salvar alterações.',
+      )
+    }
+
     const db = await this.getDB()
     const id = `mut_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
     const item: OutboxItem = {

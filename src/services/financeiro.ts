@@ -187,7 +187,8 @@ export const financeiroService = {
     } catch (err) {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      if (isNetworkError && data.tenant_id) {
+      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
+      if (isNetworkError && data.tenant_id && isOfflineModeEnabled(data.tenant_id)) {
         const tempId = `temp_fin_${Date.now()}`
         const localRecord: ContaFinanceiraRecord = {
           id: tempId,
@@ -228,7 +229,8 @@ export const financeiroService = {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
       const resolvedTenantId = tenantId || (data as unknown as ContaFinanceiraRecord).tenant_id
-      if (isNetworkError && resolvedTenantId) {
+      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
+      if (isNetworkError && resolvedTenantId && isOfflineModeEnabled(resolvedTenantId)) {
         await offlineDb.enqueueMutation({
           tenantId: resolvedTenantId,
           entity: 'contas_financeiras',
@@ -267,7 +269,8 @@ export const financeiroService = {
     } catch (err) {
       const isNetworkError =
         !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      if (isNetworkError && tenantId) {
+      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
+      if (isNetworkError && tenantId && isOfflineModeEnabled(tenantId)) {
         await offlineDb.enqueueMutation({
           tenantId,
           entity: 'contas_financeiras',
