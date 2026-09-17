@@ -61,6 +61,7 @@ import { FormationCnaesSection } from './FormationCnaesSection'
 import { FormationDocumentosChecklist } from './FormationDocumentosChecklist'
 import { FormationPipeline } from './FormationPipeline'
 import { FormationBaseLegalPanel } from './FormationBaseLegalPanel'
+import { CheckPassosAbertura } from '@/components/CheckPassosAbertura'
 import { GerarLinkPublicoModal } from '@/components/GerarLinkPublicoModal'
 import { NovoWorkflowAberturaModal } from '@/components/NovoWorkflowAberturaModal'
 import { companyOnboardingService } from '@/services/companyOnboarding'
@@ -246,6 +247,51 @@ export const EmpresaAberturaTab: React.FC<EmpresaAberturaTabProps> = ({
     } finally {
       setSaving(false)
     }
+  }
+
+  // Ações no Check dos Passos da Abertura
+  const handleToggleItemPasso = async (
+    itemId: string,
+    marcado: boolean,
+    dadosAuxiliares?: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+  ) => {
+    if (!formation || !canEdit) return
+    const updated = await companyFormationService.alternarItemPasso(
+      formation.id,
+      itemId,
+      marcado,
+      usuarioId,
+      'Contador / Responsável',
+      tenantId,
+      dadosAuxiliares,
+    )
+    setFormation(updated)
+  }
+
+  const handleSalvarCamposAuxiliaresPasso = async (
+    itemId: string,
+    campos: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+  ) => {
+    if (!formation || !canEdit) return
+    const updated = await companyFormationService.salvarCamposAuxiliaresPasso(
+      formation.id,
+      itemId,
+      campos,
+      usuarioId,
+      'Contador / Responsável',
+      tenantId,
+    )
+    setFormation(updated)
   }
 
   // Mudança da Natureza Jurídica
@@ -876,8 +922,22 @@ export const EmpresaAberturaTab: React.FC<EmpresaAberturaTabProps> = ({
           />
         </TabsContent>
 
-        {/* SUB-ABA 5: Pipeline de Etapas */}
-        <TabsContent value="pipeline">
+        {/* SUB-ABA 5: Pipeline de Etapas & Check dos Passos */}
+        <TabsContent value="pipeline" className="space-y-6">
+          <CheckPassosAbertura
+            itens={formation.checklist_passos_json}
+            podeEditar={canEdit}
+            usuarioAtual={{
+              id: usuarioId,
+              nome: 'Responsável',
+            }}
+            tenantId={tenantId}
+            workflowId={formation.id}
+            contexto="empresa_aba"
+            onToggleItem={handleToggleItemPasso}
+            onSalvarCamposAuxiliares={handleSalvarCamposAuxiliaresPasso}
+          />
+
           <FormationPipeline
             etapas={formation.etapas_json || []}
             canEdit={canEdit}

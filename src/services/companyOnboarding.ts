@@ -7,8 +7,10 @@ import type {
   DadosPreliminaresOnboarding,
   NaturezaJuridicaTipo,
   Empresa,
+  ItemCheckPassoAbertura,
 } from '@/types'
 import { auditService } from '@/services/audit'
+import { inicializarChecklistPassos } from '@/lib/passosAberturaConfig'
 import { notificacoesService } from '@/services/notificacoes'
 import { gerarTemplateEtapas, gerarTemplateChecklist } from '@/lib/companyFormationLegal'
 
@@ -137,6 +139,7 @@ export const companyOnboardingService = {
       cliente_email: input.cliente_email || '',
       cliente_telefone: input.cliente_telefone || '',
       observacoes: input.observacoes || '',
+      checklist_passos_json: inicializarChecklistPassos(),
     }
 
     const created = await pb
@@ -327,6 +330,123 @@ export const companyOnboardingService = {
         auditMsg,
       )
     }
+
+    return updated
+  },
+
+  /**
+   * Atualiza ou alterna um item do Check dos Passos da Abertura
+   */
+  async alternarItemPasso(
+    workflowId: string,
+    itemId: string,
+    marcado: boolean,
+    usuarioId: string,
+    usuarioNome: string,
+    tenantId: string,
+    dadosAuxiliares?: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+  ): Promise<CompanyOnboardingWorkflowRecord> {
+    const wf = await this.getById(workflowId)
+    const passos = inicializarChecklistPassos(wf.checklist_passos_json)
+    const index = passos.findIndex((p) => p.id === itemId)
+    if (index === -1) throw new Error('Item dos passos não encontrado.')
+
+    const itemAnterior = passos[index]
+    const novoItem: ItemCheckPassoAbertura = {
+      ...itemAnterior,
+      concluido: marcado,
+      concluido_em: marcado ? new Date().toISOString() : undefined,
+      concluido_por_id: marcado ? usuarioId : undefined,
+      concluido_por_nome: marcado ? usuarioNome : undefined,
+    }
+
+    if (dadosAuxiliares) {
+      if (dadosAuxiliares.protocolo_viabilidade !== undefined) {
+        novoItem.protocolo_viabilidade = dadosAuxiliares.protocolo_viabilidade
+      }
+      if (dadosAuxiliares.nire !== undefined) {
+        novoItem.nire = dadosAuxiliares.nire
+      }
+      if (dadosAuxiliares.data_efetivacao_cnpj !== undefined) {
+        novoItem.data_efetivacao_cnpj = dadosAuxiliares.data_efetivacao_cnpj
+      }
+      if (dadosAuxiliares.observacao !== undefined) {
+        novoItem.observacao = dadosAuxiliares.observacao
+      }
+    }
+
+    passos[index] = novoItem
+
+    const updated = await pb
+      .collection('company_onboarding_workflow')
+      .update<CompanyOnboardingWorkflowRecord>(workflowId, {
+        checklist_passos_json: passos,
+      })
+
+    const acaoTexto = marcado ? 'Marcar passo da abertura' : 'Desmarcar passo da abertura'
+    const detalhes = `Passo ${itemAnterior.numero} (${itemAnterior.passoTitulo}): "${itemAnterior.texto.slice(0, 60)}..." ${
+      marcado ? 'marcado como concluído' : 'desmarcado'
+    } por ${usuarioNome || usuarioId}.${
+      novoItem.protocolo_viabilidade ? ` Protocolo: ${novoItem.protocolo_viabilidade}.` : ''
+    }${novoItem.nire ? ` NIRE: ${novoItem.nire}.` : ''}`
+
+    await auditService.log(
+      tenantId,
+      usuarioId,
+      acaoTexto,
+      'company_onboarding_workflow',
+      workflowId,
+      detalhes,
+    )
+
+    return updated
+  },
+
+  /**
+   * Salva os campos auxiliares inline de um item do passo (protocolo, nire, data efetivação)
+   */
+  async salvarCamposAuxiliaresPasso(
+    workflowId: string,
+    itemId: string,
+    campos: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+    usuarioId: string,
+    usuarioNome: string,
+    tenantId: string,
+  ): Promise<CompanyOnboardingWorkflowRecord> {
+    const wf = await this.getById(workflowId)
+    const passos = inicializarChecklistPassos(wf.checklist_passos_json)
+    const index = passos.findIndex((p) => p.id === itemId)
+    if (index === -1) throw new Error('Item dos passos não encontrado.')
+
+    passos[index] = {
+      ...passos[index],
+      ...campos,
+    }
+
+    const updated = await pb
+      .collection('company_onboarding_workflow')
+      .update<CompanyOnboardingWorkflowRecord>(workflowId, {
+        checklist_passos_json: passos,
+      })
+
+    await auditService.log(
+      tenantId,
+      usuarioId,
+      'Atualização de dados auxiliares do passo',
+      'company_onboarding_workflow',
+      workflowId,
+      `Anotações salvas no item ${passos[index].numero} (${passos[index].passoTitulo}) por ${usuarioNome || usuarioId}.`,
+    )
 
     return updated
   },

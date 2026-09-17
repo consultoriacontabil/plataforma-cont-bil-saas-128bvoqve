@@ -2,13 +2,15 @@ import pb from '@/lib/pocketbase/client'
 import type {
   CompanyFormationRecord,
   NaturezaJuridicaTipo,
+  EmpresaPorte,
   SocioAberturaItem,
   CnaesAberturaConfig,
-  EtapaPipelineItem,
   ChecklistDocItem,
   Empresa,
   ObrigacaoRecord,
+  ItemCheckPassoAbertura,
 } from '@/types'
+import { inicializarChecklistPassos } from '@/lib/passosAberturaConfig'
 import { auditService } from '@/services/audit'
 import { empresasService } from '@/services/empresas'
 import {
@@ -82,6 +84,7 @@ export const companyFormationService = {
       },
       etapas_json: etapas,
       documentos_checklist_json: checklist,
+      checklist_passos_json: inicializarChecklistPassos(),
       base_legal_versao:
         'Marco Legal 2026 (Lei 13.874/19, CC arts. 982-1087, LC 123/06, Lei 14.195/21)',
       integracao_gerada: false,
@@ -267,5 +270,118 @@ export const companyFormationService = {
     )
 
     return { totalCriadas: criadas.length, obrigacoes: criadas }
+  },
+
+  /**
+   * Alterna item dos passos na ficha de company_formation
+   */
+  async alternarItemPasso(
+    formationId: string,
+    itemId: string,
+    marcado: boolean,
+    usuarioId: string,
+    usuarioNome: string,
+    tenantId: string,
+    dadosAuxiliares?: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+  ): Promise<CompanyFormationRecord> {
+    const formation = await this.getById(formationId)
+    const passos = inicializarChecklistPassos(formation.checklist_passos_json)
+    const index = passos.findIndex((p) => p.id === itemId)
+    if (index === -1) throw new Error('Item dos passos não encontrado.')
+
+    const itemAnterior = passos[index]
+    const novoItem: ItemCheckPassoAbertura = {
+      ...itemAnterior,
+      concluido: marcado,
+      concluido_em: marcado ? new Date().toISOString() : undefined,
+      concluido_por_id: marcado ? usuarioId : undefined,
+      concluido_por_nome: marcado ? usuarioNome : undefined,
+    }
+
+    if (dadosAuxiliares) {
+      if (dadosAuxiliares.protocolo_viabilidade !== undefined) {
+        novoItem.protocolo_viabilidade = dadosAuxiliares.protocolo_viabilidade
+      }
+      if (dadosAuxiliares.nire !== undefined) {
+        novoItem.nire = dadosAuxiliares.nire
+      }
+      if (dadosAuxiliares.data_efetivacao_cnpj !== undefined) {
+        novoItem.data_efetivacao_cnpj = dadosAuxiliares.data_efetivacao_cnpj
+      }
+      if (dadosAuxiliares.observacao !== undefined) {
+        novoItem.observacao = dadosAuxiliares.observacao
+      }
+    }
+
+    passos[index] = novoItem
+
+    const updated = await pb
+      .collection('company_formation')
+      .update<CompanyFormationRecord>(formationId, { checklist_passos_json: passos })
+
+    const acaoTexto = marcado ? 'Marcar passo da abertura' : 'Desmarcar passo da abertura'
+    const detalhes = `Passo ${itemAnterior.numero} (${itemAnterior.passoTitulo}): "${itemAnterior.texto.slice(0, 60)}..." ${
+      marcado ? 'marcado como concluído' : 'desmarcado'
+    } por ${usuarioNome || usuarioId}.${
+      novoItem.protocolo_viabilidade ? ` Protocolo: ${novoItem.protocolo_viabilidade}.` : ''
+    }${novoItem.nire ? ` NIRE: ${novoItem.nire}.` : ''}`
+
+    await auditService.log(
+      tenantId,
+      usuarioId,
+      acaoTexto,
+      'company_formation',
+      formationId,
+      detalhes,
+    )
+
+    return updated
+  },
+
+  /**
+   * Salva anotações auxiliares do passo na ficha de company_formation
+   */
+  async salvarCamposAuxiliaresPasso(
+    formationId: string,
+    itemId: string,
+    campos: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+    usuarioId: string,
+    usuarioNome: string,
+    tenantId: string,
+  ): Promise<CompanyFormationRecord> {
+    const formation = await this.getById(formationId)
+    const passos = inicializarChecklistPassos(formation.checklist_passos_json)
+    const index = passos.findIndex((p) => p.id === itemId)
+    if (index === -1) throw new Error('Item dos passos não encontrado.')
+
+    passos[index] = {
+      ...passos[index],
+      ...campos,
+    }
+
+    const updated = await pb
+      .collection('company_formation')
+      .update<CompanyFormationRecord>(formationId, { checklist_passos_json: passos })
+
+    await auditService.log(
+      tenantId,
+      usuarioId,
+      'Atualização de dados auxiliares do passo',
+      'company_formation',
+      formationId,
+      `Anotações salvas no item ${passos[index].numero} (${passos[index].passoTitulo}) por ${usuarioNome || usuarioId}.`,
+    )
+
+    return updated
   },
 }

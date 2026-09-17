@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T19:26:58.240Z",
+  "generatedAt": "2026-09-17T19:35:30.435Z",
   "collections": [
     {
       "name": "users",
@@ -9378,6 +9378,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "checklist_passos_json",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -9556,6 +9562,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "checklist_passos_json",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

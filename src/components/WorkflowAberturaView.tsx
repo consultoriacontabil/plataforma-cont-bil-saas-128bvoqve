@@ -37,6 +37,7 @@ import { companyOnboardingService } from '@/services/companyOnboarding'
 import { GerarLinkPublicoModal } from '@/components/GerarLinkPublicoModal'
 import { NovoWorkflowAberturaModal } from '@/components/NovoWorkflowAberturaModal'
 import { RecusarDocumentoModal } from '@/components/RecusarDocumentoModal'
+import { CheckPassosAbertura } from '@/components/CheckPassosAbertura'
 
 interface WorkflowAberturaViewProps {
   tenantId: string
@@ -107,6 +108,53 @@ export function WorkflowAberturaView({
     carregarWorkflows()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId])
+
+  // Ações no Check dos Passos da Abertura
+  const handleToggleItemPasso = async (
+    itemId: string,
+    marcado: boolean,
+    dadosAuxiliares?: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+  ) => {
+    if (!selectedWorkflow || !canManage) return
+    const updated = await companyOnboardingService.alternarItemPasso(
+      selectedWorkflow.id,
+      itemId,
+      marcado,
+      user?.id || '',
+      user?.nome || user?.email || '',
+      tenantId,
+      dadosAuxiliares,
+    )
+    setSelectedWorkflow(updated)
+    setWorkflows((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))
+  }
+
+  const handleSalvarCamposAuxiliaresPasso = async (
+    itemId: string,
+    campos: {
+      protocolo_viabilidade?: string
+      nire?: string
+      data_efetivacao_cnpj?: string
+      observacao?: string
+    },
+  ) => {
+    if (!selectedWorkflow || !canManage) return
+    const updated = await companyOnboardingService.salvarCamposAuxiliaresPasso(
+      selectedWorkflow.id,
+      itemId,
+      campos,
+      user?.id || '',
+      user?.nome || user?.email || '',
+      tenantId,
+    )
+    setSelectedWorkflow(updated)
+    setWorkflows((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))
+  }
 
   // Ações do Contador no Checklist
   const handleAprovarItem = async (itemId: string) => {
@@ -468,6 +516,24 @@ export function WorkflowAberturaView({
                   </CardHeader>
 
                   <CardContent className="p-5 space-y-4">
+                    {/* Check dos Passos da Abertura (Operacional) */}
+                    <div className="pt-2">
+                      <CheckPassosAbertura
+                        itens={selectedWorkflow.checklist_passos_json}
+                        podeEditar={canManage}
+                        usuarioAtual={{
+                          id: user?.id || '',
+                          nome: user?.nome || user?.email || 'Usuário',
+                          role: user?.perfil,
+                        }}
+                        tenantId={tenantId}
+                        workflowId={selectedWorkflow.id}
+                        contexto="workflow_painel"
+                        onToggleItem={handleToggleItemPasso}
+                        onSalvarCamposAuxiliares={handleSalvarCamposAuxiliaresPasso}
+                      />
+                    </div>
+
                     {/* Lista do Checklist com Status e Ações do Contador */}
                     <div>
                       <div className="flex items-center justify-between mb-3">

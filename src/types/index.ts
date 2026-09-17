@@ -1,5 +1,7 @@
 import type { RecordModel } from 'pocketbase'
+import type { ItemCheckPassoAbertura } from '@/lib/passosAberturaConfig'
 
+export type { ItemCheckPassoAbertura }
 export type UserRole = 'administrador' | 'contador' | 'auxiliar' | 'consultor' | 'cliente'
 export type UserStatus = 'ativo' | 'convite_pendente'
 
@@ -2698,6 +2700,7 @@ export interface CompanyOnboardingWorkflowRecord extends RecordModel {
   status: StatusOnboardingWorkflow
   pipeline_etapas_json?: EtapaPipelineItem[]
   checklist_docs_json?: OnboardingChecklistItem[]
+  checklist_passos_json?: ItemCheckPassoAbertura[]
   dados_preliminares_json?: DadosPreliminaresOnboarding
   token: string
   link_ativo: boolean
@@ -2727,6 +2730,7 @@ export interface CompanyFormationRecord extends RecordModel {
   cnaes_json?: CnaesAberturaConfig
   etapas_json?: EtapaPipelineItem[]
   documentos_checklist_json?: ChecklistDocItem[]
+  checklist_passos_json?: ItemCheckPassoAbertura[]
   base_legal_versao?: string
   integracao_gerada?: boolean
   dados_fiscais_integrados_em?: string
