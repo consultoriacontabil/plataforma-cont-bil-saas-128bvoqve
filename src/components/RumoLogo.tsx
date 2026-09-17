@@ -8,7 +8,7 @@ export interface RumoLogoProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   size?: number
   /**
-   * Se true, exibe apenas a insígnia quadrada/ícone (ideal para sidebar colapsado, avatares, favicon)
+   * Se true, exibe apenas a insígnia circular/ícone (ideal para sidebar colapsado, avatares, favicon)
    */
   iconOnly?: boolean
   /**
@@ -23,7 +23,7 @@ export interface RumoLogoProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   title?: string
   /**
-   * Personalização do subtítulo (padrão: "CONSULTORIA CONTÁBIL")
+   * Personalização do subtítulo (padrão: "Consultoria Contábil")
    */
   subtitle?: string
   /**
@@ -32,12 +32,13 @@ export interface RumoLogoProps extends React.HTMLAttributes<HTMLDivElement> {
   hideSubtitle?: boolean
   /**
    * Estilo do container da insígnia:
-   * - 'gradient': quadrado arredondado com gradiente padrão (#0FA3A3 -> #123B6D)
-   * - 'teal': quadrado arredondado com gradiente verde-petróleo (#0FA3A3 -> #0C8585)
-   * - 'flat-dark': quadrado navy sólido (#0B1F3A)
-   * - 'none': sem moldura (apenas o vetor do monograma)
+   * - 'navy': círculo azul-marinho oficial (#0B1F3A / #002244) conforme marca do cliente
+   * - 'gradient': círculo com gradiente sutil navy (#002244 -> #0B1F3A)
+   * - 'teal': círculo com toque azul-petróleo / navy
+   * - 'flat-dark': círculo navy sólido (#002244)
+   * - 'none': sem moldura (apenas o símbolo vetorial central)
    */
-  badgeStyle?: 'gradient' | 'teal' | 'flat-dark' | 'none'
+  badgeStyle?: 'navy' | 'gradient' | 'teal' | 'flat-dark' | 'none'
   /**
    * Classes extras para a moldura da insígnia
    */
@@ -45,18 +46,67 @@ export interface RumoLogoProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * Insígnia Vetorial da Marca Rumo:
- * Monograma moderno combinando a letra "R", a bússola/rosa dos ventos náutica
- * e uma seta de crescimento/ascensão contábil num design profissional, geométrico e nítido.
+ * Insígnia Vetorial da Marca Rumo Oficial:
+ * Emblema geométrico simétrico com círculo azul-marinho (#002244) e símbolo branco angular centralizado:
+ * - Losango externo estilizado com asas dobradas laterais e notch inferior em V;
+ * - Chevron / seta central apontando para cima (ascensão, rumo, direção, crescimento contábil);
+ * - Forma do topo com fold/dobra angular e corte inferior em ângulo reto.
  */
 export const RumoIcon: React.FC<{
   className?: string
   size?: number
   color?: string
-}> = ({ className, size = 24, color }) => {
+  /**
+   * Se true, renderiza o círculo azul-marinho de fundo com o símbolo branco dentro
+   * Se false (padrão), renderiza o símbolo com a cor especificada ou currentColor
+   */
+  withBackground?: boolean
+}> = ({ className, size = 24, color, withBackground = false }) => {
+  const iconContent = (
+    <g fill={color || 'currentColor'}>
+      {/* 1. Asas externas dobradas simétricas (esquerda e direita) com contorno em diamante */}
+      {/* Asa esquerda */}
+      <polygon points="50,15 19,46 29,56 20,65 40,85 47,78 47,38 31,54 28,51 50,29" />
+      {/* Asa direita (espelhada) */}
+      <polygon points="50,15 81,46 71,56 80,65 60,85 53,78 53,38 69,54 72,51 50,29" />
+
+      {/* 2. Elemento central superior em dobra geométrica (fold) */}
+      <polygon points="50,33 63,46 56,53 50,47 44,53 37,46" />
+
+      {/* 3. Base das asas laterais inferiores com encaixe em notch */}
+      <polygon points="47,46 47,84 41,78 41,52" />
+      <polygon points="53,46 53,84 59,78 59,52" />
+    </g>
+  )
+
+  if (withBackground) {
+    return (
+      <svg
+        viewBox="0 0 100 100"
+        width={size}
+        height={size}
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={cn('shrink-0 select-none', className)}
+        aria-hidden="true"
+      >
+        {/* Círculo de fundo azul-marinho escuro oficial da marca */}
+        <circle cx="50" cy="50" r="49" fill="#002244" />
+        {/* Símbolo geométrico branco centralizado */}
+        <g fill="#FFFFFF">
+          <polygon points="50,15 19,46 29,56 20,65 40,85 47,78 47,38 31,54 28,51 50,29" />
+          <polygon points="50,15 81,46 71,56 80,65 60,85 53,78 53,38 69,54 72,51 50,29" />
+          <polygon points="50,33 63,46 56,53 50,47 44,53 37,46" />
+          <polygon points="47,46 47,84 41,78 41,52" />
+          <polygon points="53,46 53,84 59,78 59,52" />
+        </g>
+      </svg>
+    )
+  }
+
   return (
     <svg
-      viewBox="0 0 36 36"
+      viewBox="0 0 100 100"
       width={size}
       height={size}
       fill="none"
@@ -64,115 +114,14 @@ export const RumoIcon: React.FC<{
       className={cn('shrink-0 select-none', className)}
       aria-hidden="true"
     >
-      <defs>
-        {/* Gradiente sutil da lâmina superior */}
-        <linearGradient
-          id="rumo-compass-cyan"
-          x1="4"
-          y1="4"
-          x2="32"
-          y2="32"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="100%" stopColor="#E0F7FA" />
-        </linearGradient>
-        {/* Gradiente da perna/vetor do R */}
-        <linearGradient
-          id="rumo-compass-accent"
-          x1="18"
-          y1="18"
-          x2="30"
-          y2="30"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#5EEAD4" />
-          <stop offset="100%" stopColor="#2DD4BF" />
-        </linearGradient>
-      </defs>
-
-      {/* 1. Anel externo estilizado da bússola com aberturas de navegação */}
-      <circle
-        cx="18"
-        cy="18"
-        r="14.5"
-        stroke={color || 'currentColor'}
-        strokeWidth="1.8"
-        strokeOpacity="0.45"
-        strokeDasharray="5 2.5"
-      />
-
-      {/* 2. Marcadores cardeais sutis (Norte, Leste, Sul, Oeste) */}
-      <line
-        x1="18"
-        y1="1.5"
-        x2="18"
-        y2="4.5"
-        stroke={color || 'currentColor'}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <line
-        x1="18"
-        y1="31.5"
-        x2="18"
-        y2="34.5"
-        stroke={color || 'currentColor'}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeOpacity="0.6"
-      />
-      <line
-        x1="1.5"
-        y1="18"
-        x2="4.5"
-        y2="18"
-        stroke={color || 'currentColor'}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeOpacity="0.6"
-      />
-      <line
-        x1="31.5"
-        y1="18"
-        x2="34.5"
-        y2="18"
-        stroke={color || 'currentColor'}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeOpacity="0.6"
-      />
-
-      {/* 3. Coluna vertical sólida da haste esquerda do "R" */}
-      <path
-        d="M10 8.5C10 7.67157 10.6716 7 11.5 7H13.5C14.3284 7 15 7.67157 15 8.5V27.5C15 28.3284 14.3284 29 13.5 29H11.5C10.6716 29 10 28.3284 10 27.5V8.5Z"
-        fill={color || 'currentColor'}
-      />
-
-      {/* 4. Arco superior do "R" fundido com a agulha de navegação (Norte-Nordeste) */}
-      <path
-        d="M13.5 7H20.5C23.5376 7 26 9.46243 26 12.5C26 15.5376 23.5376 18 20.5 18H13.5V7Z"
-        stroke={color || 'currentColor'}
-        strokeWidth="3.2"
-        strokeLinejoin="round"
-      />
-
-      {/* 5. Agulha/vetor direcional de Rumo: perna inclinada dinâmica do "R" apontando ao sudeste como uma seta de crescimento */}
-      <path
-        d="M17 17L25.8 28.2C26.3 28.8 27.2 28.8 27.6 28.2L28.2 27.4C28.6 26.8 28.5 26 27.9 25.4L20.2 16.2"
-        fill="url(#rumo-compass-accent)"
-        stroke={color || 'currentColor'}
-        strokeWidth="1"
-      />
-
-      {/* 6. Vértice da bússola / Agulha central apontando ao Norte (direção, Rumo) */}
-      <polygon points="18,10.5 21,17 18,15.5 15,17" fill={color || '#FFFFFF'} />
+      {iconContent}
     </svg>
   )
 }
 
 /**
  * Componente principal da Logo da Rumo Contábil
+ * Apresenta o círculo azul-marinho escuro com o símbolo geométrico branco oficial da marca
  */
 export const RumoLogo: React.FC<RumoLogoProps> = ({
   size = 40,
@@ -181,25 +130,29 @@ export const RumoLogo: React.FC<RumoLogoProps> = ({
   title = 'Rumo',
   subtitle = 'Consultoria Contábil',
   hideSubtitle = false,
-  badgeStyle = 'gradient',
+  badgeStyle = 'navy',
   badgeClassName,
   className,
   ...props
 }) => {
-  // Proporção do ícone interno em relação ao container quadrado
-  const innerIconSize = Math.round(size * 0.58)
+  // Proporção do símbolo interno em relação ao container circular
+  const innerIconSize = Math.round(size * 0.76)
 
   const getBadgeStyleClass = () => {
     switch (badgeStyle) {
-      case 'teal':
-        return 'bg-gradient-to-tr from-[#0FA3A3] to-[#0D8787] text-white shadow-md'
-      case 'flat-dark':
-        return 'bg-[#0B1F3A] text-white border border-[#123B6D]'
       case 'none':
         return 'bg-transparent text-white'
+      case 'teal':
+        // Azul petróleo navy com brilho sutil
+        return 'bg-gradient-to-tr from-[#002244] to-[#0B2C56] text-white shadow-md ring-1 ring-white/10'
+      case 'flat-dark':
+        return 'bg-[#002244] text-white border border-[#123B6D]/60 shadow-sm'
       case 'gradient':
+        return 'bg-gradient-to-tr from-[#001D3D] via-[#002244] to-[#0A2E5C] text-white shadow-md ring-1 ring-white/10'
+      case 'navy':
       default:
-        return 'bg-gradient-to-tr from-[#0FA3A3] to-[#123B6D] text-white shadow-md'
+        // Círculo sólido azul marinho escuro (#002244) conforme imagem oficial enviada
+        return 'bg-[#002244] text-white shadow-md ring-1 ring-white/10'
     }
   }
 
@@ -211,16 +164,16 @@ export const RumoLogo: React.FC<RumoLogoProps> = ({
       className={cn('flex items-center gap-3 overflow-hidden select-none', className)}
       {...props}
     >
-      {/* Insígnia / Quadrado de Identidade */}
+      {/* Insígnia Circular da Marca Oficial Rumo */}
       <div
         style={{ width: size, height: size }}
         className={cn(
-          'flex shrink-0 items-center justify-center rounded-xl transition-all',
+          'flex shrink-0 items-center justify-center rounded-full transition-all overflow-hidden',
           getBadgeStyleClass(),
           badgeClassName,
         )}
       >
-        <RumoIcon size={innerIconSize} />
+        <RumoIcon size={innerIconSize} color="#FFFFFF" />
       </div>
 
       {/* Wordmark (Nome + Subtítulo) */}

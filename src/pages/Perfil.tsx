@@ -15,6 +15,7 @@ import {
   Wifi,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { RumoLogo, RumoIcon } from '@/components/RumoLogo'
 import { usersService } from '@/services/users'
 import { offlineDb } from '@/lib/offline/db'
 import { useOnlineStatus } from '@/contexts/OnlineContext'
@@ -366,6 +367,72 @@ export default function Perfil() {
                 {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Card: Identidade Visual & Marca do Escritório */}
+        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-1.5">
+                <Shield className="h-4 w-4 text-[#0FA3A3]" />
+                <span>Identidade Visual & Marca Oficial</span>
+              </CardTitle>
+              <Badge className="bg-teal-100 text-teal-800 text-[10px] font-bold">Oficial</Badge>
+            </div>
+            <CardDescription className="text-xs text-[#64748B]">
+              Símbolo geométrico navy oficial aplicado em relatórios, login, sidebar, contratos e
+              favicon.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#002244] text-white shadow-md ring-2 ring-[#002244]/20 shrink-0">
+                <RumoIcon size={46} color="#FFFFFF" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-[#1A2333]">
+                    {tenant?.nome || 'Rumo Consultoria'}
+                  </h4>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono text-[#002244] border-[#002244]/40"
+                  >
+                    #002244
+                  </Badge>
+                </div>
+                <p className="text-xs text-[#64748B]">
+                  Marca ativa com emblema geométrico circular em azul-marinho escuro e vetor
+                  simétrico em notch ascensional.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Sincronizada em toda a plataforma
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-[#64748B] block">
+                  Prévia em Fundo Claro
+                </span>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center gap-2">
+                  <RumoLogo size={32} variant="light" title="Rumo" subtitle="Contabilidade" />
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-[#64748B] block">
+                  Prévia em Fundo Escuro
+                </span>
+                <div className="p-2 rounded-lg bg-[#0B1F3A] flex items-center gap-2">
+                  <RumoLogo size={32} variant="dark" title="Rumo" subtitle="Contabilidade" />
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
