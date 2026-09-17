@@ -416,6 +416,44 @@ onRecordAfterUpdateSuccess(
             console.log('[NOTIF] Erro ao notificar assinatura concluída:', errAssNotif)
           }
         }
+      } else if (collectionName === 'company_onboarding_workflow') {
+        const origStatus = record.original().getString('status')
+        const currentStatus = record.getString('status')
+        const titulo = record.getString('titulo') || 'Abertura de Empresa'
+        const razao = record.getString('razao_social_pretendida') || record.getString('titulo')
+
+        // Notificar quando cliente enviou documentos / mudou para em_analise
+        if (currentStatus === 'em_analise' && origStatus !== 'em_analise') {
+          try {
+            const staffMembers = $app.findRecordsByFilter(
+              'tenant_members',
+              "tenant_id = '" + tenantId + "' && (perfil = 'administrador' || perfil = 'contador')",
+              '',
+              10,
+              0,
+            )
+            const tituloStaff = 'Abertura: Documentos enviados pelo cliente'
+            const msgStaff =
+              'O cliente enviou documentação para o workflow de abertura "' +
+              razao +
+              '". Aguardando revisão documental pela equipe.'
+
+            for (let s = 0; s < staffMembers.length; s++) {
+              const staffUserId = staffMembers[s].getString('user_id')
+              const notifStaff = new Record(notificacoesCol)
+              notifStaff.set('tenant_id', tenantId)
+              notifStaff.set('usuario_destino_id', staffUserId)
+              notifStaff.set('titulo', tituloStaff)
+              notifStaff.set('mensagem', msgStaff)
+              notifStaff.set('tipo', 'workflow_status')
+              notifStaff.set('link', '/workflow')
+              notifStaff.set('lida', false)
+              $app.save(notifStaff)
+            }
+          } catch (errWfNotif) {
+            console.log('[NOTIF] Erro ao notificar workflow de abertura:', errWfNotif)
+          }
+        }
       } else if (collectionName === 'contratos_honorarios') {
         const origStatus = record.original().getString('status')
         const currentStatus = record.getString('status')
@@ -559,4 +597,5 @@ onRecordAfterUpdateSuccess(
   'demonstrativos',
   'assinaturas_demonstrativos',
   'contratos_honorarios',
+  'company_onboarding_workflow',
 )

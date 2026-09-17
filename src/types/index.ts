@@ -2636,6 +2636,83 @@ export interface ChecklistDocItem {
   nome_arquivo?: string
 }
 
+export type StatusItemChecklistOnboarding = 'pendente' | 'enviado' | 'aprovado' | 'recusado'
+
+export interface OnboardingChecklistItem {
+  id: string
+  titulo: string
+  categoria:
+    | 'socios'
+    | 'empresa'
+    | 'viabilidade'
+    | 'societario'
+    | 'orgao_classe'
+    | 'mercantil'
+    | 'licencas'
+    | 'outros'
+  obrigatorio: boolean
+  status: StatusItemChecklistOnboarding
+  detalhe?: string
+  ged_documento_id?: string
+  nome_arquivo?: string
+  arquivo_url?: string
+  enviado_em?: string
+  revisado_em?: string
+  motivo_recusa?: string
+}
+
+export type StatusOnboardingWorkflow =
+  | 'em_andamento'
+  | 'aguardando_cliente'
+  | 'em_analise'
+  | 'concluido'
+  | 'cancelado'
+
+export interface DadosPreliminaresOnboarding {
+  razao_social_pretendida?: string
+  nome_fantasia_pretendido?: string
+  natureza_juridica?: NaturezaJuridicaTipo
+  cnpj_pretendido?: string
+  cnae_principal_codigo?: string
+  cnae_principal_descricao?: string
+  capital_social_pretendido?: number
+  socios?: Array<{
+    nome: string
+    cpf: string
+    email?: string
+    telefone?: string
+    percentual_cotas: number
+  }>
+}
+
+export interface CompanyOnboardingWorkflowRecord extends RecordModel {
+  tenant_id: string
+  empresa_id?: string
+  solicitante_id?: string
+  titulo: string
+  razao_social_pretendida?: string
+  nome_fantasia_pretendido?: string
+  natureza_juridica?: NaturezaJuridicaTipo
+  porte_pretendido?: EmpresaPorte
+  regime_pretendido?: 'simples_nacional' | 'simei' | 'lucro_presumido' | 'lucro_real'
+  status: StatusOnboardingWorkflow
+  pipeline_etapas_json?: EtapaPipelineItem[]
+  checklist_docs_json?: OnboardingChecklistItem[]
+  dados_preliminares_json?: DadosPreliminaresOnboarding
+  token: string
+  link_ativo: boolean
+  expira_em?: string
+  cliente_nome?: string
+  cliente_email?: string
+  cliente_telefone?: string
+  observacoes?: string
+  expand?: {
+    empresa_id?: Empresa
+    solicitante_id?: User
+    tenant_id?: Tenant
+  }
+}
+
 export interface CompanyFormationRecord extends RecordModel {
   tenant_id: string
   empresa: string

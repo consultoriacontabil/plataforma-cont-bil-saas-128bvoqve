@@ -37,6 +37,7 @@ import { ImpostosRetidosPage } from '@/pages/ImpostosRetidos'
 import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
+import AberturaClientePublicoPage from '@/pages/AberturaClientePublico'
 import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
 import SimuladorReformaPage from '@/pages/SimuladorReforma'
 import NfseWhatsappPage from '@/pages/NfseWhatsapp'
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verificar-assinatura" element={<VerificarAssinaturaPage />} />
+          <Route path="/abertura/:token" element={<AberturaClientePublicoPage />} />
 
           {/* Protected Application Routes wrapped by Layout */}
           <Route
