@@ -39,6 +39,8 @@ interface CheckPassosAberturaProps {
   tenantId: string
   workflowId: string
   contexto?: 'workflow_painel' | 'empresa_aba'
+  workflowConcluido?: boolean
+  onSolicitarFinalizacao?: () => void
   onToggleItem: (
     itemId: string,
     marcado: boolean,
@@ -66,6 +68,8 @@ export function CheckPassosAbertura({
   onToggleItem,
   onSalvarCamposAuxiliares,
   contexto = 'workflow_painel',
+  workflowConcluido = false,
+  onSolicitarFinalizacao,
 }: CheckPassosAberturaProps) {
   const { toast } = useToast()
   const itens = inicializarChecklistPassos(itensProp)
@@ -502,6 +506,63 @@ export function CheckPassosAbertura({
             </div>
           )
         })}
+
+        {/* Banner de Conclusão dos 18 passos ou ação rápida para finalizar e importar */}
+        {!workflowConcluido && (
+          <div
+            className={`rounded-xl border p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+              concluidosGeral === totalGeral
+                ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 shadow-xs'
+                : 'border-slate-200 bg-slate-50/70 text-slate-800'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold ${
+                  concluidosGeral === totalGeral
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-[#1A2333]">
+                    {concluidosGeral === totalGeral
+                      ? 'Todos os 18 itens operacionais foram concluídos!'
+                      : 'Etapa Final: Conclusão & Importação para Empresas'}
+                  </h4>
+                  {concluidosGeral === totalGeral && (
+                    <Badge className="bg-emerald-200 text-emerald-900 text-[10px] font-bold">
+                      100% Pronto
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {concluidosGeral === totalGeral
+                    ? 'Abertura operacional finalizada. Preencha agora a identificação definitiva (tipo societário, razão social deferida, CNPJ e cliente) para importar diretamente para Empresas Cadastradas.'
+                    : 'Ao concluir os passos ou quando a Junta homologar o processo, clique para concluir a abertura e importar para Empresas Cadastradas.'}
+                </p>
+              </div>
+            </div>
+
+            {podeEditar && onSolicitarFinalizacao && (
+              <Button
+                type="button"
+                onClick={onSolicitarFinalizacao}
+                className={`shrink-0 h-10 px-5 rounded-xl font-semibold text-xs gap-2 shadow-xs transition-colors ${
+                  concluidosGeral === totalGeral
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white animate-pulse hover:animate-none'
+                    : 'bg-[#0FA3A3] hover:bg-[#0D8E8E] text-white'
+                }`}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Finalizar Abertura & Importar</span>
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

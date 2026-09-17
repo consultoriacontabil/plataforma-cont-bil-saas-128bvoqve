@@ -2678,6 +2678,10 @@ export interface DadosPreliminaresOnboarding {
   cnae_principal_codigo?: string
   cnae_principal_descricao?: string
   capital_social_pretendido?: number
+  sugestao_razao_social?: string
+  sugestao_cliente_nome?: string
+  sugestao_cliente_telefone?: string
+  sugestao_cliente_email?: string
   socios?: Array<{
     nome: string
     cpf: string

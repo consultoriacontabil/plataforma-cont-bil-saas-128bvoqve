@@ -37,7 +37,9 @@ import { companyOnboardingService } from '@/services/companyOnboarding'
 import { GerarLinkPublicoModal } from '@/components/GerarLinkPublicoModal'
 import { NovoWorkflowAberturaModal } from '@/components/NovoWorkflowAberturaModal'
 import { RecusarDocumentoModal } from '@/components/RecusarDocumentoModal'
+import { Link } from 'react-router-dom'
 import { CheckPassosAbertura } from '@/components/CheckPassosAbertura'
+import { ModalConclusaoImportacaoEmpresa } from '@/components/ModalConclusaoImportacaoEmpresa'
 
 interface WorkflowAberturaViewProps {
   tenantId: string
@@ -62,11 +64,11 @@ export function WorkflowAberturaView({
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
 
   // Modais
-  const [modalNovoOpen, setModalNovoOpen] = useState(false)
   const [modalLinkOpen, setModalLinkOpen] = useState(false)
+  const [modalNovoOpen, setModalNovoOpen] = useState(false)
+  const [modalConclusaoOpen, setModalConclusaoOpen] = useState(false)
   const [recusarItem, setRecusarItem] = useState<{ id: string; titulo: string } | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
-
   // Permissões
   const isCliente = user?.perfil === 'cliente'
   const canManage = user?.perfil === 'administrador' || user?.perfil === 'contador'
@@ -377,6 +379,16 @@ export function WorkflowAberturaView({
                   const docs = wf.checklist_docs_json || []
                   const aprv = docs.filter((d) => d.status === 'aprovado').length
                   const pend = docs.filter((d) => d.status === 'pendente').length
+                  const isConcluido = wf.status === 'concluido'
+
+                  // Durante o andamento, os campos definitivos ficam em estado neutro/a definir na conclusão
+                  const tituloExibido = isConcluido
+                    ? wf.razao_social_pretendida || wf.titulo
+                    : wf.titulo || 'Processo de Abertura em Andamento'
+
+                  const tipoSocietarioExibido = isConcluido
+                    ? wf.natureza_juridica?.toUpperCase() || 'LTDA'
+                    : '••• a definir'
 
                   return (
                     <div
@@ -390,15 +402,17 @@ export function WorkflowAberturaView({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1 min-w-0">
-                          <p className="text-xs font-bold truncate">
-                            {wf.razao_social_pretendida || wf.titulo}
-                          </p>
+                          <p className="text-xs font-bold truncate">{tituloExibido}</p>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge
                               variant="outline"
-                              className="text-[9px] uppercase px-1.5 py-0 border-slate-300 font-bold"
+                              className={`text-[9px] uppercase px-1.5 py-0 font-bold ${
+                                isConcluido
+                                  ? 'border-slate-300'
+                                  : 'border-slate-300 text-slate-500 italic bg-slate-50'
+                              }`}
                             >
-                              {wf.natureza_juridica || 'SLU'}
+                              {tipoSocietarioExibido}
                             </Badge>
                             <Badge
                               className={`text-[9px] px-1.5 py-0 font-medium ${
@@ -458,33 +472,111 @@ export function WorkflowAberturaView({
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge className="bg-[#0FA3A3] text-white text-xs font-bold uppercase">
-                            {selectedWorkflow.natureza_juridica?.toUpperCase() || 'SLU'}
-                          </Badge>
-                          <h3 className="text-base font-extrabold text-[#1A2333]">
-                            {selectedWorkflow.razao_social_pretendida || selectedWorkflow.titulo}
-                          </h3>
+                          {selectedWorkflow.status === 'concluido' ? (
+                            <>
+                              <Badge className="bg-[#0FA3A3] text-white text-xs font-bold uppercase">
+                                {selectedWorkflow.natureza_juridica?.toUpperCase() || 'LTDA'}
+                              </Badge>
+                              <h3 className="text-base font-extrabold text-[#1A2333]">
+                                {selectedWorkflow.razao_social_pretendida ||
+                                  selectedWorkflow.titulo}
+                              </h3>
+                            </>
+                          ) : (
+                            <>
+                              <Badge
+                                variant="outline"
+                                className="bg-slate-100 text-slate-600 text-xs font-medium border-slate-300 italic"
+                              >
+                                Tipo Societário: ••• a definir na conclusão
+                              </Badge>
+                              <h3 className="text-base font-extrabold text-[#1A2333] flex items-center gap-2">
+                                <span>{selectedWorkflow.titulo}</span>
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] text-slate-500 font-normal italic"
+                                >
+                                  Razão Social definitiva: ••• a definir na conclusão
+                                </Badge>
+                              </h3>
+                            </>
+                          )}
                         </div>
+
                         <p className="text-xs text-[#64748B]">
                           Cliente:{' '}
-                          <span className="font-semibold text-slate-800">
-                            {selectedWorkflow.cliente_nome || 'Não informado'}
-                          </span>{' '}
-                          {selectedWorkflow.cliente_telefone &&
-                            `(${selectedWorkflow.cliente_telefone})`}
+                          {selectedWorkflow.status === 'concluido' ? (
+                            <>
+                              <span className="font-semibold text-slate-800">
+                                {selectedWorkflow.cliente_nome || 'Não informado'}
+                              </span>{' '}
+                              {selectedWorkflow.cliente_telefone &&
+                                `(${selectedWorkflow.cliente_telefone})`}
+                            </>
+                          ) : (
+                            <span className="text-slate-500 italic">
+                              ••• a definir na conclusão do processo
+                            </span>
+                          )}
                         </p>
                       </div>
 
-                      {/* Botão de Destaque: Gerar / Ver Link para o Cliente */}
-                      <Button
-                        type="button"
-                        onClick={() => setModalLinkOpen(true)}
-                        className="h-10 px-4 rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#1E3A8A] text-white text-xs font-semibold gap-2 shadow-xs shrink-0 hover:opacity-95"
-                      >
-                        <Share2 className="h-4 w-4 text-[#0FA3A3]" />
-                        <span>Gerar Link para o Cliente</span>
-                      </Button>
+                      {/* Botões de Ação */}
+                      <div className="flex items-center gap-2 flex-wrap shrink-0">
+                        {canManage && selectedWorkflow.status !== 'concluido' && (
+                          <Button
+                            type="button"
+                            onClick={() => setModalConclusaoOpen(true)}
+                            className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold gap-1.5 shadow-xs"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Finalizar Abertura & Importar</span>
+                          </Button>
+                        )}
+
+                        <Button
+                          type="button"
+                          onClick={() => setModalLinkOpen(true)}
+                          className="h-10 px-4 rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#1E3A8A] text-white text-xs font-semibold gap-2 shadow-xs hover:opacity-95"
+                        >
+                          <Share2 className="h-4 w-4 text-[#0FA3A3]" />
+                          <span>Gerar Link para o Cliente</span>
+                        </Button>
+                      </div>
                     </div>
+
+                    {/* Banner Informativo quando Concluído: Link direto para a empresa criada */}
+                    {selectedWorkflow.status === 'concluido' && (
+                      <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-950">
+                        <div className="flex items-center gap-2.5">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                          <div>
+                            <p className="font-bold">
+                              Empresa importada:{' '}
+                              <span className="underline">
+                                {selectedWorkflow.razao_social_pretendida ||
+                                  selectedWorkflow.titulo}
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-emerald-800">
+                              Processo finalizado e cadastrado em Empresas Cadastradas com todos os
+                              vínculos do tenant.
+                            </p>
+                          </div>
+                        </div>
+
+                        {selectedWorkflow.empresa_id && (
+                          <Link
+                            to={`/empresas/${selectedWorkflow.empresa_id}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 bg-emerald-200/80 hover:bg-emerald-200 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
+                          >
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span>Ver em Empresas Cadastradas</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        )}
+                      </div>
+                    )}
 
                     {/* Contadores do Checklist */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
@@ -529,6 +621,8 @@ export function WorkflowAberturaView({
                         tenantId={tenantId}
                         workflowId={selectedWorkflow.id}
                         contexto="workflow_painel"
+                        workflowConcluido={selectedWorkflow.status === 'concluido'}
+                        onSolicitarFinalizacao={() => setModalConclusaoOpen(true)}
                         onToggleItem={handleToggleItemPasso}
                         onSalvarCamposAuxiliares={handleSalvarCamposAuxiliaresPasso}
                       />
@@ -791,6 +885,20 @@ export function WorkflowAberturaView({
           setSelectedWorkflow(novo)
           // Abre imediatamente o modal de link público para o contador já poder copiar
           setModalLinkOpen(true)
+        }}
+      />
+
+      {/* Modal de Conclusão & Importação Definitiva de Empresa */}
+      <ModalConclusaoImportacaoEmpresa
+        open={modalConclusaoOpen}
+        onOpenChange={setModalConclusaoOpen}
+        workflow={selectedWorkflow}
+        usuarioId={user?.id || ''}
+        usuarioNome={user?.nome || user?.email || 'Contador Responsável'}
+        tenantId={tenantId}
+        onConcluido={({ empresa, workflow: wfAtualizado }) => {
+          setSelectedWorkflow(wfAtualizado)
+          setWorkflows((prev) => prev.map((w) => (w.id === wfAtualizado.id ? wfAtualizado : w)))
         }}
       />
 

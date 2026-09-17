@@ -572,53 +572,139 @@ export const companyOnboardingService = {
   },
 
   /**
-   * Conclui o workflow e cria a ficha definitiva da empresa se ela ainda não existia
+   * Conclui o workflow com dados definitivos fornecidos pelo contador e
+   * importa/cria a empresa diretamente em Empresas Cadastradas (coleção 'empresas').
    */
-  async concluirECriarEmpresa(
+  async concluirEImportarEmpresaDefinitiva(
     workflow: CompanyOnboardingWorkflowRecord,
+    dadosFinais: {
+      natureza_juridica: NaturezaJuridicaTipo
+      razao_social: string
+      nome_fantasia?: string
+      cnpj: string
+      cliente_nome?: string
+      cliente_telefone?: string
+      cliente_email?: string
+      regime_tributario?: Empresa['regime_tributario']
+      porte?: Empresa['porte']
+      data_abertura?: string
+      inscricao_municipal?: string
+      inscricao_estadual?: string
+      cep?: string
+      logradouro?: string
+      numero?: string
+      bairro?: string
+      cidade?: string
+      uf?: string
+    },
     usuarioId: string,
+    usuarioNome?: string,
   ): Promise<{ empresa: Empresa; workflow: CompanyOnboardingWorkflowRecord }> {
-    let empresaAlvo: Empresa
+    const rawCnpj = dadosFinais.cnpj.replace(/\D/g, '')
 
+    // Cria a empresa diretamente no cadastro oficial com vínculo ao tenant
+    let empresaAlvo: Empresa
     if (workflow.empresa_id) {
-      empresaAlvo = await pb.collection('empresas').getOne<Empresa>(workflow.empresa_id)
+      // Se já houver id vinculado, atualiza com os dados definitivos
+      empresaAlvo = await pb.collection('empresas').update<Empresa>(workflow.empresa_id, {
+        razao_social: dadosFinais.razao_social.trim(),
+        nome_fantasia: dadosFinais.nome_fantasia?.trim() || dadosFinais.razao_social.trim(),
+        cnpj: rawCnpj,
+        regime_tributario: dadosFinais.regime_tributario || 'simples_nacional',
+        porte: dadosFinais.porte || 'me',
+        status: 'ativo',
+        email: dadosFinais.cliente_email?.trim() || '',
+        telefone: dadosFinais.cliente_telefone?.trim() || '',
+        data_abertura: dadosFinais.data_abertura || new Date().toISOString().slice(0, 10),
+        inscricao_municipal: dadosFinais.inscricao_municipal || '',
+        inscricao_estadual: dadosFinais.inscricao_estadual || '',
+        cep: dadosFinais.cep || '',
+        logradouro: dadosFinais.logradouro || '',
+        numero: dadosFinais.numero || '',
+        bairro: dadosFinais.bairro || '',
+        cidade: dadosFinais.cidade || '',
+        uf: dadosFinais.uf || '',
+      })
     } else {
-      // Cria a nova empresa a partir dos dados preliminares
-      const dados = workflow.dados_preliminares_json || {}
       empresaAlvo = await pb.collection('empresas').create<Empresa>({
         tenant_id: workflow.tenant_id,
-        razao_social:
-          dados.razao_social_pretendida || workflow.razao_social_pretendida || workflow.titulo,
-        nome_fantasia:
-          dados.nome_fantasia_pretendido ||
-          workflow.nome_fantasia_pretendido ||
-          dados.razao_social_pretendida ||
-          workflow.titulo,
-        cnpj: dados.cnpj_pretendido?.replace(/\D/g, '') || '',
-        regime_tributario: workflow.regime_pretendido || 'simples_nacional',
-        porte: workflow.porte_pretendido || 'me',
+        razao_social: dadosFinais.razao_social.trim(),
+        nome_fantasia: dadosFinais.nome_fantasia?.trim() || dadosFinais.razao_social.trim(),
+        cnpj: rawCnpj,
+        regime_tributario: dadosFinais.regime_tributario || 'simples_nacional',
+        porte: dadosFinais.porte || 'me',
         status: 'ativo',
-        email: workflow.cliente_email || '',
-        telefone: workflow.cliente_telefone || '',
+        email: dadosFinais.cliente_email?.trim() || '',
+        telefone: dadosFinais.cliente_telefone?.trim() || '',
+        data_abertura: dadosFinais.data_abertura || new Date().toISOString().slice(0, 10),
+        inscricao_municipal: dadosFinais.inscricao_municipal || '',
+        inscricao_estadual: dadosFinais.inscricao_estadual || '',
+        cep: dadosFinais.cep || '',
+        logradouro: dadosFinais.logradouro || '',
+        numero: dadosFinais.numero || '',
+        bairro: dadosFinais.bairro || '',
+        cidade: dadosFinais.cidade || '',
+        uf: dadosFinais.uf || '',
+        pais: 'Brasil',
+        observacoes: `Empresa importada e concluída a partir do Workflow de Abertura: "${workflow.titulo}". Concluído por: ${usuarioNome || usuarioId}.`,
       })
     }
 
+    // Agora grava os dados canônicos definitivos no workflow e marca como concluído
     const updatedWf = await pb
       .collection('company_onboarding_workflow')
       .update<CompanyOnboardingWorkflowRecord>(workflow.id, {
         status: 'concluido',
         empresa_id: empresaAlvo.id,
+        natureza_juridica: dadosFinais.natureza_juridica,
+        razao_social_pretendida: dadosFinais.razao_social.trim(),
+        nome_fantasia_pretendido:
+          dadosFinais.nome_fantasia?.trim() || dadosFinais.razao_social.trim(),
+        cliente_nome: dadosFinais.cliente_nome?.trim() || '',
+        cliente_telefone: dadosFinais.cliente_telefone?.trim() || '',
+        cliente_email: dadosFinais.cliente_email?.trim() || '',
       })
 
+    // Registro na auditoria oficial
     await auditService.log(
       workflow.tenant_id,
       usuarioId,
-      'Conclusão do workflow de abertura',
+      'Conclusão e importação de empresa via workflow',
       'company_onboarding_workflow',
       workflow.id,
-      `Workflow concluído com sucesso e vinculado à empresa ${empresaAlvo.razao_social}.`,
+      `Processo de abertura finalizado com sucesso por ${usuarioNome || usuarioId}. Empresa "${empresaAlvo.razao_social}" (CNPJ: ${rawCnpj || 'não informado'}) criada e importada para Empresas Cadastradas (ID: ${empresaAlvo.id}).`,
     )
 
     return { empresa: empresaAlvo, workflow: updatedWf }
+  },
+
+  /**
+   * Conclui o workflow e cria a ficha definitiva da empresa se ela ainda não existia (compatibilidade)
+   */
+  async concluirECriarEmpresa(
+    workflow: CompanyOnboardingWorkflowRecord,
+    usuarioId: string,
+  ): Promise<{ empresa: Empresa; workflow: CompanyOnboardingWorkflowRecord }> {
+    const dados = workflow.dados_preliminares_json || {}
+    return this.concluirEImportarEmpresaDefinitiva(
+      workflow,
+      {
+        natureza_juridica: workflow.natureza_juridica || 'ltda',
+        razao_social:
+          workflow.razao_social_pretendida || dados.razao_social_pretendida || workflow.titulo,
+        nome_fantasia:
+          workflow.nome_fantasia_pretendido ||
+          dados.nome_fantasia_pretendido ||
+          workflow.razao_social_pretendida ||
+          workflow.titulo,
+        cnpj: dados.cnpj_pretendido || '',
+        cliente_nome: workflow.cliente_nome,
+        cliente_telefone: workflow.cliente_telefone,
+        cliente_email: workflow.cliente_email,
+        regime_tributario: workflow.regime_pretendido || 'simples_nacional',
+        porte: workflow.porte_pretendido || 'me',
+      },
+      usuarioId,
+    )
   },
 }
