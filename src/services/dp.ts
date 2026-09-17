@@ -80,54 +80,23 @@ export const dpService = {
   },
 
   async createFuncionario(data: CreateFuncionarioInput) {
-    const { offlineDb } = await import('@/lib/offline/db')
+    const func = await pb.collection('funcionarios').create<Funcionario>(data)
 
+    // Registrar automaticamente evento de admissão
     try {
-      const func = await pb.collection('funcionarios').create<Funcionario>(data)
-
-      if (data.tenant_id) {
-        await offlineDb.putSingleCacheRecord(data.tenant_id, 'funcionarios', func)
-      }
-
-      // Registrar automaticamente evento de admissão
-      try {
-        await pb.collection('eventos_dp').create<EventoDp>({
-          tenant_id: data.tenant_id,
-          empresa: data.empresa,
-          funcionario: func.id,
-          tipo: 'admissao',
-          data_evento: data.data_admissao,
-          descricao: `Admissão de ${data.nome_completo} no cargo ${data.cargo} (Salário: R$ ${data.salario.toFixed(2)})`,
-        })
-      } catch (err) {
-        console.warn('Erro ao registrar evento de admissão automático:', err)
-      }
-
-      return func
+      await pb.collection('eventos_dp').create<EventoDp>({
+        tenant_id: data.tenant_id,
+        empresa: data.empresa,
+        funcionario: func.id,
+        tipo: 'admissao',
+        data_evento: data.data_admissao,
+        descricao: `Admissão de ${data.nome_completo} no cargo ${data.cargo} (Salário: R$ ${data.salario.toFixed(2)})`,
+      })
     } catch (err) {
-      const isNetworkError =
-        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
-      if (isNetworkError && data.tenant_id && isOfflineModeEnabled(data.tenant_id)) {
-        const tempId = `temp_func_${Date.now()}`
-        const localRecord: Funcionario = {
-          id: tempId,
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-          ...(data as unknown as Funcionario),
-        }
-        await offlineDb.enqueueMutation({
-          tenantId: data.tenant_id,
-          entity: 'funcionarios',
-          action: 'create',
-          targetId: tempId,
-          payload: data as unknown as Record<string, unknown>,
-        })
-        await offlineDb.putSingleCacheRecord(data.tenant_id, 'funcionarios', localRecord)
-        return localRecord
-      }
-      throw err
+      console.warn('Erro ao registrar evento de admissão automático:', err)
     }
+
+    return func
   },
 
   async updateFuncionario(id: string, data: Partial<Funcionario>, _tenantId?: string) {

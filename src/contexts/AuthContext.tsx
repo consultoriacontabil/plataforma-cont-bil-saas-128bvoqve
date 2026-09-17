@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import pb from '@/lib/pocketbase/client'
 import type { User, Tenant, TenantMember, UserRole } from '@/types'
-import { setOfflineModeLocalState } from '@/lib/offline/offlineControl'
 
 interface AuthContextType {
   user: User | null
@@ -81,7 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (activeTenant) {
         setTenant(activeTenant)
         localStorage.setItem('rumo_current_tenant_id', activeTenant.id)
-        setOfflineModeLocalState(activeTenant.id, Boolean(activeTenant.modo_offline))
         let currentMember = members.find((m) => m.tenant_id === activeTenant.id)
         // If currentMember is not found or has lower profile, check if user is admin on any tenant or fetch fresh
         if (!currentMember) {
@@ -211,7 +209,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTenant(newTenant)
     setMember(newMember)
     localStorage.setItem('rumo_current_tenant_id', newTenant.id)
-    setOfflineModeLocalState(newTenant.id, Boolean(newTenant.modo_offline))
 
     return newTenant
   }
@@ -228,7 +225,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchTenant = (t: Tenant) => {
     setTenant(t)
     localStorage.setItem('rumo_current_tenant_id', t.id)
-    setOfflineModeLocalState(t.id, Boolean(t.modo_offline))
     if (user) {
       pb.collection('tenant_members')
         .getFullList<TenantMember>({

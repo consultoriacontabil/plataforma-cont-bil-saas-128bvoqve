@@ -128,161 +128,27 @@ export const financeiroService = {
       filter += ` && (pessoa ~ "${q}" || descricao ~ "${q}" || documento_ref ~ "${q}")`
     }
 
-    try {
-      const records = await pb.collection('contas_financeiras').getFullList<ContaFinanceiraRecord>({
-        filter,
-        sort: 'data_vencimento',
-        expand: 'empresa,categoria,conta_bancaria',
-      })
-      if (tenantId && (!filtros?.busca || filtros.busca.trim() === '')) {
-        const { offlineDb } = await import('@/lib/offline/db')
-        offlineDb.saveCollectionCache(tenantId, 'contas_financeiras', records).catch(() => {})
-      }
-      return records
-    } catch (err) {
-      if (tenantId) {
-        const { offlineDb } = await import('@/lib/offline/db')
-        const cached = await offlineDb.getCollectionCache<ContaFinanceiraRecord>(
-          tenantId,
-          'contas_financeiras',
-        )
-        if (cached.length > 0) {
-          return cached.filter((t) => {
-            if (
-              filtros?.empresaId &&
-              filtros.empresaId !== 'all' &&
-              t.empresa !== filtros.empresaId
-            )
-              return false
-            if (filtros?.tipo && t.tipo !== filtros.tipo) return false
-            if (filtros?.status && filtros.status !== 'todos' && t.status !== filtros.status)
-              return false
-            if (filtros?.periodoInicio && t.data_vencimento < filtros.periodoInicio) return false
-            if (filtros?.periodoFim && t.data_vencimento > filtros.periodoFim) return false
-            if (filtros?.busca) {
-              const q = filtros.busca.toLowerCase().trim()
-              const match =
-                (t.descricao || '').toLowerCase().includes(q) ||
-                (t.pessoa || '').toLowerCase().includes(q) ||
-                (t.documento_ref || '').toLowerCase().includes(q)
-              if (!match) return false
-            }
-            return true
-          })
-        }
-      }
-      throw err
-    }
+    return pb.collection('contas_financeiras').getFullList<ContaFinanceiraRecord>({
+      filter,
+      sort: 'data_vencimento',
+      expand: 'empresa,categoria,conta_bancaria',
+    })
   },
 
   async createTitulo(data: CreateContaFinanceiraInput): Promise<ContaFinanceiraRecord> {
-    const { offlineDb } = await import('@/lib/offline/db')
-
-    try {
-      const created = await pb.collection('contas_financeiras').create<ContaFinanceiraRecord>(data)
-      if (created.tenant_id) {
-        await offlineDb.putSingleCacheRecord(created.tenant_id, 'contas_financeiras', created)
-      }
-      return created
-    } catch (err) {
-      const isNetworkError =
-        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
-      if (isNetworkError && data.tenant_id && isOfflineModeEnabled(data.tenant_id)) {
-        const tempId = `temp_fin_${Date.now()}`
-        const localRecord: ContaFinanceiraRecord = {
-          id: tempId,
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-          ...(data as unknown as ContaFinanceiraRecord),
-        }
-        await offlineDb.enqueueMutation({
-          tenantId: data.tenant_id,
-          entity: 'contas_financeiras',
-          action: 'create',
-          targetId: tempId,
-          payload: data as unknown as Record<string, unknown>,
-        })
-        await offlineDb.putSingleCacheRecord(data.tenant_id, 'contas_financeiras', localRecord)
-        return localRecord
-      }
-      throw err
-    }
+    return pb.collection('contas_financeiras').create<ContaFinanceiraRecord>(data)
   },
 
   async updateTitulo(
     id: string,
     data: Partial<CreateContaFinanceiraInput>,
-    tenantId?: string,
+    _tenantId?: string,
   ): Promise<ContaFinanceiraRecord> {
-    const { offlineDb } = await import('@/lib/offline/db')
-
-    try {
-      const updated = await pb
-        .collection('contas_financeiras')
-        .update<ContaFinanceiraRecord>(id, data)
-      if (updated.tenant_id) {
-        await offlineDb.putSingleCacheRecord(updated.tenant_id, 'contas_financeiras', updated)
-      }
-      return updated
-    } catch (err) {
-      const isNetworkError =
-        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      const resolvedTenantId = tenantId || (data as unknown as ContaFinanceiraRecord).tenant_id
-      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
-      if (isNetworkError && resolvedTenantId && isOfflineModeEnabled(resolvedTenantId)) {
-        await offlineDb.enqueueMutation({
-          tenantId: resolvedTenantId,
-          entity: 'contas_financeiras',
-          action: 'update',
-          targetId: id,
-          originalUpdated: (data as unknown as ContaFinanceiraRecord).updated,
-          payload: data as unknown as Record<string, unknown>,
-        })
-        const existing = await offlineDb.getRecordCache<ContaFinanceiraRecord>(
-          resolvedTenantId,
-          'contas_financeiras',
-          id,
-        )
-        const merged: ContaFinanceiraRecord = {
-          ...(existing || ({} as ContaFinanceiraRecord)),
-          ...data,
-          id,
-          updated: new Date().toISOString(),
-        } as ContaFinanceiraRecord
-        await offlineDb.putSingleCacheRecord(resolvedTenantId, 'contas_financeiras', merged)
-        return merged
-      }
-      throw err
-    }
+    return pb.collection('contas_financeiras').update<ContaFinanceiraRecord>(id, data)
   },
 
-  async deleteTitulo(id: string, tenantId?: string): Promise<boolean> {
-    const { offlineDb } = await import('@/lib/offline/db')
-
-    try {
-      const res = await pb.collection('contas_financeiras').delete(id)
-      if (tenantId) {
-        await offlineDb.removeSingleCacheRecord(tenantId, 'contas_financeiras', id)
-      }
-      return res
-    } catch (err) {
-      const isNetworkError =
-        !navigator.onLine || (err instanceof TypeError && err.message.includes('fetch'))
-      const { isOfflineModeEnabled } = await import('@/lib/offline/offlineControl')
-      if (isNetworkError && tenantId && isOfflineModeEnabled(tenantId)) {
-        await offlineDb.enqueueMutation({
-          tenantId,
-          entity: 'contas_financeiras',
-          action: 'delete',
-          targetId: id,
-          payload: {},
-        })
-        await offlineDb.removeSingleCacheRecord(tenantId, 'contas_financeiras', id)
-        return true
-      }
-      throw err
-    }
+  async deleteTitulo(id: string, _tenantId?: string): Promise<boolean> {
+    return pb.collection('contas_financeiras').delete(id)
   },
 
   // Baixa de título (com opção de lançamento contábil em partidas dobradas)

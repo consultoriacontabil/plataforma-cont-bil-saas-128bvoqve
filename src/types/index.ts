@@ -30,7 +30,6 @@ export interface Tenant extends RecordModel {
   crc_responsavel?: string
   email_contato?: string
   endereco_completo?: string
-  modo_offline?: boolean
   onboarding_checklist?: OnboardingChecklistState
 }
 

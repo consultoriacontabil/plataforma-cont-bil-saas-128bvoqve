@@ -41,13 +41,6 @@ export const tenantService = {
     return pb.collection('tenants').update<Tenant>(tenantId, data)
   },
 
-  // Atualizar especificamente o toggle do Modo Offline por tenant
-  async setModoOffline(tenantId: string, enabled: boolean): Promise<Tenant> {
-    return pb.collection('tenants').update<Tenant>(tenantId, {
-      modo_offline: enabled,
-    })
-  },
-
   // Atualizar progresso do onboarding
   async updateOnboarding(
     tenantId: string,
