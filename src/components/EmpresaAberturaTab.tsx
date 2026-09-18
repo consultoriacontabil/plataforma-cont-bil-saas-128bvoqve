@@ -105,24 +105,34 @@ export const EmpresaAberturaTab: React.FC<EmpresaAberturaTabProps> = ({
   const [showObrigacoesModal, setShowObrigacoesModal] = useState(false)
   const [criandoObrigacoes, setCriandoObrigacoes] = useState(false)
 
-  // Link público do cliente para envio de documentos
+  // Workflows vinculados a esta empresa
   const [modalLinkOpen, setModalLinkOpen] = useState(false)
   const [modalNovoWorkflowOpen, setModalNovoWorkflowOpen] = useState(false)
   const [activeWorkflow, setActiveWorkflow] = useState<CompanyOnboardingWorkflowRecord | null>(null)
+  const [empresaWorkflows, setEmpresaWorkflows] = useState<CompanyOnboardingWorkflowRecord[]>([])
+
+  const carregarWorkflowsEmpresa = async () => {
+    if (!empresa?.id || !tenantId) return
+    try {
+      const list = await companyOnboardingService.list(tenantId)
+      const vinculados = list.filter((w) => w.empresa_id === empresa.id)
+      setEmpresaWorkflows(vinculados)
+      if (vinculados.length > 0) {
+        setActiveWorkflow((prev) => {
+          if (!prev) return vinculados[0]
+          return vinculados.find((w) => w.id === prev.id) || vinculados[0]
+        })
+      } else {
+        setActiveWorkflow(null)
+      }
+    } catch (err) {
+      console.error('Erro ao buscar workflows de onboarding da empresa:', err)
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
-    const carregarWorkflowEmpresa = async () => {
-      if (!empresa?.id || !tenantId) return
-      try {
-        const list = await companyOnboardingService.list(tenantId)
-        const match = list.find((w) => w.empresa_id === empresa.id)
-        if (isMounted) setActiveWorkflow(match || null)
-      } catch (err) {
-        console.error('Erro ao buscar workflow de onboarding:', err)
-      }
-    }
-    carregarWorkflowEmpresa()
+    carregarWorkflowsEmpresa()
     return () => {
       isMounted = false
     }
@@ -463,27 +473,53 @@ export const EmpresaAberturaTab: React.FC<EmpresaAberturaTabProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {activeWorkflow ? (
+            {empresaWorkflows.length > 1 && (
+              <Select
+                value={activeWorkflow?.id || ''}
+                onValueChange={(val) => {
+                  const match = empresaWorkflows.find((w) => w.id === val)
+                  if (match) setActiveWorkflow(match)
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0] min-w-[160px] bg-white">
+                  <SelectValue placeholder="Selecione o workflow" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresaWorkflows.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.titulo || w.razao_social_pretendida || 'Processo'} (
+                      {w.status.replace('_', ' ')})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {activeWorkflow && (
               <Button
                 type="button"
                 onClick={() => setModalLinkOpen(true)}
                 className="rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#1E3A8A] hover:opacity-95 text-white text-xs font-semibold h-9 px-3.5 gap-2 shadow-xs"
               >
                 <Share2 className="h-4 w-4 text-[#0FA3A3]" />
-                <span>Link do Cliente (Ativo)</span>
+                <span>Link do Cliente ({activeWorkflow.link_ativo ? 'Ativo' : 'Inativo'})</span>
               </Button>
-            ) : (
-              canEdit && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setModalNovoWorkflowOpen(true)}
-                  className="rounded-xl border-[#0FA3A3] text-teal-800 hover:bg-teal-50 text-xs font-semibold h-9 px-3.5 gap-2 shadow-2xs"
-                >
-                  <PlusCircle className="h-4 w-4 text-[#0FA3A3]" />
-                  <span>Gerar Link para Cliente</span>
-                </Button>
-              )
+            )}
+
+            {canEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalNovoWorkflowOpen(true)}
+                className="rounded-xl border-[#0FA3A3] text-teal-800 hover:bg-teal-50 text-xs font-semibold h-9 px-3.5 gap-2 shadow-2xs"
+              >
+                <PlusCircle className="h-4 w-4 text-[#0FA3A3]" />
+                <span>
+                  {empresaWorkflows.length > 0
+                    ? 'Novo Workflow Simultâneo'
+                    : 'Gerar Link para Cliente'}
+                </span>
+              </Button>
             )}
 
             {canEdit && (
@@ -1103,7 +1139,10 @@ export const EmpresaAberturaTab: React.FC<EmpresaAberturaTabProps> = ({
         open={modalLinkOpen}
         onOpenChange={setModalLinkOpen}
         workflow={activeWorkflow}
-        onWorkflowUpdated={(updated) => setActiveWorkflow(updated)}
+        onWorkflowUpdated={(updated) => {
+          setActiveWorkflow(updated)
+          setEmpresaWorkflows((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))
+        }}
       />
 
       {/* Modal: Criar Novo Workflow de Onboarding para esta Empresa */}
@@ -1115,6 +1154,7 @@ export const EmpresaAberturaTab: React.FC<EmpresaAberturaTabProps> = ({
         razaoSocialPadrao={empresa.razao_social}
         naturezaPadrao={formation?.natureza_juridica || 'slu'}
         onCreated={(novo) => {
+          setEmpresaWorkflows((prev) => [novo, ...prev])
           setActiveWorkflow(novo)
           setModalLinkOpen(true)
         }}

@@ -69,6 +69,8 @@ export function WorkflowAberturaView({
   const [modalConclusaoOpen, setModalConclusaoOpen] = useState(false)
   const [recusarItem, setRecusarItem] = useState<{ id: string; titulo: string } | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null)
+
   // Permissões
   const isCliente = user?.perfil === 'cliente'
   const canManage = user?.perfil === 'administrador' || user?.perfil === 'contador'
@@ -245,6 +247,115 @@ export function WorkflowAberturaView({
     }
   }
 
+  // Exclusão de documento do checklist pelo contador
+  const handleExcluirDocumentoContador = async (item: OnboardingChecklistItem) => {
+    if (!selectedWorkflow || !canManage) return
+
+    const confirmar = window.confirm(
+      `Deseja realmente excluir o documento anexado ao item "${item.titulo}"? Esta ação removerá o arquivo do sistema.`,
+    )
+    if (!confirmar) return
+
+    try {
+      setActionLoadingId(item.id)
+      const updated = await companyOnboardingService.removerDocumentoChecklist(
+        selectedWorkflow,
+        item.id,
+        user?.id || 'contador',
+        'contador',
+      )
+      setSelectedWorkflow(updated)
+      setWorkflows((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))
+      toast({
+        title: 'Documento excluído',
+        description: `O anexo do item "${item.titulo}" foi removido do processo.`,
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover documento.'
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir',
+        description: msg,
+      })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  // Limpeza dos dados preliminares pelo contador
+  const handleLimparDadosContador = async () => {
+    if (!selectedWorkflow || !canManage) return
+
+    const confirmar = window.confirm(
+      'Deseja limpar todos os dados preliminares informados (razão social, capital, sócios) deste workflow?',
+    )
+    if (!confirmar) return
+
+    try {
+      setActionLoadingId('limpar_dados')
+      const updated = await companyOnboardingService.limparDadosPreliminares(
+        selectedWorkflow,
+        user?.id || 'contador',
+        'contador',
+      )
+      setSelectedWorkflow(updated)
+      setWorkflows((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))
+      toast({
+        title: 'Dados preliminares limpos',
+        description: 'Os dados informados foram resetados com sucesso.',
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao limpar dados.'
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao limpar',
+        description: msg,
+      })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  // Exclusão completa de um workflow de abertura
+  const handleExcluirWorkflow = async (workflowParaExcluir: CompanyOnboardingWorkflowRecord) => {
+    if (!canManage) return
+
+    const confirmar = window.confirm(
+      `Tem certeza que deseja excluir o processo "${workflowParaExcluir.titulo}"? Todos os documentos anexados e o link público deste processo serão removidos definitivamente.`,
+    )
+    if (!confirmar) return
+
+    try {
+      setDeletingWorkflowId(workflowParaExcluir.id)
+      await companyOnboardingService.deleteWorkflow(
+        workflowParaExcluir.id,
+        tenantId,
+        user?.id || '',
+        user?.nome || user?.email || 'Contador',
+      )
+
+      toast({
+        title: 'Workflow de abertura excluído',
+        description: `O processo "${workflowParaExcluir.titulo}" foi removido com sucesso.`,
+      })
+
+      const restantes = workflows.filter((w) => w.id !== workflowParaExcluir.id)
+      setWorkflows(restantes)
+      if (selectedWorkflow?.id === workflowParaExcluir.id) {
+        setSelectedWorkflow(restantes.length > 0 ? restantes[0] : null)
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao excluir workflow.'
+      toast({
+        variant: 'destructive',
+        title: 'Erro na exclusão',
+        description: msg,
+      })
+    } finally {
+      setDeletingWorkflowId(null)
+    }
+  }
+
   // Filtragem
   const workflowsFiltrados = workflows.filter((w) => {
     const matchBusca =
@@ -381,24 +492,23 @@ export function WorkflowAberturaView({
                   const pend = docs.filter((d) => d.status === 'pendente').length
                   const isConcluido = wf.status === 'concluido'
 
-                  // Durante o andamento, os campos definitivos ficam em estado neutro/a definir na conclusão
-                  const tituloExibido = isConcluido
-                    ? wf.razao_social_pretendida || wf.titulo
-                    : wf.titulo || 'Processo de Abertura em Andamento'
+                  // Durante o andamento, exibe o título escolhido pelo usuário ou a razão social pretendida se houver
+                  const tituloExibido =
+                    wf.titulo || wf.razao_social_pretendida || 'Processo de Abertura'
 
-                  const tipoSocietarioExibido = isConcluido
-                    ? wf.natureza_juridica?.toUpperCase() || 'LTDA'
-                    : '••• a definir'
+                  const tipoSocietarioExibido = wf.natureza_juridica
+                    ? wf.natureza_juridica.toUpperCase()
+                    : 'A DEFINIR'
 
                   return (
                     <div
                       key={wf.id}
-                      onClick={() => setSelectedWorkflow(wf)}
-                      className={`p-3 rounded-xl cursor-pointer transition-all border ${
+                      className={`group relative p-3 rounded-xl cursor-pointer transition-all border ${
                         isSelected
                           ? 'bg-teal-50/70 border-teal-300 text-teal-950 shadow-2xs'
                           : 'bg-white hover:bg-slate-50 border-transparent text-[#1A2333]'
                       }`}
+                      onClick={() => setSelectedWorkflow(wf)}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1 min-w-0">
@@ -430,21 +540,37 @@ export function WorkflowAberturaView({
                           </div>
                         </div>
 
-                        {wf.link_ativo ? (
-                          <Badge
-                            title="Link público ativo"
-                            className="bg-emerald-100 text-emerald-800 text-[9px] shrink-0"
-                          >
-                            Link ON
-                          </Badge>
-                        ) : (
-                          <Badge
-                            title="Link revogado"
-                            className="bg-rose-100 text-rose-800 text-[9px] shrink-0"
-                          >
-                            Link OFF
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {wf.link_ativo ? (
+                            <Badge
+                              title="Link público ativo"
+                              className="bg-emerald-100 text-emerald-800 text-[9px]"
+                            >
+                              Link ON
+                            </Badge>
+                          ) : (
+                            <Badge
+                              title="Link revogado"
+                              className="bg-rose-100 text-rose-800 text-[9px]"
+                            >
+                              Link OFF
+                            </Badge>
+                          )}
+
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleExcluirWorkflow(wf)
+                              }}
+                              title="Excluir este workflow"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-rose-600 rounded"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mt-2 flex items-center justify-between text-[10px] text-[#64748B]">
@@ -472,50 +598,41 @@ export function WorkflowAberturaView({
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          {selectedWorkflow.status === 'concluido' ? (
-                            <>
-                              <Badge className="bg-[#0FA3A3] text-white text-xs font-bold uppercase">
-                                {selectedWorkflow.natureza_juridica?.toUpperCase() || 'LTDA'}
-                              </Badge>
-                              <h3 className="text-base font-extrabold text-[#1A2333]">
-                                {selectedWorkflow.razao_social_pretendida ||
-                                  selectedWorkflow.titulo}
-                              </h3>
-                            </>
-                          ) : (
-                            <>
+                          <Badge className="bg-[#0FA3A3] text-white text-xs font-bold uppercase">
+                            {selectedWorkflow.natureza_juridica?.toUpperCase() || 'SLU'}
+                          </Badge>
+                          <h3 className="text-base font-extrabold text-[#1A2333]">
+                            {selectedWorkflow.titulo ||
+                              selectedWorkflow.razao_social_pretendida ||
+                              'Processo de Abertura'}
+                          </h3>
+                          {selectedWorkflow.razao_social_pretendida &&
+                            selectedWorkflow.razao_social_pretendida !==
+                              selectedWorkflow.titulo && (
                               <Badge
-                                variant="outline"
-                                className="bg-slate-100 text-slate-600 text-xs font-medium border-slate-300 italic"
+                                variant="secondary"
+                                className="text-[10px] text-slate-600 font-medium"
                               >
-                                Tipo Societário: ••• a definir na conclusão
+                                Razão: {selectedWorkflow.razao_social_pretendida}
                               </Badge>
-                              <h3 className="text-base font-extrabold text-[#1A2333] flex items-center gap-2">
-                                <span>{selectedWorkflow.titulo}</span>
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[10px] text-slate-500 font-normal italic"
-                                >
-                                  Razão Social definitiva: ••• a definir na conclusão
-                                </Badge>
-                              </h3>
-                            </>
-                          )}
+                            )}
                         </div>
 
                         <p className="text-xs text-[#64748B]">
                           Cliente:{' '}
-                          {selectedWorkflow.status === 'concluido' ? (
+                          {selectedWorkflow.cliente_nome ? (
                             <>
                               <span className="font-semibold text-slate-800">
-                                {selectedWorkflow.cliente_nome || 'Não informado'}
+                                {selectedWorkflow.cliente_nome}
                               </span>{' '}
                               {selectedWorkflow.cliente_telefone &&
                                 `(${selectedWorkflow.cliente_telefone})`}
+                              {selectedWorkflow.cliente_email &&
+                                ` • ${selectedWorkflow.cliente_email}`}
                             </>
                           ) : (
-                            <span className="text-slate-500 italic">
-                              ••• a definir na conclusão do processo
+                            <span className="text-slate-400 italic">
+                              Aguardando identificação pelo cliente via link público
                             </span>
                           )}
                         </p>
@@ -542,6 +659,24 @@ export function WorkflowAberturaView({
                           <Share2 className="h-4 w-4 text-[#0FA3A3]" />
                           <span>Gerar Link para o Cliente</span>
                         </Button>
+
+                        {canManage && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={deletingWorkflowId === selectedWorkflow.id}
+                            onClick={() => handleExcluirWorkflow(selectedWorkflow)}
+                            title="Excluir este processo de abertura"
+                            className="h-10 px-3 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 text-xs font-medium gap-1.5"
+                          >
+                            {deletingWorkflowId === selectedWorkflow.id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4 text-rose-500" />
+                            )}
+                            <span className="hidden sm:inline">Excluir Processo</span>
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -725,9 +860,24 @@ export function WorkflowAberturaView({
                                 )}
                               </div>
 
-                              {/* Ações do Contador: Aprovar / Recusar */}
+                              {/* Ações do Contador: Aprovar / Recusar / Excluir Anexo */}
                               {canManage && (
                                 <div className="shrink-0 flex items-center gap-1.5">
+                                  {/* Botão de Excluir Arquivo Anexo (disponível para Contador mesmo se aprovado) */}
+                                  {item.nome_arquivo && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={isItemLoading}
+                                      onClick={() => handleExcluirDocumentoContador(item)}
+                                      title="Excluir arquivo anexo"
+                                      className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
+
                                   {isAprovado ? (
                                     <Button
                                       type="button"
@@ -737,40 +887,44 @@ export function WorkflowAberturaView({
                                       onClick={() =>
                                         setRecusarItem({ id: item.id, titulo: item.titulo })
                                       }
-                                      className="h-8 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg px-2"
+                                      className="h-8 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg px-2"
                                     >
                                       Reabrir / Recusar
                                     </Button>
                                   ) : (
                                     <>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={isItemLoading}
-                                        onClick={() =>
-                                          setRecusarItem({ id: item.id, titulo: item.titulo })
-                                        }
-                                        className="h-8 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 rounded-lg px-2.5 gap-1"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                        <span>Recusar</span>
-                                      </Button>
+                                      {isEnviado && (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          disabled={isItemLoading}
+                                          onClick={() =>
+                                            setRecusarItem({ id: item.id, titulo: item.titulo })
+                                          }
+                                          className="h-8 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 rounded-lg px-2.5 gap-1"
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                          <span>Recusar</span>
+                                        </Button>
+                                      )}
 
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        disabled={isItemLoading}
-                                        onClick={() => handleAprovarItem(item.id)}
-                                        className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 gap-1 shadow-xs"
-                                      >
-                                        {isItemLoading ? (
-                                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                        ) : (
-                                          <Check className="h-3.5 w-3.5" />
-                                        )}
-                                        <span>Aprovar</span>
-                                      </Button>
+                                      {isEnviado && (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          disabled={isItemLoading}
+                                          onClick={() => handleAprovarItem(item.id)}
+                                          className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 gap-1 shadow-xs"
+                                        >
+                                          {isItemLoading ? (
+                                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <Check className="h-3.5 w-3.5" />
+                                          )}
+                                          <span>Aprovar</span>
+                                        </Button>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -784,10 +938,35 @@ export function WorkflowAberturaView({
                     {/* Seção de Dados Preliminares enviados pelo cliente */}
                     {selectedWorkflow.dados_preliminares_json && (
                       <div className="pt-2 border-t border-slate-100 space-y-2">
-                        <h4 className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
-                          <Users className="h-4 w-4 text-[#0FA3A3]" />
-                          <span>Dados Fornecidos pelo Cliente via Link</span>
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
+                            <Users className="h-4 w-4 text-[#0FA3A3]" />
+                            <span>Dados Fornecidos pelo Cliente via Link</span>
+                          </h4>
+                          {canManage &&
+                            (selectedWorkflow.dados_preliminares_json.razao_social_pretendida ||
+                              selectedWorkflow.dados_preliminares_json.nome_fantasia_pretendido ||
+                              (selectedWorkflow.dados_preliminares_json.capital_social_pretendido ||
+                                0) > 0 ||
+                              (selectedWorkflow.dados_preliminares_json.socios?.length || 0) >
+                                0) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={actionLoadingId === 'limpar_dados'}
+                                onClick={handleLimparDadosContador}
+                                className="h-7 px-2.5 text-[11px] text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg gap-1"
+                              >
+                                {actionLoadingId === 'limpar_dados' ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <X className="h-3 w-3" />
+                                )}
+                                <span>Limpar/Excluir Dados Preenchidos</span>
+                              </Button>
+                            )}
+                        </div>
 
                         <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2 text-xs">
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

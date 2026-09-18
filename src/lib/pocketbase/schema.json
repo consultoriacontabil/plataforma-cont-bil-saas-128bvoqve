@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T19:53:42.716Z",
+  "generatedAt": "2026-09-18T15:55:13.227Z",
   "collections": [
     {
       "name": "users",
@@ -375,7 +375,7 @@
         "view": "@request.auth.id != '' || origem_documento = 'link_publico'",
         "create": "@request.auth.id != '' || @request.body.origem_documento = 'link_publico'",
         "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "delete": "@request.auth.id != '' || origem_documento = 'link_publico'"
       },
       "fields": [
         {

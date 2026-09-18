@@ -109,7 +109,7 @@ export default function AberturaClientePublicoPage() {
 
       setWorkflow(data)
 
-      // Preenche os campos caso já existam
+      // Preenche os campos caso já existam (se não houver nada, mantém vazio)
       const prelim = data.dados_preliminares_json || {}
       setRazaoSocial(data.razao_social_pretendida || prelim.razao_social_pretendida || '')
       setNomeFantasia(data.nome_fantasia_pretendido || prelim.nome_fantasia_pretendido || '')
@@ -120,22 +120,25 @@ export default function AberturaClientePublicoPage() {
           ? `${prelim.cnae_principal_codigo} - ${prelim.cnae_principal_descricao || ''}`
           : '',
       )
-      setCapitalSocial(prelim.capital_social_pretendido || 10000)
+      // Capital social e sócios iniciam vazios em novos workflows
+      setCapitalSocial(prelim.capital_social_pretendido || 0)
       setClienteNome(data.cliente_nome || '')
       setClienteEmail(data.cliente_email || '')
       setClienteTelefone(data.cliente_telefone || '')
       setSocios(
         prelim.socios && prelim.socios.length > 0
           ? prelim.socios
-          : [
-              {
-                nome: data.cliente_nome || '',
-                cpf: '',
-                email: data.cliente_email || '',
-                telefone: data.cliente_telefone || '',
-                percentual_cotas: 100,
-              },
-            ],
+          : data.cliente_nome
+            ? [
+                {
+                  nome: data.cliente_nome,
+                  cpf: '',
+                  email: data.cliente_email || '',
+                  telefone: data.cliente_telefone || '',
+                  percentual_cotas: 100,
+                },
+              ]
+            : [],
       )
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao buscar workflow.'
@@ -230,6 +233,89 @@ export default function AberturaClientePublicoPage() {
       toast({
         variant: 'destructive',
         title: 'Erro ao salvar',
+        description: msg,
+      })
+    } finally {
+      setSavingDados(false)
+    }
+  }
+
+  // Exclusão de documento do checklist pelo cliente (se ainda não aprovado)
+  const handleRemoverArquivoCliente = async (item: OnboardingChecklistItem) => {
+    if (!workflow) return
+    if (item.status === 'aprovado') {
+      toast({
+        variant: 'destructive',
+        title: 'Não é possível excluir',
+        description:
+          'Este documento já foi conferido e aprovado pelo contador. Entre em contato com seu escritório para substituição.',
+      })
+      return
+    }
+
+    const confirmar = window.confirm(
+      `Deseja realmente excluir o documento anexado ao item "${item.titulo}"?`,
+    )
+    if (!confirmar) return
+
+    try {
+      setUploadingItemId(item.id)
+      const updated = await companyOnboardingService.removerDocumentoChecklist(
+        workflow,
+        item.id,
+        'cliente_publico',
+        'cliente',
+      )
+      setWorkflow(updated)
+      toast({
+        title: 'Documento removido',
+        description: `O anexo do item "${item.titulo}" foi excluído com sucesso.`,
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover documento.'
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao remover',
+        description: msg,
+      })
+    } finally {
+      setUploadingItemId(null)
+    }
+  }
+
+  // Limpar todos os dados preliminares preenchidos
+  const handleLimparDadosPreliminares = async () => {
+    if (!workflow) return
+    const confirmar = window.confirm(
+      'Deseja limpar todos os campos preenchidos da futura empresa e quadro de sócios?',
+    )
+    if (!confirmar) return
+
+    try {
+      setSavingDados(true)
+      const updated = await companyOnboardingService.limparDadosPreliminares(
+        workflow,
+        'cliente_publico',
+        'cliente',
+      )
+      setWorkflow(updated)
+      setRazaoSocial('')
+      setNomeFantasia('')
+      setCnpjPretendido('')
+      setCapitalSocial(0)
+      setClienteNome('')
+      setClienteEmail('')
+      setClienteTelefone('')
+      setSocios([])
+      toast({
+        title: 'Campos limpos com sucesso',
+        description: 'Todos os dados preliminares foram apagados do formulário.',
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao limpar dados.'
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao limpar',
         description: msg,
       })
     } finally {
@@ -508,55 +594,75 @@ export default function AberturaClientePublicoPage() {
                                 )}
                               </div>
 
-                              {/* Ações de Upload */}
+                              {/* Ações de Upload e Exclusão */}
                               <div className="shrink-0 flex items-center gap-2">
                                 {isAprovado ? (
                                   <div className="text-xs text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
                                     <Check className="h-4 w-4" />
-                                    <span>Concluído</span>
+                                    <span>Concluído e Validado</span>
                                   </div>
                                 ) : (
-                                  <label className="cursor-pointer">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0]
-                                        if (file) handleUploadArquivo(item, file)
-                                      }}
-                                      disabled={uploadingItemId === item.id}
-                                    />
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      asChild
-                                      className={`h-9 px-4 rounded-xl text-xs font-semibold gap-1.5 cursor-pointer shadow-xs ${
-                                        isRecusado
-                                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                                          : isEnviado
-                                            ? 'bg-white hover:bg-slate-50 text-[#1A2333] border border-[#E2E8F0]'
-                                            : 'bg-[#0FA3A3] hover:bg-[#0C8585] text-white'
-                                      }`}
-                                    >
-                                      <span>
-                                        {uploadingItemId === item.id ? (
-                                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                        ) : (
-                                          <Upload className="h-3.5 w-3.5" />
-                                        )}
+                                  <>
+                                    <label className="cursor-pointer">
+                                      <input
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0]
+                                          if (file) handleUploadArquivo(item, file)
+                                        }}
+                                        disabled={uploadingItemId === item.id}
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        asChild
+                                        className={`h-9 px-4 rounded-xl text-xs font-semibold gap-1.5 cursor-pointer shadow-xs ${
+                                          isRecusado
+                                            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                            : isEnviado
+                                              ? 'bg-white hover:bg-slate-50 text-[#1A2333] border border-[#E2E8F0]'
+                                              : 'bg-[#0FA3A3] hover:bg-[#0C8585] text-white'
+                                        }`}
+                                      >
                                         <span>
-                                          {uploadingItemId === item.id
-                                            ? 'Enviando...'
-                                            : isRecusado
-                                              ? 'Reenviar Documento Corrigido'
-                                              : isEnviado
-                                                ? 'Substituir Arquivo'
-                                                : 'Enviar Documento'}
+                                          {uploadingItemId === item.id ? (
+                                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <Upload className="h-3.5 w-3.5" />
+                                          )}
+                                          <span>
+                                            {uploadingItemId === item.id
+                                              ? 'Enviando...'
+                                              : isRecusado
+                                                ? 'Reenviar Documento Corrigido'
+                                                : isEnviado
+                                                  ? 'Substituir Arquivo'
+                                                  : 'Enviar Documento'}
+                                          </span>
                                         </span>
-                                      </span>
-                                    </Button>
-                                  </label>
+                                      </Button>
+                                    </label>
+
+                                    {/* Opção de Excluir Anexo (permitido enquanto não aprovado) */}
+                                    {(isEnviado || isRecusado || item.nome_arquivo) && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={uploadingItemId === item.id}
+                                        onClick={() => handleRemoverArquivoCliente(item)}
+                                        title="Excluir documento anexado"
+                                        className="h-9 px-2.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50 rounded-xl"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="sr-only sm:not-sr-only sm:ml-1">
+                                          Excluir
+                                        </span>
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -805,19 +911,37 @@ export default function AberturaClientePublicoPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-end pt-2">
-                          <Button
-                            type="submit"
-                            disabled={savingDados}
-                            className="rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-10 px-6 gap-2 shadow-xs"
-                          >
-                            {savingDados ? (
-                              <RefreshCw className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Save className="h-4 w-4" />
-                            )}
-                            <span>Salvar Informações da Empresa</span>
-                          </Button>
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          {(razaoSocial ||
+                            nomeFantasia ||
+                            cnpjPretendido ||
+                            capitalSocial > 0 ||
+                            socios.length > 0) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleLimparDadosPreliminares}
+                              disabled={savingDados}
+                              className="rounded-xl text-xs text-rose-600 border-rose-200 hover:bg-rose-50 h-10 px-4 gap-1.5"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span>Limpar Dados Preenchidos</span>
+                            </Button>
+                          )}
+                          <div className="ml-auto">
+                            <Button
+                              type="submit"
+                              disabled={savingDados}
+                              className="rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-10 px-6 gap-2 shadow-xs"
+                            >
+                              {savingDados ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4" />
+                              )}
+                              <span>Salvar Informações da Empresa</span>
+                            </Button>
+                          </div>
                         </div>
                       </form>
                     </CardContent>

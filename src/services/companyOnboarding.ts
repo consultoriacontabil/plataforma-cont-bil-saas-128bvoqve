@@ -707,4 +707,167 @@ export const companyOnboardingService = {
       usuarioId,
     )
   },
+
+  /**
+   * Remove/exclui um anexo do checklist de documentos.
+   * Regra de negócio e permissões:
+   * - Contador / Administrador: pode excluir qualquer anexo a qualquer momento.
+   * - Cliente público: só pode remover se o item ainda NÃO foi aprovado pelo contador.
+   */
+  async removerDocumentoChecklist(
+    workflow: CompanyOnboardingWorkflowRecord,
+    itemId: string,
+    usuarioId?: string, // 'cliente_publico' ou ID do contador
+    origem: 'cliente' | 'contador' = 'contador',
+  ): Promise<CompanyOnboardingWorkflowRecord> {
+    const checklist = [...(workflow.checklist_docs_json || [])]
+    const index = checklist.findIndex((it) => it.id === itemId)
+    if (index === -1) throw new Error('Item do checklist não encontrado.')
+
+    const item = checklist[index]
+
+    if (origem === 'cliente' && item.status === 'aprovado') {
+      throw new Error(
+        'Este documento já foi conferido e aprovado pelo contador e não pode ser excluído pelo cliente.',
+      )
+    }
+
+    const gedId = item.ged_documento_id
+    const nomeArquivo = item.nome_arquivo || 'arquivo'
+
+    // Se houver arquivo no GED, tenta remover
+    if (gedId) {
+      try {
+        await pb.collection('documentos').delete(gedId)
+      } catch (err) {
+        console.warn('Documento no GED já havia sido removido ou inacessível:', err)
+      }
+    }
+
+    // Reseta o item para status pendente
+    checklist[index] = {
+      ...item,
+      status: 'pendente',
+      ged_documento_id: undefined,
+      nome_arquivo: undefined,
+      arquivo_url: undefined,
+      enviado_em: undefined,
+      motivo_recusa: undefined,
+      revisado_em: undefined,
+    }
+
+    const updatePayload: Partial<CompanyOnboardingWorkflowRecord> = {
+      checklist_docs_json: checklist,
+    }
+
+    if (origem === 'cliente') {
+      updatePayload.token = workflow.token
+    }
+
+    const updated = await pb
+      .collection('company_onboarding_workflow')
+      .update<CompanyOnboardingWorkflowRecord>(workflow.id, updatePayload)
+
+    // Auditoria
+    await auditService.log(
+      workflow.tenant_id,
+      usuarioId || (origem === 'cliente' ? 'cliente_publico' : 'contador'),
+      'Exclusão de documento do checklist de abertura',
+      'company_onboarding_workflow',
+      workflow.id,
+      `Arquivo "${nomeArquivo}" do item "${item.titulo}" foi removido por ${
+        origem === 'cliente' ? 'cliente via link público' : 'contador responsável'
+      }.`,
+    )
+
+    return updated
+  },
+
+  /**
+   * Limpa os dados preliminares fornecidos no workflow (razão social, sócios, capital social)
+   */
+  async limparDadosPreliminares(
+    workflow: CompanyOnboardingWorkflowRecord,
+    usuarioId?: string,
+    origem: 'cliente' | 'contador' = 'contador',
+  ): Promise<CompanyOnboardingWorkflowRecord> {
+    const dadosVazios: DadosPreliminaresOnboarding = {
+      razao_social_pretendida: '',
+      nome_fantasia_pretendido: '',
+      cnpj_pretendido: '',
+      capital_social_pretendido: 0,
+      natureza_juridica: workflow.natureza_juridica || 'slu',
+      socios: [],
+    }
+
+    const updatePayload: Partial<CompanyOnboardingWorkflowRecord> = {
+      dados_preliminares_json: dadosVazios,
+      razao_social_pretendida: '',
+      nome_fantasia_pretendido: '',
+    }
+
+    if (origem === 'cliente') {
+      updatePayload.token = workflow.token
+      updatePayload.cliente_nome = ''
+      updatePayload.cliente_email = ''
+      updatePayload.cliente_telefone = ''
+    }
+
+    const updated = await pb
+      .collection('company_onboarding_workflow')
+      .update<CompanyOnboardingWorkflowRecord>(workflow.id, updatePayload)
+
+    await auditService.log(
+      workflow.tenant_id,
+      usuarioId || (origem === 'cliente' ? 'cliente_publico' : 'contador'),
+      'Limpeza de dados preliminares do workflow',
+      'company_onboarding_workflow',
+      workflow.id,
+      `Dados preliminares do processo de abertura foram limpos/excluídos por ${
+        origem === 'cliente' ? 'cliente via link público' : 'contador responsável'
+      }.`,
+    )
+
+    return updated
+  },
+
+  /**
+   * Exclui um workflow de abertura (apenas Contador/Administrador)
+   * Remove também arquivos GED vinculados a este processo
+   */
+  async deleteWorkflow(
+    workflowId: string,
+    tenantId: string,
+    usuarioId: string,
+    usuarioNome?: string,
+  ): Promise<void> {
+    const wf = await this.getById(workflowId)
+
+    // Tenta remover os arquivos GED vinculados
+    const checklist = wf.checklist_docs_json || []
+    for (const item of checklist) {
+      if (item.ged_documento_id) {
+        try {
+          await pb.collection('documentos').delete(item.ged_documento_id)
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    // Exclui o workflow da coleção
+    await pb.collection('company_onboarding_workflow').delete(workflowId)
+
+    // Auditoria
+    await auditService.log(
+      tenantId,
+      usuarioId,
+      'Exclusão de workflow de abertura',
+      'company_onboarding_workflow',
+      workflowId,
+      `Workflow "${wf.titulo}" (Token: ${wf.token.slice(0, 8)}...) foi excluído definitivamente por ${
+        usuarioNome || usuarioId
+      }.`,
+    )
+  },
 }
