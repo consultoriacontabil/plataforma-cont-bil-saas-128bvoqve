@@ -616,6 +616,17 @@ export function WorkflowAberturaView({
                                 Razão: {selectedWorkflow.razao_social_pretendida}
                               </Badge>
                             )}
+                          {selectedWorkflow.empresa_id && (
+                            <Link
+                              to={`/empresas/${selectedWorkflow.empresa_id}?tab=abertura`}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md hover:bg-teal-100 transition-colors"
+                              title="Abrir este processo na Ficha de Empresas Cadastradas"
+                            >
+                              <Building2 className="h-3 w-3 text-[#0FA3A3]" />
+                              <span>Ver na Ficha da Empresa</span>
+                              <ExternalLink className="h-2.5 w-2.5 text-teal-600" />
+                            </Link>
+                          )}
                         </div>
 
                         <p className="text-xs text-[#64748B]">
@@ -701,14 +712,24 @@ export function WorkflowAberturaView({
                         </div>
 
                         {selectedWorkflow.empresa_id && (
-                          <Link
-                            to={`/empresas/${selectedWorkflow.empresa_id}`}
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 bg-emerald-200/80 hover:bg-emerald-200 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
-                          >
-                            <Building2 className="h-3.5 w-3.5" />
-                            <span>Ver em Empresas Cadastradas</span>
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
+                          <div className="flex items-center gap-2 flex-wrap shrink-0">
+                            <Link
+                              to={`/empresas/${selectedWorkflow.empresa_id}`}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 bg-emerald-200/80 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              <Building2 className="h-3.5 w-3.5" />
+                              <span>Ficha Cadastral</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                            <Link
+                              to={`/empresas/${selectedWorkflow.empresa_id}?tab=abertura`}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-900 bg-teal-200/80 hover:bg-teal-200 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              <Sparkles className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                              <span>Aba Abertura na Ficha</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          </div>
                         )}
                       </div>
                     )}

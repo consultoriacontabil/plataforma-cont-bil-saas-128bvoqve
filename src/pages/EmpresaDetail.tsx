@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Building2,
@@ -68,6 +68,8 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function EmpresaDetail() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
   const { user, tenant, member, isGestorEmpresas } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -237,7 +239,18 @@ export default function EmpresaDetail() {
       </div>
 
       {/* Tabs Layout: Visão Geral, Certificado Digital, Documentos, Workflows, Fiscal, Integrações */}
-      <Tabs defaultValue="visao_geral" className="space-y-6">
+      <Tabs
+        defaultValue={tabParam || 'visao_geral'}
+        onValueChange={(val) => {
+          if (val === 'visao_geral') {
+            searchParams.delete('tab')
+            setSearchParams(searchParams, { replace: true })
+          } else {
+            setSearchParams({ tab: val }, { replace: true })
+          }
+        }}
+        className="space-y-6"
+      >
         <TabsList className="bg-slate-100 p-1.5 rounded-xl h-auto w-full justify-start flex-wrap gap-1">
           <TabsTrigger value="visao_geral" className="rounded-lg text-xs font-semibold gap-2">
             <Building2 className="h-4 w-4" />

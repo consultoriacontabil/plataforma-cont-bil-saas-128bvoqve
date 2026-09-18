@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Building2,
   Plus,
@@ -11,6 +11,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Sparkles,
+  ExternalLink,
+  PlusCircle,
 } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/contexts/AuthContext'
@@ -21,6 +24,11 @@ import { guiasPagamentosService } from '@/services/guiasPagamentos'
 import { ModalImportacaoEmpresas } from '@/components/ModalImportacaoEmpresas'
 import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
 import { PainelExclusoesBackups } from '@/components/PainelExclusoesBackups'
+import { WorkflowAberturaView } from '@/components/WorkflowAberturaView'
+import { NovoWorkflowAberturaModal } from '@/components/NovoWorkflowAberturaModal'
+import { GerarLinkPublicoModal } from '@/components/GerarLinkPublicoModal'
+import { companyOnboardingService } from '@/services/companyOnboarding'
+import type { CompanyOnboardingWorkflowRecord } from '@/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ShieldCheck,
@@ -67,6 +75,7 @@ import { cn } from '@/lib/utils'
 export default function Empresas() {
   const { tenant } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
@@ -103,23 +112,57 @@ export default function Empresas() {
 
   // Modal de Exclusão Segura com Backup de 24h
   const [empresaParaExcluir, setEmpresaParaExcluir] = useState<Empresa | null>(null)
-  const [activeTab, setActiveTab] = useState<'cadastro' | 'exclusoes_backups'>('cadastro')
+
+  // Aba ativa: 'cadastro' | 'abertura' | 'exclusoes_backups'
+  const tabFromUrl = searchParams.get('tab')
+  const initialTab =
+    tabFromUrl === 'abertura' || tabFromUrl === 'exclusoes_backups'
+      ? (tabFromUrl as 'cadastro' | 'abertura' | 'exclusoes_backups')
+      : 'cadastro'
+  const [activeTab, setActiveTab] = useState<'cadastro' | 'abertura' | 'exclusoes_backups'>(
+    initialTab,
+  )
+
+  const handleTabChange = (val: string) => {
+    const nextTab = val as 'cadastro' | 'abertura' | 'exclusoes_backups'
+    setActiveTab(nextTab)
+    if (nextTab === 'cadastro') {
+      searchParams.delete('tab')
+      setSearchParams(searchParams, { replace: true })
+    } else {
+      setSearchParams({ tab: nextTab }, { replace: true })
+    }
+  }
+
+  // Workflows de abertura para contagem e integração rápida
+  const [totalWorkflowsAbertura, setTotalWorkflowsAbertura] = useState<number>(0)
+  const [modalNovoWorkflowOpen, setModalNovoWorkflowOpen] = useState(false)
+  const [modalLinkPublicoOpen, setModalLinkPublicoOpen] = useState(false)
+  const [workflowCriadoRecentemente, setWorkflowCriadoRecentemente] =
+    useState<CompanyOnboardingWorkflowRecord | null>(null)
+
+  const isCliente = member?.perfil === 'cliente' || user?.perfil === 'cliente'
+  const podeVerAbertura = !isCliente
   const [totalBackupsRetidos, setTotalBackupsRetidos] = useState<number>(0)
 
   // Carregar contagem de backups retidos para badge informativo na aba
   const carregarContagemBackups = useCallback(async () => {
     if (!tenant?.id) return
     try {
-      const res = await pb.collection('exclusoes_empresa_backup').getList(1, 1, {
-        filter: `tenant_id = "${tenant.id}" && status = "retido"`,
-        fields: 'id',
-        requestKey: null,
-      })
-      setTotalBackupsRetidos(res.totalItems)
+      const [resBackup, listWf] = await Promise.all([
+        pb.collection('exclusoes_empresa_backup').getList(1, 1, {
+          filter: `tenant_id = "${tenant.id}" && status = "retido"`,
+          fields: 'id',
+          requestKey: null,
+        }),
+        podeVerAbertura ? companyOnboardingService.list(tenant.id) : Promise.resolve([]),
+      ])
+      setTotalBackupsRetidos(resBackup.totalItems)
+      setTotalWorkflowsAbertura(listWf.length)
     } catch {
       /* intentionally ignored */
     }
-  }, [tenant?.id])
+  }, [tenant?.id, podeVerAbertura])
 
   useEffect(() => {
     carregarContagemBackups()
@@ -430,6 +473,25 @@ export default function Empresas() {
             </Button>
           )}
 
+          {podeVerAbertura && (
+            <Button
+              variant="outline"
+              onClick={() => handleTabChange('abertura')}
+              className={cn(
+                'gap-2 rounded-xl border-teal-300 font-semibold text-xs h-10 shadow-xs transition-colors',
+                activeTab === 'abertura'
+                  ? 'bg-teal-50 text-teal-800 border-teal-500 ring-1 ring-teal-500'
+                  : 'text-[#0FA3A3] hover:bg-teal-50',
+              )}
+            >
+              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Abertura de Empresa</span>
+              <Badge className="bg-[#0FA3A3] text-white hover:bg-[#0FA3A3] text-[9px] font-bold px-1.5 py-0 uppercase tracking-wide h-4 leading-none">
+                NOVO
+              </Badge>
+            </Button>
+          )}
+
           <Button
             onClick={() => navigate('/empresas/nova')}
             className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
@@ -440,17 +502,35 @@ export default function Empresas() {
         </div>
       </div>
 
-      {/* Navegação entre Cadastro Ativo e Exclusões & Backups */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(val) => setActiveTab(val as 'cadastro' | 'exclusoes_backups')}
-        className="space-y-6"
-      >
-        <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full justify-start">
+      {/* Navegação entre Cadastro Ativo, Abertura de Empresa e Exclusões & Backups */}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="bg-slate-100 p-1 rounded-xl h-11 w-full justify-start overflow-x-auto">
           <TabsTrigger value="cadastro" className="rounded-lg text-xs font-semibold gap-2">
             <Building2 className="h-4 w-4" />
             <span>Empresas Ativas & Cadastradas ({empresas.length})</span>
           </TabsTrigger>
+
+          {podeVerAbertura && (
+            <TabsTrigger
+              value="abertura"
+              className="rounded-lg text-xs font-semibold gap-2 text-teal-800 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-950"
+            >
+              <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Abertura de Empresa</span>
+              <Badge className="bg-[#0FA3A3] text-white hover:bg-[#0FA3A3] text-[9px] font-bold px-1.5 py-0 uppercase tracking-wide h-4 leading-none">
+                NOVO
+              </Badge>
+              {totalWorkflowsAbertura > 0 && (
+                <Badge
+                  variant="outline"
+                  className="ml-0.5 border-teal-300 text-teal-800 text-[10px] px-1.5 py-0 rounded-full font-bold bg-white"
+                >
+                  {totalWorkflowsAbertura}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
+
           <TabsTrigger value="exclusoes_backups" className="rounded-lg text-xs font-semibold gap-2">
             <Archive className="h-4 w-4 text-amber-600" />
             <span>Exclusões & Backups (Retenção 24h)</span>
@@ -584,6 +664,15 @@ export default function Empresas() {
                                     <Eye className="h-3.5 w-3.5 text-[#0FA3A3]" />
                                     <span>Ver detalhes</span>
                                   </DropdownMenuItem>
+                                  {podeVerAbertura && (
+                                    <DropdownMenuItem
+                                      onClick={() => navigate(`/empresas/${emp.id}?tab=abertura`)}
+                                      className="gap-2 text-xs cursor-pointer text-teal-800 focus:text-teal-900 font-medium"
+                                    >
+                                      <Sparkles className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                                      <span>Abertura de Empresa</span>
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem
                                     onClick={() => navigate(`/empresas/${emp.id}/editar`)}
                                     className="gap-2 text-xs cursor-pointer"
@@ -655,7 +744,73 @@ export default function Empresas() {
           </Card>
         </TabsContent>
 
-        {/* Tab 2: Exclusões & Backups com Retenção de 24h */}
+        {/* Tab 2: Abertura de Empresa (Workflows em andamento, Link Público, Checklist e Acesso por Empresa) */}
+        {podeVerAbertura && tenant?.id && (
+          <TabsContent value="abertura" className="space-y-6">
+            {/* Banner Orientativo / Atalhos de Abertura */}
+            <div className="rounded-2xl border border-teal-200 bg-linear-to-r from-teal-50/70 via-white to-blue-50/50 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-100 text-[#0FA3A3]">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#1A2333]">
+                    Gestão Central de Abertura de Empresas
+                  </h3>
+                  <Badge className="bg-[#0FA3A3] text-white text-[9px] font-bold px-1.5 py-0 uppercase">
+                    NOVO
+                  </Badge>
+                </div>
+                <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
+                  Gerencie processos simultâneos de legalização com link público para
+                  autoatendimento do cliente, acompanhamento dos 3 passos operacionais (Viabilidade,
+                  DBE e Junta Comercial) e integração direta com a ficha em Empresas Cadastradas.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                {empresas.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-[#64748B]">
+                    <span className="hidden sm:inline">Ir para ficha:</span>
+                    <select
+                      className="h-9 text-xs rounded-xl border border-slate-300 bg-white px-2.5 font-medium text-slate-800 shadow-2xs max-w-[200px]"
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          navigate(`/empresas/${e.target.value}?tab=abertura`)
+                        }
+                      }}
+                    >
+                      <option value="" disabled>
+                        Ver abertura por empresa...
+                      </option>
+                      {empresas.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.nome_fantasia || e.razao_social}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {podeGerenciarEmpresas && (
+                  <Button
+                    onClick={() => setModalNovoWorkflowOpen(true)}
+                    className="gap-1.5 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 shadow-xs"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    <span>Iniciar Novo Processo</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Painel Completo de Workflows de Abertura (com link público, checklist, aprovação e passos) */}
+            <WorkflowAberturaView tenantId={tenant.id} />
+          </TabsContent>
+        )}
+
+        {/* Tab 3: Exclusões & Backups com Retenção de 24h */}
         <TabsContent value="exclusoes_backups">
           {tenant?.id && (
             <PainelExclusoesBackups
@@ -698,6 +853,30 @@ export default function Empresas() {
           }}
         />
       )}
+
+      {/* Modal: Iniciar Novo Workflow de Abertura a partir do botão do cabeçalho */}
+      {tenant?.id && (
+        <NovoWorkflowAberturaModal
+          open={modalNovoWorkflowOpen}
+          onOpenChange={setModalNovoWorkflowOpen}
+          tenantId={tenant.id}
+          onCreated={(novoWf) => {
+            setWorkflowCriadoRecentemente(novoWf)
+            setModalLinkPublicoOpen(true)
+            carregarContagemBackups()
+          }}
+        />
+      )}
+
+      {/* Modal de Link Público aberto imediatamente após criação rápida */}
+      <GerarLinkPublicoModal
+        open={modalLinkPublicoOpen}
+        onOpenChange={setModalLinkPublicoOpen}
+        workflow={workflowCriadoRecentemente}
+        onWorkflowUpdated={(updated) => {
+          setWorkflowCriadoRecentemente(updated)
+        }}
+      />
 
       {/* Confirmation Modal to Encerrar */}
       <Dialog open={Boolean(empresaToClose)} onOpenChange={() => setEmpresaToClose(null)}>

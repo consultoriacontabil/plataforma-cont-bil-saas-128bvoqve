@@ -36,6 +36,15 @@ export interface CreateFormationInput {
 
 export const companyFormationService = {
   /**
+   * Busca o processo de abertura por ID do registro
+   */
+  async getById(id: string): Promise<CompanyFormationRecord> {
+    return await pb.collection('company_formation').getOne<CompanyFormationRecord>(id, {
+      expand: 'empresa,responsavel',
+    })
+  },
+
+  /**
    * Busca o processo de abertura vinculado à empresa
    */
   async getByEmpresa(empresaId: string): Promise<CompanyFormationRecord | null> {
