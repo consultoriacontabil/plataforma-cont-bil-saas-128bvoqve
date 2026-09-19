@@ -99,6 +99,18 @@ export const contabilService = {
 
   // Criação de Partida Dobrada Atômica (Gera débito + crédito equilibrados com mesmo lote_id)
   async createPartidaDobrada(input: CreatePartidaDobradaInput) {
+    // Validação preventiva: Trava de Competência Fechada
+    if (input.competencia && input.empresa && input.tenant_id) {
+      const fechamentos = await pb.collection('fechamento_competencia').getFullList({
+        filter: `tenant_id = "${input.tenant_id}" && empresa = "${input.empresa}" && competencia = "${input.competencia}" && status = "fechado"`,
+      })
+      if (fechamentos.length > 0) {
+        throw new Error(
+          `A competência ${input.competencia} está formalmente fechada para esta empresa. Lançamentos retroativos não são permitidos.`,
+        )
+      }
+    }
+
     const loteId = `LOTE-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
     // 1. Débito

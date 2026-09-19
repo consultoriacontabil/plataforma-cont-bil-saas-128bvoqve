@@ -327,11 +327,30 @@ export const relatoriosContabeisService = {
       }
     })
 
+    // Incorporar o Resultado Líquido do Exercício (Lucro/Prejuízo da DRE) se as contas de resultado não tiverem sido zeradas contra o PL ainda
+    const dre = await this.gerarDRE(tenantId, empresaId, competencia)
+    const resultadoExercicio = dre.resultadoLiquido
+
+    // Se a soma do PL ainda não contém o resultado do exercício atual, refletir como Lucro/Prejuízo Acumulado
+    const saldoPLComResultado =
+      Math.round((patrimonioLiquido.saldo + resultadoExercicio) * 100) / 100
+
     const ativoTotal = Math.round((ativoCirculante.saldo + ativoNaoCirculante.saldo) * 100) / 100
     const passivoTotal = Math.round(passivoCirculante.saldo * 100) / 100
-    const patrimonioLiquidoTotal = Math.round(patrimonioLiquido.saldo * 100) / 100
-    const passivoMaisPL = Math.round((passivoTotal + patrimonioLiquidoTotal) * 100) / 100
-    const diferenca = Math.round(Math.abs(ativoTotal - passivoMaisPL) * 100) / 100
+
+    // Se o balanço já equilibra diretamente (fechamento anual com apuração já contabilizada), usa o PL direto; caso contrário, considera o resultado apurado da competência
+    const passivoMaisPLDireto = Math.round((passivoTotal + patrimonioLiquido.saldo) * 100) / 100
+    const difDireta = Math.round(Math.abs(ativoTotal - passivoMaisPLDireto) * 100) / 100
+
+    const passivoMaisPLComRes = Math.round((passivoTotal + saldoPLComResultado) * 100) / 100
+    const difComRes = Math.round(Math.abs(ativoTotal - passivoMaisPLComRes) * 100) / 100
+
+    const usaResultadoExercicio = difComRes < difDireta && difComRes < 0.05
+    const patrimonioLiquidoTotal = usaResultadoExercicio
+      ? saldoPLComResultado
+      : Math.round(patrimonioLiquido.saldo * 100) / 100
+    const passivoMaisPL = usaResultadoExercicio ? passivoMaisPLComRes : passivoMaisPLDireto
+    const diferenca = usaResultadoExercicio ? difComRes : difDireta
     const equilibrado = diferenca < 0.05
 
     return {
