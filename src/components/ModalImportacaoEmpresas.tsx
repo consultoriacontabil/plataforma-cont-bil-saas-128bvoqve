@@ -22,6 +22,7 @@ import {
   HelpCircle,
   Info,
   Trash2,
+  Layers,
 } from 'lucide-react'
 import {
   Dialog,
@@ -1349,16 +1350,31 @@ export function ModalImportacaoEmpresas({
             )}
 
             {etapa === 'relatorio' && (
-              <Button
-                type="button"
-                onClick={() => {
-                  onOpenChange(false)
-                  resetar()
-                }}
-                className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 px-5 shadow-xs"
-              >
-                <span>Concluir e Ver Empresas</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onOpenChange(false)
+                    resetar()
+                    // Redireciona para a aba de Migrações & Onboarding para acompanhar a implantação
+                    window.location.href = '/empresas?tab=migracoes'
+                  }}
+                  className="gap-2 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-semibold text-xs h-9 px-4 shadow-xs"
+                >
+                  <Layers className="h-3.5 w-3.5 text-teal-300" />
+                  <span>Acompanhar Onboarding na Carteira</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onOpenChange(false)
+                    resetar()
+                  }}
+                  className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-9 px-5 shadow-xs"
+                >
+                  <span>Concluir e Ver Empresas</span>
+                </Button>
+              </div>
             )}
           </div>
         </DialogFooter>

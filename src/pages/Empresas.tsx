@@ -27,8 +27,10 @@ import { PainelExclusoesBackups } from '@/components/PainelExclusoesBackups'
 import { WorkflowAberturaView } from '@/components/WorkflowAberturaView'
 import { NovoWorkflowAberturaModal } from '@/components/NovoWorkflowAberturaModal'
 import { GerarLinkPublicoModal } from '@/components/GerarLinkPublicoModal'
+import { PainelMigracoesOnboarding } from '@/components/PainelMigracoesOnboarding'
 import { companyOnboardingService } from '@/services/companyOnboarding'
-import type { CompanyOnboardingWorkflowRecord } from '@/types'
+import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
+import type { CompanyOnboardingWorkflowRecord, MigracaoTipo, MigracaoStatus } from '@/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ShieldCheck,
@@ -40,6 +42,9 @@ import {
   Archive,
   Trash2,
   FileSpreadsheet,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Layers,
 } from 'lucide-react'
 import { maskCnpj } from '@/lib/formatters'
 import type {
@@ -113,18 +118,24 @@ export default function Empresas() {
   // Modal de Exclusão Segura com Backup de 24h
   const [empresaParaExcluir, setEmpresaParaExcluir] = useState<Empresa | null>(null)
 
-  // Aba ativa: 'cadastro' | 'abertura' | 'exclusoes_backups'
+  // Mapa de processos de migração ativos por empresa { [empresaId]: { id, tipo, status, data_corte } }
+  const [migracoesAtivasMap, setMigracoesAtivasMap] = useState<
+    Record<string, { id: string; tipo: MigracaoTipo; status: MigracaoStatus; data_corte?: string }>
+  >({})
+  const [totalMigracoesAtivas, setTotalMigracoesAtivas] = useState<number>(0)
+
+  // Aba ativa: 'cadastro' | 'migracoes' | 'abertura' | 'exclusoes_backups'
   const tabFromUrl = searchParams.get('tab')
   const initialTab =
-    tabFromUrl === 'abertura' || tabFromUrl === 'exclusoes_backups'
-      ? (tabFromUrl as 'cadastro' | 'abertura' | 'exclusoes_backups')
+    tabFromUrl === 'migracoes' || tabFromUrl === 'abertura' || tabFromUrl === 'exclusoes_backups'
+      ? (tabFromUrl as 'cadastro' | 'migracoes' | 'abertura' | 'exclusoes_backups')
       : 'cadastro'
-  const [activeTab, setActiveTab] = useState<'cadastro' | 'abertura' | 'exclusoes_backups'>(
-    initialTab,
-  )
+  const [activeTab, setActiveTab] = useState<
+    'cadastro' | 'migracoes' | 'abertura' | 'exclusoes_backups'
+  >(initialTab)
 
   const handleTabChange = (val: string) => {
-    const nextTab = val as 'cadastro' | 'abertura' | 'exclusoes_backups'
+    const nextTab = val as 'cadastro' | 'migracoes' | 'abertura' | 'exclusoes_backups'
     setActiveTab(nextTab)
     if (nextTab === 'cadastro') {
       searchParams.delete('tab')
@@ -143,26 +154,32 @@ export default function Empresas() {
 
   const isCliente = member?.perfil === 'cliente' || user?.perfil === 'cliente'
   const podeVerAbertura = !isCliente
+  const podeVerMigracoes = !isCliente
   const [totalBackupsRetidos, setTotalBackupsRetidos] = useState<number>(0)
 
-  // Carregar contagem de backups retidos para badge informativo na aba
+  // Carregar contagem de backups retidos e mapa de migrações ativas
   const carregarContagemBackups = useCallback(async () => {
     if (!tenant?.id) return
     try {
-      const [resBackup, listWf] = await Promise.all([
+      const [resBackup, listWf, mapaMigracoes] = await Promise.all([
         pb.collection('exclusoes_empresa_backup').getList(1, 1, {
           filter: `tenant_id = "${tenant.id}" && status = "retido"`,
           fields: 'id',
           requestKey: null,
         }),
         podeVerAbertura ? companyOnboardingService.list(tenant.id) : Promise.resolve([]),
+        podeVerMigracoes
+          ? empresasMigracoesOnboardingService.getMapaProcessosAtivos(tenant.id)
+          : Promise.resolve({}),
       ])
       setTotalBackupsRetidos(resBackup.totalItems)
       setTotalWorkflowsAbertura(listWf.length)
+      setMigracoesAtivasMap(mapaMigracoes)
+      setTotalMigracoesAtivas(Object.keys(mapaMigracoes).length)
     } catch {
       /* intentionally ignored */
     }
-  }, [tenant?.id, podeVerAbertura])
+  }, [tenant?.id, podeVerAbertura, podeVerMigracoes])
 
   useEffect(() => {
     carregarContagemBackups()
@@ -510,6 +527,27 @@ export default function Empresas() {
             <span>Empresas Ativas & Cadastradas ({empresas.length})</span>
           </TabsTrigger>
 
+          {podeVerMigracoes && (
+            <TabsTrigger
+              value="migracoes"
+              className="rounded-lg text-xs font-semibold gap-2 text-teal-900 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-950"
+            >
+              <Layers className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Migrações & Onboarding</span>
+              <Badge className="bg-[#0FA3A3] text-white hover:bg-[#0FA3A3] text-[9px] font-bold px-1.5 py-0 uppercase tracking-wide h-4 leading-none">
+                NOVO
+              </Badge>
+              {totalMigracoesAtivas > 0 && (
+                <Badge
+                  variant="outline"
+                  className="ml-0.5 border-teal-300 text-teal-800 text-[10px] px-1.5 py-0 rounded-full font-bold bg-white"
+                >
+                  {totalMigracoesAtivas} em curso
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
+
           {podeVerAbertura && (
             <TabsTrigger
               value="abertura"
@@ -517,9 +555,6 @@ export default function Empresas() {
             >
               <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
               <span>Abertura de Empresa</span>
-              <Badge className="bg-[#0FA3A3] text-white hover:bg-[#0FA3A3] text-[9px] font-bold px-1.5 py-0 uppercase tracking-wide h-4 leading-none">
-                NOVO
-              </Badge>
               {totalWorkflowsAbertura > 0 && (
                 <Badge
                   variant="outline"
@@ -625,12 +660,42 @@ export default function Empresas() {
                                   {initials}
                                 </div>
                                 <div className="truncate max-w-xs sm:max-w-md">
-                                  <p className="font-semibold text-[#1A2333] group-hover:text-[#0FA3A3] transition-colors truncate">
-                                    {emp.nome_fantasia || emp.razao_social}
-                                  </p>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="font-semibold text-[#1A2333] group-hover:text-[#0FA3A3] transition-colors truncate">
+                                      {emp.nome_fantasia || emp.razao_social}
+                                    </p>
+                                    {migracoesAtivasMap[emp.id] && (
+                                      <Badge
+                                        variant="outline"
+                                        className={
+                                          migracoesAtivasMap[emp.id].tipo === 'entrada'
+                                            ? 'border-teal-300 bg-teal-50 text-teal-900 text-[9px] font-bold px-1 py-0 h-4 uppercase flex items-center gap-0.5'
+                                            : 'border-amber-300 bg-amber-50 text-amber-900 text-[9px] font-bold px-1 py-0 h-4 uppercase flex items-center gap-0.5'
+                                        }
+                                      >
+                                        {migracoesAtivasMap[emp.id].tipo === 'entrada' ? (
+                                          <ArrowDownLeft className="h-2.5 w-2.5 text-[#0FA3A3]" />
+                                        ) : (
+                                          <ArrowUpRight className="h-2.5 w-2.5 text-amber-600" />
+                                        )}
+                                        <span>
+                                          Migração{' '}
+                                          {migracoesAtivasMap[emp.id].tipo === 'entrada'
+                                            ? 'ENTRADA'
+                                            : 'SAÍDA'}
+                                        </span>
+                                      </Badge>
+                                    )}
+                                  </div>
                                   {emp.nome_fantasia && (
                                     <p className="text-[11px] text-[#64748B] truncate">
                                       {emp.razao_social}
+                                    </p>
+                                  )}
+                                  {migracoesAtivasMap[emp.id]?.data_corte && (
+                                    <p className="text-[10px] text-teal-700 font-medium">
+                                      Data de corte:{' '}
+                                      {migracoesAtivasMap[emp.id].data_corte?.slice(0, 10)}
                                     </p>
                                   )}
                                 </div>
@@ -744,7 +809,21 @@ export default function Empresas() {
           </Card>
         </TabsContent>
 
-        {/* Tab 2: Abertura de Empresa (Workflows em andamento, Link Público, Checklist e Acesso por Empresa) */}
+        {/* Tab 2: Migrações & Onboarding (Entrada e Saída rastreáveis com checklist operacional e GED) */}
+        {podeVerMigracoes && tenant?.id && (
+          <TabsContent value="migracoes" className="space-y-6">
+            <PainelMigracoesOnboarding
+              tenantId={tenant.id}
+              empresas={empresas}
+              canEdit={podeGerenciarEmpresas}
+              usuarioId={user?.id || ''}
+              usuarioNome={user?.nome || user?.email || 'Contador'}
+              onAbrirImportacaoLote={() => setImportacaoModalOpen(true)}
+            />
+          </TabsContent>
+        )}
+
+        {/* Tab 3: Abertura de Empresa (Workflows em andamento, Link Público, Checklist e Acesso por Empresa) */}
         {podeVerAbertura && tenant?.id && (
           <TabsContent value="abertura" className="space-y-6">
             {/* Banner Orientativo / Atalhos de Abertura */}

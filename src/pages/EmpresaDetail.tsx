@@ -28,6 +28,10 @@ import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSect
 import { EmpresaNfeRecebidasTab } from '@/components/EmpresaNfeRecebidasTab'
 import { EmpresaAberturaTab } from '@/components/EmpresaAberturaTab'
 import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
+import { ProcessoMigracaoDetalheCard } from '@/components/ProcessoMigracaoDetalheCard'
+import { ModalNovoProcessoMigracao } from '@/components/ModalNovoProcessoMigracao'
+import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
+import type { EmpresaMigracaoOnboardingRecord, MigracaoTipo } from '@/types'
 import {
   ShieldCheck,
   ShieldAlert,
@@ -91,6 +95,10 @@ export default function EmpresaDetail() {
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
+  const [processoMigracaoAtivo, setProcessoMigracaoAtivo] =
+    useState<EmpresaMigracaoOnboardingRecord | null>(null)
+  const [modalNovoMigracaoOpen, setModalNovoMigracaoOpen] = useState(false)
+  const [tipoNovoMigracao, setTipoNovoMigracao] = useState<MigracaoTipo>('entrada')
   const [loading, setLoading] = useState(true)
 
   // Confirmation modal to Encerrar
@@ -105,13 +113,14 @@ export default function EmpresaDetail() {
       setEmpresa(emp)
 
       // Fetch related data
-      const [docs, wfs, fisc, cert, certsList, ecacList] = await Promise.all([
+      const [docs, wfs, fisc, cert, certsList, ecacList, procMigracao] = await Promise.all([
         documentosService.list(tenant.id, `empresa_id = "${id}"`),
         workflowService.list(tenant.id, `empresa_id = "${id}"`),
         fiscalService.list(tenant.id, `empresa_id = "${id}"`),
         certificadosService.getByEmpresa(id),
         certidoesService.listByEmpresa(id),
         ecacService.listByEmpresa(id),
+        empresasMigracoesOnboardingService.getAtivoByEmpresa(tenant.id, id),
       ])
       setDocumentos(docs)
       setWorkflows(wfs)
@@ -119,6 +128,7 @@ export default function EmpresaDetail() {
       setCertificado(cert)
       setCertidoes(certsList)
       setEcacComunicacoes(ecacList)
+      setProcessoMigracaoAtivo(procMigracao)
     } catch (err) {
       console.error('Error loading empresa details:', err)
       toast({
@@ -240,7 +250,7 @@ export default function EmpresaDetail() {
 
       {/* Tabs Layout: Visão Geral, Certificado Digital, Documentos, Workflows, Fiscal, Integrações */}
       <Tabs
-        defaultValue={tabParam || 'visao_geral'}
+        value={tabParam || 'visao_geral'}
         onValueChange={(val) => {
           if (val === 'visao_geral') {
             searchParams.delete('tab')
@@ -256,6 +266,28 @@ export default function EmpresaDetail() {
             <Building2 className="h-4 w-4" />
             <span>Visão Geral</span>
           </TabsTrigger>
+          {/* Aba Migração & Onboarding da Empresa */}
+          {member?.perfil !== 'cliente' && (
+            <TabsTrigger
+              value="migracao_onboarding"
+              className="rounded-lg text-xs font-semibold gap-2 text-teal-900 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-950"
+            >
+              <Layers className="h-4 w-4 text-[#0FA3A3]" />
+              <span>Migração & Onboarding</span>
+              {processoMigracaoAtivo && (
+                <Badge
+                  variant="outline"
+                  className={
+                    processoMigracaoAtivo.tipo === 'entrada'
+                      ? 'border-teal-300 bg-teal-50 text-teal-800 text-[9px] font-bold px-1.5 py-0'
+                      : 'border-amber-300 bg-amber-50 text-amber-800 text-[9px] font-bold px-1.5 py-0'
+                  }
+                >
+                  {processoMigracaoAtivo.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
           {/* Aba Abertura de Empresa em destaque: visível apenas para equipe interna (oculta para perfil cliente) */}
           {member?.perfil !== 'cliente' && (
             <TabsTrigger
@@ -264,9 +296,6 @@ export default function EmpresaDetail() {
             >
               <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
               <span>Abertura de Empresa</span>
-              <Badge className="bg-[#0FA3A3] text-white hover:bg-[#0FA3A3] text-[9px] font-bold px-1.5 py-0 uppercase tracking-wide h-4 leading-none">
-                NOVO
-              </Badge>
             </TabsTrigger>
           )}
           <TabsTrigger value="certificado" className="rounded-lg text-xs font-semibold gap-2">
@@ -725,6 +754,73 @@ export default function EmpresaDetail() {
           />
         </TabsContent>
 
+        {/* Tab: Migração & Onboarding da Empresa */}
+        {member?.perfil !== 'cliente' && tenant?.id && empresa && (
+          <TabsContent value="migracao_onboarding" className="space-y-6">
+            {processoMigracaoAtivo ? (
+              <ProcessoMigracaoDetalheCard
+                processo={processoMigracaoAtivo}
+                canEdit={
+                  member?.perfil === 'administrador' ||
+                  member?.perfil === 'contador' ||
+                  isGestorEmpresas ||
+                  (user?.role as string) === 'administrador' ||
+                  (user?.role as string) === 'contador'
+                }
+                usuarioId={user?.id || ''}
+                usuarioNome={user?.nome || user?.email || 'Contador'}
+                tenantId={tenant.id}
+                onAtualizado={(atualizado) => {
+                  setProcessoMigracaoAtivo(atualizado)
+                }}
+              />
+            ) : (
+              <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs p-10 text-center bg-white">
+                <div className="max-w-lg mx-auto space-y-4">
+                  <div className="mx-auto h-12 w-12 rounded-2xl bg-teal-50 text-[#0FA3A3] flex items-center justify-center">
+                    <Layers className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-[#1A2333]">
+                      Nenhum processo de migração ativo para esta empresa
+                    </h3>
+                    <p className="text-xs text-[#64748B] leading-relaxed">
+                      Se esta empresa acabou de chegar de outro contador ou está sendo transferida
+                      para um novo escritório, inicie o checklist de acolhimento (Onboarding) ou o
+                      handover de saída.
+                    </p>
+                  </div>
+                  {(member?.perfil === 'administrador' ||
+                    member?.perfil === 'contador' ||
+                    isGestorEmpresas) && (
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <Button
+                        onClick={() => {
+                          setTipoNovoMigracao('entrada')
+                          setModalNovoMigracaoOpen(true)
+                        }}
+                        className="text-xs bg-[#0FA3A3] hover:bg-[#0C8585] text-white rounded-xl gap-1.5"
+                      >
+                        <span>+ Iniciar Migração de Entrada (Onboarding)</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setTipoNovoMigracao('saida')
+                          setModalNovoMigracaoOpen(true)
+                        }}
+                        className="text-xs rounded-xl border-amber-300 text-amber-800 hover:bg-amber-50 gap-1.5"
+                      >
+                        <span>+ Iniciar Migração de Saída (Handover)</span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+        )}
+
         {/* Tab: Abertura de Empresa */}
         {member?.perfil !== 'cliente' && tenant?.id && (
           <TabsContent value="abertura" className="space-y-6">
@@ -888,6 +984,24 @@ export default function EmpresaDetail() {
           navigate('/empresas')
         }}
       />
+
+      {/* Modal de Criação de Migração para esta Empresa */}
+      {tenant?.id && empresa && (
+        <ModalNovoProcessoMigracao
+          open={modalNovoMigracaoOpen}
+          onOpenChange={setModalNovoMigracaoOpen}
+          tenantId={tenant.id}
+          empresas={[empresa]}
+          empresaPreSelecionadaId={empresa.id}
+          tipoPreSelecionado={tipoNovoMigracao}
+          usuarioId={user?.id || ''}
+          usuarioNome={user?.nome || user?.email || 'Contador'}
+          onCriado={(novo) => {
+            setProcessoMigracaoAtivo(novo)
+            setSearchParams({ tab: 'migracao_onboarding' }, { replace: true })
+          }}
+        />
+      )}
     </div>
   )
 }

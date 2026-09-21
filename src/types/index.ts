@@ -2764,3 +2764,77 @@ export interface NfeConsultarChaveResult {
   documento_ged_id?: string
   error?: string
 }
+
+// -----------------------------------------------------------------------------
+// MIGRAÇÕES DE ESCRITÓRIO: ENTRADA & SAÍDA COM ONBOARDING / HANDOVER RASTREÁVEL
+// -----------------------------------------------------------------------------
+export type MigracaoTipo = 'entrada' | 'saida'
+export type MigracaoStatus = 'iniciado' | 'em_andamento' | 'bloqueado' | 'concluido' | 'cancelado'
+
+export type ItemMigracaoCategoria =
+  | 'contrato_honorarios'
+  | 'procuracoes'
+  | 'arquivos_anteriores'
+  | 'certificados_senhas'
+  | 'cadastros_fiscais'
+  | 'pendencias_parcelamentos'
+  | 'saldos_contabeis'
+  | 'regime_tributario'
+  | 'data_corte'
+  | 'declaracoes_fiscais'
+  | 'handover_arquivos'
+  | 'revogacao_acessos'
+  | 'termo_responsabilidade'
+  | 'outros'
+
+export interface ItemChecklistMigracao {
+  id: string
+  codigo: string
+  titulo: string
+  descricao: string
+  categoria: ItemMigracaoCategoria
+  obrigatorio: boolean
+  concluido: boolean
+  concluido_em?: string
+  responsavel_nome?: string
+  responsavel_id?: string
+  observacao?: string
+  documento_ged_id?: string
+  documento_ged_nome?: string
+}
+
+export interface HistoricoMigracaoAtividade {
+  id: string
+  data: string
+  usuario_id?: string
+  usuario_nome?: string
+  acao: string
+  detalhes?: string
+}
+
+export interface EmpresaMigracaoOnboardingRecord extends RecordModel {
+  tenant_id: string
+  empresa_id: string
+  tipo: MigracaoTipo
+  status: MigracaoStatus
+  responsavel_id?: string
+  data_inicio?: string
+  data_corte?: string
+  primeira_competencia?: string
+  contador_anterior?: string
+  novo_contador?: string
+  contato_outro_contador?: string
+  regime_tributario_definido?: string
+  motivo_saida?: string
+  checklist_itens_json: ItemChecklistMigracao[]
+  historico_atividades_json?: HistoricoMigracaoAtividade[]
+  observacoes?: string
+  concluido_em?: string
+  concluido_por_id?: string
+  expand?: {
+    empresa_id?: Empresa
+    responsavel_id?: User
+    concluido_por_id?: User
+    tenant_id?: Tenant
+  }
+}
