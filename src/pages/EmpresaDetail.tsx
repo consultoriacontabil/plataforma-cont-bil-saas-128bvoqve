@@ -30,6 +30,7 @@ import { EmpresaAberturaTab } from '@/components/EmpresaAberturaTab'
 import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
 import { ProcessoMigracaoDetalheCard } from '@/components/ProcessoMigracaoDetalheCard'
 import { ModalNovoProcessoMigracao } from '@/components/ModalNovoProcessoMigracao'
+import { ModalSalvarCertificado } from '@/components/ModalSalvarCertificado'
 import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
 import type { EmpresaMigracaoOnboardingRecord, MigracaoTipo } from '@/types'
 import {
@@ -89,6 +90,7 @@ export default function EmpresaDetail() {
 
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [showExcluirModal, setShowExcluirModal] = useState(false)
+  const [showCertificadoModal, setShowCertificadoModal] = useState(false)
   const [certificado, setCertificado] = useState<CertificadoDigitalRecord | null>(null)
   const [certidoes, setCertidoes] = useState<CertidaoRecord[]>([])
   const [ecacComunicacoes, setEcacComunicacoes] = useState<EcacComunicacaoRecord[]>([])
@@ -601,8 +603,9 @@ export default function EmpresaDetail() {
                     uso restrito à equipe técnica contábil autorizada.
                   </div>
                   <Button
-                    onClick={() => navigate(`/empresas/${empresa.id}/editar`)}
-                    className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9"
+                    onClick={() => setShowCertificadoModal(true)}
+                    disabled={member?.perfil === 'cliente'}
+                    className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9 disabled:opacity-50"
                   >
                     <Edit className="h-3.5 w-3.5" />
                     <span>Atualizar / Substituir Certificado</span>
@@ -625,8 +628,9 @@ export default function EmpresaDetail() {
                   transmitidas diretamente pelo sistema.
                 </p>
                 <Button
-                  onClick={() => navigate(`/empresas/${empresa.id}/editar`)}
-                  className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9"
+                  onClick={() => setShowCertificadoModal(true)}
+                  disabled={member?.perfil === 'cliente'}
+                  className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9 disabled:opacity-50"
                 >
                   <KeyRound className="h-3.5 w-3.5" />
                   <span>Cadastrar Certificado Agora</span>
@@ -999,6 +1003,27 @@ export default function EmpresaDetail() {
           onCriado={(novo) => {
             setProcessoMigracaoAtivo(novo)
             setSearchParams({ tab: 'migracao_onboarding' }, { replace: true })
+          }}
+        />
+      )}
+
+      {/* Modal Desacoplado para Cadastrar/Atualizar Certificado Digital da Empresa */}
+      {tenant?.id && empresa && (
+        <ModalSalvarCertificado
+          open={showCertificadoModal}
+          onOpenChange={setShowCertificadoModal}
+          empresa={empresa}
+          tenantId={tenant.id}
+          certificadoExistente={certificado}
+          canEdit={
+            member?.perfil === 'administrador' ||
+            member?.perfil === 'contador' ||
+            isGestorEmpresas ||
+            (user?.role as string) === 'administrador' ||
+            (user?.role as string) === 'contador'
+          }
+          onSuccess={(salvo) => {
+            setCertificado(salvo)
           }}
         />
       )}

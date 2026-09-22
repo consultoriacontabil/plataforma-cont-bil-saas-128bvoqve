@@ -55,6 +55,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage, extractFieldErrors } from '@/lib/pocketbase/errors'
 
 const BRAZIL_UFS = [
   'AC',
@@ -516,10 +517,51 @@ export default function EmpresaForm() {
     setSaving(true)
     try {
       const payload: Partial<Empresa> = {
-        ...formData,
         tenant_id: tenant.id,
+        razao_social: formData.razao_social?.trim() || '',
+        nome_fantasia: formData.nome_fantasia?.trim() || '',
         cnpj: formData.cnpj?.replace(/\D/g, '') || '',
-        data_abertura: formData.data_abertura ? `${formData.data_abertura} 00:00:00` : undefined,
+        inscricao_estadual: formData.inscricao_estadual?.trim() || '',
+        inscricao_municipal: formData.inscricao_municipal?.trim() || '',
+        regime_tributario: formData.regime_tributario || 'simples_nacional',
+        porte: formData.porte || 'me',
+        cep: formData.cep?.trim() || '',
+        logradouro: formData.logradouro?.trim() || '',
+        numero: formData.numero?.trim() || '',
+        complemento: formData.complemento?.trim() || '',
+        bairro: formData.bairro?.trim() || '',
+        cidade: formData.cidade?.trim() || '',
+        uf: formData.uf?.trim() || 'SP',
+        pais: formData.pais?.trim() || 'Brasil',
+        telefone: formData.telefone?.trim() || '',
+        observacoes: formData.observacoes || '',
+        status: formData.status || 'ativo',
+      }
+
+      // Sanitização de campos com validação estrita no PocketBase (email, site/url, data_abertura/date):
+      // Nunca enviar strings vazias nestes campos pois o PocketBase rejeita format constraints
+      if (formData.email && formData.email.trim()) {
+        payload.email = formData.email.trim()
+      } else {
+        delete payload.email
+      }
+
+      if (formData.site && formData.site.trim()) {
+        payload.site = formData.site.trim()
+      } else {
+        delete payload.site
+      }
+
+      if (formData.data_abertura && formData.data_abertura.trim()) {
+        const cleanDate = formData.data_abertura.trim().slice(0, 10)
+        const parsed = new Date(`${cleanDate}T12:00:00.000Z`)
+        if (!isNaN(parsed.getTime())) {
+          payload.data_abertura = parsed.toISOString()
+        } else {
+          delete payload.data_abertura
+        }
+      } else {
+        delete payload.data_abertura
       }
 
       let empresaIdSalva = id
@@ -584,7 +626,24 @@ export default function EmpresaForm() {
       navigate(`/empresas/${empresaIdSalva}`)
     } catch (err: unknown) {
       console.error('Error saving empresa:', err)
-      let msg = err instanceof Error ? err.message : 'Erro ao persistir cadastro.'
+      const fieldErrs = extractFieldErrors(err)
+      let msg = ''
+
+      if (Object.keys(fieldErrs).length > 0) {
+        const labels: Record<string, string> = {
+          email: 'E-mail inválido',
+          site: 'URL do Site inválida (deve começar com http:// ou https://)',
+          data_abertura: 'Data de abertura inválida',
+          cnpj: 'CNPJ inválido ou duplicado',
+          razao_social: 'Razão Social obrigatória',
+        }
+        msg = Object.entries(fieldErrs)
+          .map(([f, m]) => `${labels[f] || f}: ${m}`)
+          .join('. ')
+      } else {
+        msg = getErrorMessage(err)
+      }
+
       if (
         msg.includes('já cadastrado') ||
         msg.includes('UNIQUE constraint failed') ||
@@ -592,10 +651,11 @@ export default function EmpresaForm() {
       ) {
         msg = `Este CNPJ já está cadastrado em outra empresa da sua carteira. Verifique os dados para evitar duplicidade.`
       }
+
       toast({
         variant: 'destructive',
         title: 'Falha ao salvar empresa',
-        description: msg,
+        description: msg || 'Verifique se todos os campos cadastrais obrigatórios estão corretos.',
       })
     } finally {
       setSaving(false)
@@ -1335,13 +1395,41 @@ export default function EmpresaForm() {
                 // Força submissão
                 setSaving(true)
                 const payload: Partial<Empresa> = {
-                  ...formData,
                   tenant_id: tenant?.id || '',
+                  razao_social: formData.razao_social?.trim() || '',
+                  nome_fantasia: formData.nome_fantasia?.trim() || '',
                   cnpj: formData.cnpj?.replace(/\D/g, '') || '',
-                  data_abertura: formData.data_abertura
-                    ? `${formData.data_abertura} 00:00:00`
-                    : undefined,
+                  inscricao_estadual: formData.inscricao_estadual?.trim() || '',
+                  inscricao_municipal: formData.inscricao_municipal?.trim() || '',
+                  regime_tributario: formData.regime_tributario || 'simples_nacional',
+                  porte: formData.porte || 'me',
+                  cep: formData.cep?.trim() || '',
+                  logradouro: formData.logradouro?.trim() || '',
+                  numero: formData.numero?.trim() || '',
+                  complemento: formData.complemento?.trim() || '',
+                  bairro: formData.bairro?.trim() || '',
+                  cidade: formData.cidade?.trim() || '',
+                  uf: formData.uf?.trim() || 'SP',
+                  pais: formData.pais?.trim() || 'Brasil',
+                  telefone: formData.telefone?.trim() || '',
+                  observacoes: formData.observacoes || '',
+                  status: formData.status || 'ativo',
                 }
+
+                if (formData.email && formData.email.trim()) {
+                  payload.email = formData.email.trim()
+                }
+                if (formData.site && formData.site.trim()) {
+                  payload.site = formData.site.trim()
+                }
+                if (formData.data_abertura && formData.data_abertura.trim()) {
+                  const cleanDate = formData.data_abertura.trim().slice(0, 10)
+                  const parsed = new Date(`${cleanDate}T12:00:00.000Z`)
+                  if (!isNaN(parsed.getTime())) {
+                    payload.data_abertura = parsed.toISOString()
+                  }
+                }
+
                 const salvarExec = async () => {
                   try {
                     let empresaIdSalva = id
