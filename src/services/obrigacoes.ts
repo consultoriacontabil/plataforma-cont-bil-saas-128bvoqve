@@ -2,7 +2,7 @@ import pb from '@/lib/pocketbase/client'
 import type { ObrigacaoRecord } from '@/types'
 
 export const obrigacoesService = {
-  async list(tenantId: string, filter?: string, sort = 'vencimento ASC') {
+  async list(tenantId: string, filter?: string, sort = 'vencimento') {
     let finalFilter = `tenant_id = "${tenantId}"`
     if (filter) {
       finalFilter += ` && (${filter})`

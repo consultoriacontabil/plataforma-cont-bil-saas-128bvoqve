@@ -14,6 +14,7 @@ import {
   Mail,
   Globe,
   Clock,
+  Calendar,
   Loader2,
   CheckCircle2,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
+import { obrigacoesService } from '@/services/obrigacoes'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
 import { certidoesService, ecacService } from '@/services/regularidade'
 import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
@@ -32,7 +34,7 @@ import { ProcessoMigracaoDetalheCard } from '@/components/ProcessoMigracaoDetalh
 import { ModalNovoProcessoMigracao } from '@/components/ModalNovoProcessoMigracao'
 import { ModalSalvarCertificado } from '@/components/ModalSalvarCertificado'
 import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
-import type { EmpresaMigracaoOnboardingRecord, MigracaoTipo } from '@/types'
+import type { EmpresaMigracaoOnboardingRecord, MigracaoTipo, ObrigacaoRecord } from '@/types'
 import {
   ShieldCheck,
   ShieldAlert,
@@ -97,6 +99,7 @@ export default function EmpresaDetail() {
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
+  const [obrigacoesList, setObrigacoesList] = useState<ObrigacaoRecord[]>([])
   const [processoMigracaoAtivo, setProcessoMigracaoAtivo] =
     useState<EmpresaMigracaoOnboardingRecord | null>(null)
   const [modalNovoMigracaoOpen, setModalNovoMigracaoOpen] = useState(false)
@@ -115,7 +118,17 @@ export default function EmpresaDetail() {
       setEmpresa(emp)
 
       // Fetch related data
-      const [docs, wfs, fisc, cert, certsList, ecacList, procMigracao] = await Promise.all([
+      // Fetch related data in parallel with resilient error handling per resource
+      const [
+        docsRes,
+        wfsRes,
+        fiscRes,
+        certRes,
+        certsListRes,
+        ecacListRes,
+        procMigracaoRes,
+        obListRes,
+      ] = await Promise.allSettled([
         documentosService.list(tenant.id, `empresa_id = "${id}"`),
         workflowService.list(tenant.id, `empresa_id = "${id}"`),
         fiscalService.list(tenant.id, `empresa_id = "${id}"`),
@@ -123,14 +136,28 @@ export default function EmpresaDetail() {
         certidoesService.listByEmpresa(id),
         ecacService.listByEmpresa(id),
         empresasMigracoesOnboardingService.getAtivoByEmpresa(tenant.id, id),
+        obrigacoesService.list(tenant.id, `empresa_id = "${id}"`),
       ])
-      setDocumentos(docs)
-      setWorkflows(wfs)
-      setFiscalList(fisc)
-      setCertificado(cert)
-      setCertidoes(certsList)
-      setEcacComunicacoes(ecacList)
-      setProcessoMigracaoAtivo(procMigracao)
+
+      setDocumentos(docsRes.status === 'fulfilled' ? docsRes.value : [])
+      setWorkflows(wfsRes.status === 'fulfilled' ? wfsRes.value : [])
+      setFiscalList(fiscRes.status === 'fulfilled' ? fiscRes.value : [])
+      setCertificado(certRes.status === 'fulfilled' ? certRes.value : null)
+      setCertidoes(certsListRes.status === 'fulfilled' ? certsListRes.value : [])
+      setEcacComunicacoes(ecacListRes.status === 'fulfilled' ? ecacListRes.value : [])
+      setProcessoMigracaoAtivo(
+        procMigracaoRes.status === 'fulfilled' ? procMigracaoRes.value : null,
+      )
+      setObrigacoesList(obListRes.status === 'fulfilled' ? obListRes.value : [])
+
+      if (fiscRes.status === 'rejected' && obListRes.status === 'rejected') {
+        console.warn('Falha ao buscar obrigações e declarações fiscais:', fiscRes.reason)
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao carregar dados',
+          description: 'Não foi possível buscar as obrigações fiscais.',
+        })
+      }
     } catch (err) {
       console.error('Error loading empresa details:', err)
       toast({
@@ -339,7 +366,7 @@ export default function EmpresaDetail() {
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="rounded-lg text-xs font-semibold gap-2">
             <Calculator className="h-4 w-4" />
-            <span>Fiscal ({fiscalList.length})</span>
+            <span>Fiscal ({fiscalList.length + obrigacoesList.length})</span>
           </TabsTrigger>
           <TabsTrigger value="integracoes" className="rounded-lg text-xs font-semibold gap-2">
             <Layers className="h-4 w-4" />
@@ -847,13 +874,133 @@ export default function EmpresaDetail() {
           </TabsContent>
         )}
 
-        {/* Tab 4: Fiscal */}
-        <TabsContent value="fiscal">
+        {/* Tab 4: Fiscal & Obrigações */}
+        <TabsContent value="fiscal" className="space-y-6">
+          {/* Seção 1: Obrigações Fiscais e Vencimentos (Collection obrigacoes) */}
           <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+            <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[#0FA3A3]" />
+                  <span>Calendário de Obrigações Fiscais ({obrigacoesList.length})</span>
+                </CardTitle>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Vencimentos de guias federais, estaduais e municipais desta empresa
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/obrigacoes')}
+                className="text-xs h-8 rounded-xl border-[#E2E8F0] text-[#0FA3A3] hover:bg-teal-50"
+              >
+                Gerenciar no Calendário
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4">
+              {obrigacoesList.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#94A3B8]">
+                  Nenhuma obrigação fiscal cadastrada para esta empresa.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {obrigacoesList.map((ob) => {
+                    const venc = ob.vencimento ? new Date(ob.vencimento) : null
+                    const now = new Date()
+                    const diffDays = venc
+                      ? Math.ceil((venc.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                      : 0
+
+                    return (
+                      <div
+                        key={ob.id}
+                        className="flex items-center justify-between rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-5 w-5 text-[#0FA3A3]" />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-bold text-[#1A2333]">
+                                {ob.tipo} — {ob.competencia}
+                              </p>
+                              {ob.exige_certificado && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-300 bg-amber-50 text-amber-800 text-[10px] font-semibold"
+                                >
+                                  Exige e-CNPJ
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#64748B]">
+                              Vencimento:{' '}
+                              <span className="font-semibold text-[#1A2333]">
+                                {ob.vencimento
+                                  ? new Date(ob.vencimento).toLocaleDateString('pt-BR', {
+                                      timeZone: 'UTC',
+                                    })
+                                  : '—'}
+                              </span>
+                              {ob.valor ? ` • Valor: R$ ${ob.valor.toFixed(2)}` : ''}
+                              {ob.data_entrega
+                                ? ` • Entregue em ${formatDatePtBr(ob.data_entrega)}`
+                                : ''}
+                            </p>
+                            {ob.observacoes && (
+                              <p className="text-[11px] text-[#94A3B8] italic mt-0.5">
+                                {ob.observacoes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            className={
+                              ob.status === 'entregue'
+                                ? 'bg-[#DCFCE7] text-[#166534]'
+                                : ob.status === 'atrasada' ||
+                                    (diffDays < 0 && ob.status !== 'cancelada')
+                                  ? 'bg-[#FEE2E2] text-[#991B1B]'
+                                  : diffDays <= 7
+                                    ? 'bg-[#FEF3C7] text-[#92400E]'
+                                    : 'bg-[#DBEAFE] text-[#1E40AF]'
+                            }
+                          >
+                            {ob.status === 'entregue'
+                              ? 'Entregue'
+                              : ob.status === 'atrasada' || diffDays < 0
+                                ? 'Atrasada'
+                                : ob.status === 'em_andamento'
+                                  ? 'Em Andamento'
+                                  : 'Pendente'}
+                          </Badge>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Seção 2: Declarações Fiscais SPED/ECF/ECD (Collection fiscal) */}
+          <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+            <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
+                  <Calculator className="h-4 w-4 text-[#3B82F6]" />
+                  <span>Declarações Acessórias & SPED ({fiscalList.length})</span>
+                </CardTitle>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Demonstrativos entregues e períodos de apuração fiscal
+                </p>
+              </div>
+            </CardHeader>
             <CardContent className="p-4">
               {fiscalList.length === 0 ? (
-                <div className="py-12 text-center text-xs text-[#94A3B8]">
-                  Nenhuma obrigação fiscal lançada para esta empresa.
+                <div className="py-8 text-center text-xs text-[#94A3B8]">
+                  Nenhuma declaração fiscal lançada para esta empresa.
                 </div>
               ) : (
                 <div className="space-y-2">

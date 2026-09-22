@@ -165,6 +165,13 @@ export default function Obrigacoes() {
     loadData()
   }, [loadData])
 
+  // Garantir que empresaRegularidadeId inicializa quando empresas carregarem
+  useEffect(() => {
+    if (empresas.length > 0 && !empresaRegularidadeId) {
+      setEmpresaRegularidadeId(empresas[0].id)
+    }
+  }, [empresas, empresaRegularidadeId])
+
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingObrigacao(null)
@@ -508,10 +515,23 @@ export default function Obrigacoes() {
           {/* Botão de Painel de Regularidade */}
           <Button
             variant="outline"
-            onClick={() => {
-              setEmpresaRegularidadeId(
-                filterEmpresa !== 'todas' ? filterEmpresa : empresas[0]?.id || '',
-              )
+            onClick={async () => {
+              // Garante que a lista de empresas e certificados esteja atualizada
+              if (empresas.length === 0 && tenant?.id) {
+                try {
+                  const emps = await empresasService.list(tenant.id)
+                  setEmpresas(emps)
+                  const targetId =
+                    filterEmpresa !== 'todas' && filterEmpresa ? filterEmpresa : emps[0]?.id || ''
+                  setEmpresaRegularidadeId(targetId)
+                } catch (e) {
+                  console.error('Erro ao recarregar empresas:', e)
+                }
+              } else {
+                const targetId =
+                  filterEmpresa !== 'todas' && filterEmpresa ? filterEmpresa : empresas[0]?.id || ''
+                setEmpresaRegularidadeId(targetId)
+              }
               setRegularidadeModalOpen(true)
             }}
             className="gap-1.5 rounded-xl border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100 text-xs font-semibold h-9 shadow-2xs"
@@ -1373,16 +1393,25 @@ export default function Obrigacoes() {
             {/* Seletor de Empresa para Auditoria */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-[#1A2333]">Filtrar Empresa</Label>
-              <Select value={empresaRegularidadeId} onValueChange={setEmpresaRegularidadeId}>
+              <Select
+                value={empresaRegularidadeId || undefined}
+                onValueChange={(val) => setEmpresaRegularidadeId(val)}
+              >
                 <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0]">
                   <SelectValue placeholder="Selecione uma empresa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {empresas.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.nome_fantasia || e.razao_social}
+                  {empresas.length === 0 ? (
+                    <SelectItem value="__nenhuma__" disabled>
+                      Nenhuma empresa ativa encontrada
                     </SelectItem>
-                  ))}
+                  ) : (
+                    empresas.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.nome_fantasia || e.razao_social}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

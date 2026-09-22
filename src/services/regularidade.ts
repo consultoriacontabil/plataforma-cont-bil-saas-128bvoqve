@@ -42,7 +42,7 @@ export const certidoesService = {
     try {
       const records = await pb.collection('certidoes').getFullList<CertidaoRecord>({
         filter: `empresa = "${empresaId}"`,
-        sort: 'data_validade ASC',
+        sort: 'data_validade',
         requestKey: null,
       })
       return records
@@ -61,7 +61,7 @@ export const certidoesService = {
       if (filter) filters.push(filter)
       const records = await pb.collection('certidoes').getFullList<CertidaoRecord>({
         filter: filters.join(' && '),
-        sort: 'data_validade ASC',
+        sort: 'data_validade',
         expand: 'empresa',
         requestKey: null,
       })

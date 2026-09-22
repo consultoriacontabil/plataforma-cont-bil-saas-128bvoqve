@@ -92,7 +92,7 @@ export const portalService = {
   async getClienteObrigacoes(tenantId: string, empresaId: string) {
     return pb.collection('obrigacoes').getFullList<ObrigacaoRecord>({
       filter: `tenant_id = "${tenantId}" && empresa_id = "${empresaId}"`,
-      sort: 'vencimento ASC',
+      sort: 'vencimento',
     })
   },
 }
