@@ -35,6 +35,7 @@ import {
   Receipt,
   FileCheck,
   MessageSquare,
+  HelpCircle,
 } from 'lucide-react'
 import {
   Dialog,
@@ -161,6 +162,7 @@ export default function Layout() {
     if (path.startsWith('/fecho-mensal')) return 'Fecho Mensal & Checklist'
     if (path.startsWith('/relatorios-contabeis')) return 'DRE & Balanço Patrimonial'
     if (path.startsWith('/contratos')) return 'Contratos & Propostas de Honorários'
+    if (path.startsWith('/manual')) return 'Manual de Ativação das Funções'
     if (path.startsWith('/pop-treinamento')) return 'POP & Treinamento Elliza'
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
@@ -338,7 +340,8 @@ export default function Layout() {
     {
       group: 'GESTÃO & INTEGRAÇÕES',
       items: [
-        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: BookOpen, badge: 'ELLIZA' },
+        { label: 'Manual de Ativação', to: '/manual', icon: BookOpen, badge: 'GUIA' },
+        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'ELLIZA' },
         { label: 'Extensão WhatsApp', to: '/extensao', icon: Sparkles, badge: 'NOVO' },
         { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
         { label: 'Relatórios', to: '/relatorios', icon: Layers },
@@ -879,6 +882,13 @@ export default function Layout() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => navigate('/manual')}
+                  className="cursor-pointer text-xs flex items-center gap-2 text-[#0FA3A3] font-medium"
+                >
+                  <BookOpen className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                  <span>Manual de Ativação</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate('/perfil')}
                   className="cursor-pointer text-xs flex items-center gap-2"
