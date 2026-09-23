@@ -60,8 +60,16 @@ export default function Documentos() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [tipoFilter, setTipoFilter] = useState<'todos' | DocumentoTipo | 'busca_sefaz'>('todos')
-  const [statusFilter, setStatusFilter] = useState<'todos' | DocumentoStatus>('todos')
+  const [tipoFilter, setTipoFilter] = useState<'todos' | DocumentoTipo | 'busca_sefaz'>(() => {
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get('tipo')
+    return (t as any) || 'todos'
+  })
+  const [statusFilter, setStatusFilter] = useState<'todos' | DocumentoStatus>(() => {
+    const params = new URLSearchParams(window.location.search)
+    const s = params.get('status')
+    return (s as any) || 'todos'
+  })
 
   // Modals
   const [uploadModalOpen, setUploadModalOpen] = useState(false)

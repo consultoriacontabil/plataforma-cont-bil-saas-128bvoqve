@@ -98,10 +98,19 @@ export default function Obrigacoes() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [filterEmpresa, setFilterEmpresa] = useState<string>('todas')
+  const [filterEmpresa, setFilterEmpresa] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('empresa') || 'todas'
+  })
   const [filterExigeCertificado, setFilterExigeCertificado] = useState<string>('todos')
-  const [filterTipo, setFilterTipo] = useState<string>('todos')
-  const [filterStatus, setFilterStatus] = useState<string>('todos')
+  const [filterTipo, setFilterTipo] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('tipo') || 'todos'
+  })
+  const [filterStatus, setFilterStatus] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('status') || 'todos'
+  })
   const [generatingFecho, setGeneratingFecho] = useState(false)
   const [regularidadeModalOpen, setRegularidadeModalOpen] = useState(false)
   const [empresaRegularidadeId, setEmpresaRegularidadeId] = useState<string>('')

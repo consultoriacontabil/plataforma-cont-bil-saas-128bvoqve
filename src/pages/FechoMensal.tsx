@@ -57,8 +57,14 @@ export default function FechoMensalPage() {
 
   const [loading, setLoading] = useState(true)
   const [empresas, setEmpresas] = useState<Empresa[]>([])
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('')
-  const [selectedCompetencia, setSelectedCompetencia] = useState<string>('09/2026')
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('empresa') || ''
+  })
+  const [selectedCompetencia, setSelectedCompetencia] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('competencia') || '09/2026'
+  })
 
   // Fechamento e Checklist da Empresa Selecionada
   const [fechamento, setFechamento] = useState<FechamentoCompetenciaRecord | null>(null)

@@ -114,7 +114,10 @@ export default function WorkflowPage() {
 
   // Drag and drop state
   const [draggedWorkflowId, setDraggedWorkflowId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState('abertura')
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('tab') || 'abertura'
+  })
 
   const loadData = useCallback(async () => {
     if (!tenant?.id) return
