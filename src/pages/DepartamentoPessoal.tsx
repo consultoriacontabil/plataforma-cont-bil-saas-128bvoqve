@@ -33,9 +33,11 @@ import { PainelReinfDctfweb } from '@/components/PainelReinfDctfweb'
 import { PainelFeriasDecimo } from '@/components/PainelFeriasDecimo'
 import { FichaColaboradorModal } from '@/components/FichaColaboradorModal'
 import { PainelRescisoes } from '@/components/PainelRescisoes'
-import { Palmtree, UserMinus, Bus, Scale } from 'lucide-react'
+import { Palmtree, UserMinus, Bus, Scale, UploadCloud } from 'lucide-react'
 import { PainelBeneficios } from '@/components/PainelBeneficios'
 import { PainelConvencoes } from '@/components/PainelConvencoes'
+import { ModalImportacaoColaboradoresEsocial } from '@/components/ModalImportacaoColaboradoresEsocial'
+import { useRealtime } from '@/hooks/use-realtime'
 import { beneficiosService } from '@/services/beneficios'
 import { convencoesService } from '@/services/convencoes'
 import type {
@@ -110,6 +112,7 @@ export default function DepartamentoPessoal() {
   const [editingFuncionario, setEditingFuncionario] = useState<Funcionario | null>(null)
   const [fichaColaboradorId, setFichaColaboradorId] = useState<string | null>(null)
   const [fichaColaboradorOpen, setFichaColaboradorOpen] = useState(false)
+  const [modalImportacaoEsocialOpen, setModalImportacaoEsocialOpen] = useState(false)
 
   // Form Funcionário
   const [formFuncEmpresa, setFormFuncEmpresa] = useState('')
@@ -218,6 +221,10 @@ export default function DepartamentoPessoal() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Assinatura em tempo real para sincronização instantânea
+  useRealtime('funcionarios', () => loadData())
+  useRealtime('eventos_dp', () => loadData())
 
   // Abrir Modal de Funcionário
   const handleOpenFuncModal = (func?: Funcionario) => {
@@ -673,13 +680,24 @@ export default function DepartamentoPessoal() {
             </div>
 
             {canManage && (
-              <Button
-                onClick={() => handleOpenFuncModal()}
-                className="gap-2 rounded-xl text-xs font-semibold h-9 bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Nova Admissão</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setModalImportacaoEsocialOpen(true)}
+                  variant="outline"
+                  className="gap-2 rounded-xl text-xs font-semibold h-9 border-teal-200 text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585]"
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  <span>Importar via e-Social</span>
+                </Button>
+
+                <Button
+                  onClick={() => handleOpenFuncModal()}
+                  className="gap-2 rounded-xl text-xs font-semibold h-9 bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Nova Admissão</span>
+                </Button>
+              </div>
             )}
           </div>
 
@@ -1765,6 +1783,19 @@ export default function DepartamentoPessoal() {
         }}
         onNavegarAba={(aba) => {
           setActiveTab(aba)
+        }}
+      />
+
+      {/* Modal Importar Colaboradores via e-Social (Upload XML/CSV/JSON + Modo Supervisão) */}
+      <ModalImportacaoColaboradoresEsocial
+        open={modalImportacaoEsocialOpen}
+        onOpenChange={setModalImportacaoEsocialOpen}
+        tenantId={tenant?.id || ''}
+        usuarioId={member?.user_id || ''}
+        empresas={empresas}
+        empresaInicialId={selectedEmpresaId}
+        onImportConcluido={() => {
+          loadData()
         }}
       />
 
