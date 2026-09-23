@@ -25,6 +25,7 @@ import {
   type ObrigacaoAtualizadaEventDetail,
 } from '@/services/obrigacoes'
 import { certificadosService } from '@/services/certificados'
+import { certidoesService } from '@/services/regularidade'
 import { fechoMensalService } from '@/services/fechoMensal'
 import { companyOnboardingService } from '@/services/companyOnboarding'
 import { tenantService } from '@/services/tenant'
@@ -37,6 +38,7 @@ import type {
   OnboardingChecklistState,
   ObrigacaoRecord,
   CertificadoDigitalRecord,
+  CertidaoRecord,
   FechamentoCompetenciaRecord,
   CompanyOnboardingWorkflowRecord,
 } from '@/types'
@@ -50,6 +52,7 @@ import { useToast } from '@/hooks/use-toast'
 import { DashboardObrigacoes } from '@/components/dashboard/DashboardObrigacoes'
 import { DashboardPendencias } from '@/components/dashboard/DashboardPendencias'
 import { DashboardWorkflowPanel } from '@/components/dashboard/DashboardWorkflowPanel'
+import { DashboardMonitorCnds } from '@/components/dashboard/DashboardMonitorCnds'
 
 export default function Dashboard() {
   const { user, tenant, member, refreshAuth } = useAuth()
@@ -66,6 +69,7 @@ export default function Dashboard() {
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
   const [obrigacoes, setObrigacoes] = useState<ObrigacaoRecord[]>([])
   const [certificados, setCertificados] = useState<CertificadoDigitalRecord[]>([])
+  const [certidoes, setCertidoes] = useState<CertidaoRecord[]>([])
   const [fechamentos, setFechamentos] = useState<FechamentoCompetenciaRecord[]>([])
   const [onboardingWorkflows, setOnboardingWorkflows] = useState<CompanyOnboardingWorkflowRecord[]>(
     [],
@@ -77,6 +81,7 @@ export default function Dashboard() {
   const [errorObrigacoes, setErrorObrigacoes] = useState<string | null>(null)
   const [errorPendencias, setErrorPendencias] = useState<string | null>(null)
   const [errorWorkflows, setErrorWorkflows] = useState<string | null>(null)
+  const [errorCnds, setErrorCnds] = useState<string | null>(null)
 
   // Onboarding checklist state
   const [carregandoPlanoPadrao, setCarregandoPlanoPadrao] = useState(false)
@@ -112,6 +117,11 @@ export default function Dashboard() {
       console.error('Erro certificados:', err)
       return [] as CertificadoDigitalRecord[]
     })
+    const pCertidoes = certidoesService.list(tenant.id).catch((err) => {
+      console.error('Erro certidoes:', err)
+      setErrorCnds('Falha ao sincronizar certidões negativas.')
+      return [] as CertidaoRecord[]
+    })
     const pFechamentos = fechoMensalService.listFechamentos(tenant.id).catch((err) => {
       console.error('Erro fechamentos:', err)
       return [] as FechamentoCompetenciaRecord[]
@@ -122,7 +132,7 @@ export default function Dashboard() {
     })
 
     try {
-      const [empRes, docRes, wfRes, fiscRes, obrigRes, certRes, fechRes, onbRes] =
+      const [empRes, docRes, wfRes, fiscRes, obrigRes, certRes, certidoesRes, fechRes, onbRes] =
         await Promise.all([
           pEmpresas,
           pDocs,
@@ -130,6 +140,7 @@ export default function Dashboard() {
           pFiscal,
           pObrigacoes,
           pCertificados,
+          pCertidoes,
           pFechamentos,
           pOnboardings,
         ])
@@ -140,12 +151,14 @@ export default function Dashboard() {
       setFiscalList(fiscRes)
       setObrigacoes(obrigRes)
       setCertificados(certRes)
+      setCertidoes(certidoesRes)
       setFechamentos(fechRes)
       setOnboardingWorkflows(onbRes)
 
       setErrorObrigacoes(null)
       setErrorPendencias(null)
       setErrorWorkflows(null)
+      setErrorCnds(null)
     } catch (err) {
       console.error('Erro geral ao carregar dados do Dashboard:', err)
       setErrorPendencias('Falha ao sincronizar pendências do escritório.')
@@ -166,6 +179,7 @@ export default function Dashboard() {
   useRealtime('fiscal', () => loadData())
   useRealtime('obrigacoes', () => loadData())
   useRealtime('certificados_digitais', () => loadData())
+  useRealtime('certidoes', () => loadData())
   useRealtime('fechamento_competencia', () => loadData())
   useRealtime('company_onboarding_workflow', () => loadData())
   useRealtime('guias_pagamentos', () => loadData())
@@ -624,6 +638,20 @@ export default function Dashboard() {
         />
       </section>
 
+      {/* SEÇÃO 1.5 EM DESTAQUE: Monitor de CNDs & Regularidade Fiscal */}
+      <section aria-label="Monitor de CNDs e Regularidade Fiscal">
+        <DashboardMonitorCnds
+          empresas={empresas}
+          certidoes={certidoes}
+          loading={loadingInitial}
+          error={errorCnds}
+          isCliente={isCliente}
+          currentUserId={user?.id}
+          tenantId={tenant?.id}
+          onWorkflowCreated={() => loadData()}
+        />
+      </section>
+
       {/* SEÇÃO 2 EM DESTAQUE: Pendências em Destaque (1/2) + Solicitações & Workflow (1/2) */}
       <section
         aria-label="Pendências Críticas e Solicitações de Workflow"
@@ -637,6 +665,7 @@ export default function Dashboard() {
             obrigacoes={obrigacoes}
             fechamentos={fechamentos}
             empresas={empresas}
+            certidoes={certidoes}
             onboardingWorkflows={onboardingWorkflows}
             loading={loadingInitial}
             error={errorPendencias}

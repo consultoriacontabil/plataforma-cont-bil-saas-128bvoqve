@@ -23,9 +23,18 @@ import type {
   CompanyOnboardingWorkflowRecord,
 } from '@/types'
 
+import type { CertidaoRecord } from '@/types'
+import { certidoesService } from '@/services/regularidade'
+
 export interface PendenciaAgregadaItem {
   id: string
-  tipo: 'ged' | 'certificado' | 'obrigacao_vencida' | 'fechamento_aberto' | 'onboarding_docs'
+  tipo:
+    | 'ged'
+    | 'certificado'
+    | 'obrigacao_vencida'
+    | 'fechamento_aberto'
+    | 'onboarding_docs'
+    | 'cnd_vencida'
   titulo: string
   descricao: string
   empresaNome?: string
@@ -41,6 +50,7 @@ interface DashboardPendenciasProps {
   obrigacoes: ObrigacaoRecord[]
   fechamentos: FechamentoCompetenciaRecord[]
   empresas: Empresa[]
+  certidoes?: CertidaoRecord[]
   onboardingWorkflows?: CompanyOnboardingWorkflowRecord[]
   loading?: boolean
   error?: string | null
@@ -53,6 +63,7 @@ export const DashboardPendencias: React.FC<DashboardPendenciasProps> = ({
   obrigacoes,
   fechamentos,
   empresas,
+  certidoes = [],
   onboardingWorkflows = [],
   loading = false,
   error = null,
@@ -175,6 +186,28 @@ export const DashboardPendencias: React.FC<DashboardPendenciasProps> = ({
       }
     })
 
+    // 3.1 Certidões Negativas de Débito (CNDs) Vencidas ou Próximas do Vencimento
+    certidoes.forEach((cert) => {
+      const emp = cert.empresa ? empresasMap.get(cert.empresa) : undefined
+      const empNome = emp?.nome_fantasia || emp?.razao_social || 'Empresa'
+      const saude = certidoesService.calcularSaude(cert)
+
+      if (saude.saude === 'vencida' || saude.saude === 'sem_efeito') {
+        const tipoLabel = certidoesService.getTipoLabel(cert.tipo)
+        itens.push({
+          id: `cnd-venc-${cert.id}`,
+          tipo: 'cnd_vencida',
+          titulo: `CND Vencida: ${tipoLabel}`,
+          descricao: `${empNome} — ${saude.label}. Risco de travamento em licitações e financiamentos bancários.`,
+          empresaNome: empNome,
+          empresaId: cert.empresa,
+          criticidade: 'alta',
+          rotaDestino: isCliente ? '/portal' : `/empresas/${cert.empresa}?tab=regularidade`,
+          badgeLabel: 'CND Vencida',
+        })
+      }
+    })
+
     // 4. Obrigações Vencidas (Não entregues e data anterior a hoje)
     obrigacoes
       .filter((o) => {
@@ -237,6 +270,7 @@ export const DashboardPendencias: React.FC<DashboardPendenciasProps> = ({
     obrigacoes,
     fechamentos,
     empresas,
+    certidoes,
     empresasMap,
     onboardingWorkflows,
     isCliente,
@@ -259,6 +293,8 @@ export const DashboardPendencias: React.FC<DashboardPendenciasProps> = ({
         return <CalendarX2 className="h-4 w-4 text-indigo-600" />
       case 'onboarding_docs':
         return <AlertTriangle className="h-4 w-4 text-purple-600" />
+      case 'cnd_vencida':
+        return <AlertTriangle className="h-4 w-4 text-amber-600" />
       default:
         return <AlertCircle className="h-4 w-4 text-slate-600" />
     }
