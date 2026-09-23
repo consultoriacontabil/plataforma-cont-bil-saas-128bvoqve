@@ -14,18 +14,6 @@ import {
   Clock,
   RotateCw,
 } from 'lucide-react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
@@ -37,13 +25,11 @@ import { fechoMensalService } from '@/services/fechoMensal'
 import { companyOnboardingService } from '@/services/companyOnboarding'
 import { tenantService } from '@/services/tenant'
 import { useRealtime } from '@/hooks/use-realtime'
-import { formatRelativeTimePtBr } from '@/lib/formatters'
 import type {
   Empresa,
   Documento,
   Workflow,
   FiscalRecord,
-  WorkflowActivity,
   OnboardingChecklistState,
   ObrigacaoRecord,
   CertificadoDigitalRecord,
@@ -80,7 +66,6 @@ export default function Dashboard() {
   const [onboardingWorkflows, setOnboardingWorkflows] = useState<CompanyOnboardingWorkflowRecord[]>(
     [],
   )
-  const [activities, setActivities] = useState<WorkflowActivity[]>([])
 
   // Loading e erros parciais isolados por domínio
   const [loadingInitial, setLoadingInitial] = useState(true)
@@ -157,14 +142,6 @@ export default function Dashboard() {
       setErrorObrigacoes(null)
       setErrorPendencias(null)
       setErrorWorkflows(null)
-
-      // Fetch workflow activities
-      try {
-        const actRes = await workflowService.listActivities(wfRes[0]?.id || '')
-        setActivities(actRes.slice(0, 8))
-      } catch {
-        /* intentionally ignored */
-      }
     } catch (err) {
       console.error('Erro geral ao carregar dados do Dashboard:', err)
       setErrorPendencias('Falha ao sincronizar pendências do escritório.')
@@ -256,48 +233,6 @@ export default function Dashboard() {
     ).length
     return fiscCount + obrigCount
   }, [fiscalList, obrigacoes])
-
-  // Chart 1: Workflow Status Bar Data
-  const workflowStatusData = useMemo(() => {
-    const counts: Record<string, number> = {
-      concluido: 0,
-      em_andamento: 0,
-      pendente: 0,
-      cancelado: 0,
-    }
-    workflows.forEach((w) => {
-      if (counts[w.status] !== undefined) {
-        counts[w.status]++
-      }
-    })
-    return [
-      { name: 'Concluído', status: 'concluido', total: counts.concluido, fill: '#22C55E' },
-      { name: 'Em Andamento', status: 'em_andamento', total: counts.em_andamento, fill: '#3B82F6' },
-      { name: 'Pendente', status: 'pendente', total: counts.pendente, fill: '#F59E0B' },
-      { name: 'Cancelado', status: 'cancelado', total: counts.cancelado, fill: '#EF4444' },
-    ]
-  }, [workflows])
-
-  // Chart 2: Documentos por Tipo Donut Data
-  const donutColors = ['#0FA3A3', '#3B82F6', '#F59E0B', '#22C55E', '#8B5CF6', '#F43F5E']
-  const docsByTypeData = useMemo(() => {
-    const map: Record<string, number> = {}
-    documentos.forEach((d) => {
-      const label = d.tipo.replace('_', ' ')
-      map[label] = (map[label] || 0) + 1
-    })
-
-    const result = Object.entries(map).map(([name, value], i) => ({
-      name,
-      value,
-      color: donutColors[i % donutColors.length],
-    }))
-
-    if (result.length === 0) {
-      return [{ name: 'Sem documentos', value: 1, color: '#E2E8F0' }]
-    }
-    return result
-  }, [documentos])
 
   return (
     <div className="space-y-7 animate-fade-in pb-10">
@@ -657,82 +592,20 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Two Column Area: Atividade Recente (2/3) + Ações Rápidas (1/3) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Atividade Recente (2/3) */}
-        <Card className="lg:col-span-2 rounded-2xl border-[#E2E8F0] shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <CardTitle className="text-base font-bold text-[#1A2333]">
-                Atividade Recente
-              </CardTitle>
-              <CardDescription className="text-xs text-[#64748B]">
-                Últimas movimentações operacionais do escritório
-              </CardDescription>
-            </div>
-            {!isCliente && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/auditoria')}
-                className="text-xs text-[#0FA3A3] hover:text-[#0C8585]"
-              >
-                Ver auditoria completa
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {activities.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Clock className="h-8 w-8 text-[#94A3B8] mb-2" />
-                  <p className="text-xs text-[#64748B]">Nenhuma atividade recente registrada.</p>
-                </div>
-              ) : (
-                activities.map((act) => (
-                  <div
-                    key={act.id}
-                    className="flex items-start justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#0B1F3A] text-xs font-bold">
-                        {act.expand?.usuario_id?.name?.charAt(0) || 'U'}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-[#1A2333]">
-                          {act.expand?.usuario_id?.name || 'Sistema'}
-                        </p>
-                        <p className="text-xs text-[#64748B]">{act.acao}</p>
-                        {act.comentario && (
-                          <p className="mt-0.5 text-[11px] text-[#94A3B8] italic">
-                            &quot;{act.comentario}&quot;
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-[#94A3B8] whitespace-nowrap">
-                      {formatRelativeTimePtBr(act.created)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ações Rápidas (1/3) */}
-        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold text-[#1A2333]">Ações Rápidas</CardTitle>
-            <CardDescription className="text-xs text-[#64748B]">
-              Atalhos de produtividade imediata
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
+      {/* Seção de Ações Rápidas */}
+      <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-bold text-[#1A2333]">Ações Rápidas</CardTitle>
+          <CardDescription className="text-xs text-[#64748B]">
+            Atalhos de produtividade imediata
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {!isCliente && (
               <Button
                 onClick={() => navigate('/empresas/nova')}
-                className="w-full justify-start gap-3 h-11 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
+                className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-[#0FA3A3]">
                   <PlusCircle className="h-4 w-4" />
@@ -743,7 +616,7 @@ export default function Dashboard() {
 
             <Button
               onClick={() => navigate(isCliente ? '/portal?tab=documentos' : '/documentos')}
-              className="w-full justify-start gap-3 h-11 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
+              className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#3B82F6]">
                 <UploadCloud className="h-4 w-4" />
@@ -754,7 +627,7 @@ export default function Dashboard() {
             {!isCliente && (
               <Button
                 onClick={() => navigate('/workflow')}
-                className="w-full justify-start gap-3 h-11 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
+                className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-[#F59E0B]">
                   <GitPullRequest className="h-4 w-4" />
@@ -765,7 +638,7 @@ export default function Dashboard() {
 
             <Button
               onClick={() => navigate('/rumo-agent')}
-              className="w-full justify-between h-11 rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#123B6D] hover:from-[#123B6D] hover:to-[#0B1F3A] text-white shadow-xs font-semibold text-xs transition-all"
+              className="w-full justify-between h-12 rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#123B6D] hover:from-[#123B6D] hover:to-[#0B1F3A] text-white shadow-xs font-semibold text-xs transition-all"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-400/20 text-[#0FA3A3]">
@@ -775,95 +648,9 @@ export default function Dashboard() {
               </div>
               <ArrowRight className="h-4 w-4 text-teal-300" />
             </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bottom Row Charts: Workflow Status Bar + Documentos Donut */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Workflow Status Bar Chart */}
-        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold text-[#1A2333]">
-              Workflows por Status
-            </CardTitle>
-            <CardDescription className="text-xs text-[#64748B]">
-              Distribuição de solicitações ativas e concluídas
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-64 pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={workflowStatusData}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-              >
-                <XAxis type="number" allowDecimals={false} stroke="#94A3B8" fontSize={11} />
-                <YAxis dataKey="name" type="category" stroke="#64748B" fontSize={11} width={90} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '12px',
-                    borderColor: '#E2E8F0',
-                    fontSize: '12px',
-                  }}
-                  cursor={{ fill: '#F1F5F9' }}
-                />
-                <Bar dataKey="total" radius={[0, 6, 6, 0]}>
-                  {workflowStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Documentos Donut Chart */}
-        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold text-[#1A2333]">
-              Documentos por Tipo
-            </CardTitle>
-            <CardDescription className="text-xs text-[#64748B]">
-              Volume de arquivos GED categorizados no escritório
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-64 pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={docsByTypeData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {docsByTypeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '12px',
-                    borderColor: '#E2E8F0',
-                    fontSize: '12px',
-                  }}
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                  iconType="circle"
-                  formatter={(value) => (
-                    <span className="text-xs text-[#64748B] capitalize">{value}</span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
