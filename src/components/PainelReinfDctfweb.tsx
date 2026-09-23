@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import pb from '@/lib/pocketbase/client'
 import {
   FileText,
   Send,
