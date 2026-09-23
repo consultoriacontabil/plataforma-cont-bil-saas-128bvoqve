@@ -145,13 +145,15 @@ export function EmpresaNfeRecebidasTab({
       ])
 
       setCertificados(certList)
+      const certAtivo = certList.find((c) => c.status === 'ativo') || certList[0]
 
       if (cfg) {
         setConfig(cfg)
-        setBuscaAtiva(cfg.busca_automatica_ativa ?? false)
+        setBuscaAtiva(cfg.busca_automatica_ativa ?? Boolean(certAtivo))
         setAmbiente(cfg.ambiente || 'producao')
-        setCertificadoId(cfg.certificado_a1 || (certList.length > 0 ? certList[0].id : ''))
-        setSenhaCertificado(cfg.senha_certificado || '')
+        const effectiveCertId = cfg.certificado_a1 || (certAtivo ? certAtivo.id : '')
+        setCertificadoId(effectiveCertId)
+        setSenhaCertificado(cfg.senha_certificado || (certAtivo ? certAtivo.senha || '' : ''))
         setAutoImportarGed(cfg.auto_importar_ged ?? true)
         setAutoCiencia(cfg.auto_ciencia_operacao ?? false)
         if (cfg.ultimo_diagnostico_json) {
@@ -159,9 +161,10 @@ export function EmpresaNfeRecebidasTab({
         }
       } else {
         // Padrões se ainda não configurado
-        if (certList.length > 0) {
-          setCertificadoId(certList[0].id)
-          setSenhaCertificado(certList[0].senha || '')
+        if (certAtivo) {
+          setBuscaAtiva(true)
+          setCertificadoId(certAtivo.id)
+          setSenhaCertificado(certAtivo.senha || '')
         }
       }
     } catch (err) {

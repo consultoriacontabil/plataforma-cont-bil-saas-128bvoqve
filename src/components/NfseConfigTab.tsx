@@ -114,6 +114,25 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
   const [empresaSelecionadaConfig, setEmpresaSelecionadaConfig] = useState<string>(
     empresas.length > 0 ? empresas[0].id : '',
   )
+  const [temCertificadoNfse, setTemCertificadoNfse] = useState<boolean>(false)
+
+  useEffect(() => {
+    const checarCert = async () => {
+      if (!empresaSelecionadaConfig) {
+        setTemCertificadoNfse(false)
+        return
+      }
+      try {
+        const certs = await pb.collection('certificados_digitais').getFullList({
+          filter: `empresa = "${empresaSelecionadaConfig}" && status = "ativo"`,
+        })
+        setTemCertificadoNfse(certs.length > 0)
+      } catch {
+        setTemCertificadoNfse(false)
+      }
+    }
+    checarCert()
+  }, [empresaSelecionadaConfig])
   const [provedoresEmpresas, setProvedoresEmpresas] = useState<
     Record<string, ProvedorEmpresaConfig>
   >(config?.provedores_empresas_json || {})
@@ -421,10 +440,17 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           {/* Seletor de Empresa para Parametrização Individual */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
-                <SlidersHorizontal className="h-4 w-4 text-[#0FA3A3]" />
-                Configuração Fiscal por Empresa da Carteira
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
+                  <SlidersHorizontal className="h-4 w-4 text-[#0FA3A3]" />
+                  Configuração Fiscal por Empresa da Carteira
+                </span>
+                {temCertificadoNfse && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-bold">
+                    Certificado A1 vinculado à empresa
+                  </Badge>
+                )}
+              </div>
               <span className="text-[10px] text-[#64748B]">
                 Permite plugar Betha, Ginfes ou Gov.br por município
               </span>

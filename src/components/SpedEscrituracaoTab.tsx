@@ -91,6 +91,9 @@ export function SpedEscrituracaoTab({ empresas, selectedEmpresaId }: SpedEscritu
   const [reciboPva, setReciboPva] = useState('')
   const [obsPva, setObsPva] = useState('')
 
+  // Certificado ativo vinculado
+  const [temCertificadoAtivo, setTemCertificadoAtivo] = useState(false)
+
   // Permissão por perfil
   const podeEditar = user?.perfil === 'administrador' || user?.perfil === 'contador'
 
@@ -142,6 +145,25 @@ export function SpedEscrituracaoTab({ empresas, selectedEmpresaId }: SpedEscritu
   useEffect(() => {
     carregarArquivos()
   }, [tenant?.id, empresaFiltro, tipoFiltro, statusFiltro])
+
+  useEffect(() => {
+    const checarCertificado = async () => {
+      const empId = formEmpresa || empresaFiltro
+      if (!empId || empId === 'todas') {
+        setTemCertificadoAtivo(false)
+        return
+      }
+      try {
+        const certs = await pb.collection('certificados_digitais').getFullList({
+          filter: `empresa = "${empId}" && status = "ativo"`,
+        })
+        setTemCertificadoAtivo(certs.length > 0)
+      } catch {
+        setTemCertificadoAtivo(false)
+      }
+    }
+    checarCertificado()
+  }, [formEmpresa, empresaFiltro])
 
   const handleValidarPrevia = async () => {
     if (!tenant?.id || !formEmpresa) return
@@ -338,6 +360,11 @@ export function SpedEscrituracaoTab({ empresas, selectedEmpresaId }: SpedEscritu
                 <h4 className="font-semibold text-slate-900 text-sm">
                   Transparência de Conformidade e Transmissão SPED
                 </h4>
+                {temCertificadoAtivo && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-bold">
+                    Certificado A1 vinculado à empresa
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[11px]">
                   Modo Supervisão Contábil
                 </Badge>

@@ -104,13 +104,15 @@ export function EmpresaConectorRfbTab({ empresa, onSyncCompleted }: EmpresaConec
 
       // 2. Carregar configuração RFB
       const cfg = await rfbConectorService.getConfig(empresa.id)
+      const certAtivo = certs.find((c) => c.status === 'ativo') || certs[0]
       if (cfg) {
         setConfig(cfg)
         setAtivo(cfg.ativo)
         setAmbiente(cfg.ambiente)
         setCnpjContribuinte(cfg.cnpj_contribuinte || empresa.cnpj || '')
-        setCertificadoId(cfg.certificado_a1 || certs[0]?.id || '')
-        setSenhaCertificado(cfg.senha_certificado || '')
+        const effectiveCertId = cfg.certificado_a1 || certAtivo?.id || ''
+        setCertificadoId(effectiveCertId)
+        setSenhaCertificado(cfg.senha_certificado || certAtivo?.senha || '')
         setContratoDteId(cfg.contrato_dte_id || '')
         setTokenAmbienteRfb(cfg.token_ambiente_rfb || '')
         setSincronizacaoAutomatica(cfg.sincronizacao_automatica)
@@ -122,8 +124,9 @@ export function EmpresaConectorRfbTab({ empresa, onSyncCompleted }: EmpresaConec
       } else {
         // Valores default
         setCnpjContribuinte(empresa.cnpj || '')
-        if (certs.length > 0) {
-          setCertificadoId(certs[0].id)
+        if (certAtivo) {
+          setCertificadoId(certAtivo.id)
+          setSenhaCertificado(certAtivo.senha || '')
         }
       }
 

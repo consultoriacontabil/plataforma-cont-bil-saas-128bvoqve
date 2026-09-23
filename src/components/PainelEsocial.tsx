@@ -83,6 +83,7 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
 
   const [eventos, setEventos] = useState<EsocialEventoRecord[]>([])
   const [config, setConfig] = useState<EsocialConfigRecord | null>(null)
+  const [certAtivoEmpresa, setCertAtivoEmpresa] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [transmittingId, setTransmittingId] = useState<string | null>(null)
@@ -120,7 +121,7 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
     if (!tenantId) return
     setLoading(true)
     try {
-      const [evts, cfg] = await Promise.all([
+      const [evts, cfg, certs] = await Promise.all([
         esocialService.listEventos(tenantId, {
           empresaId: selectedEmpresaId,
           competencia: selectedCompetencia,
@@ -130,9 +131,18 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
         selectedEmpresaId !== 'todas'
           ? esocialService.getConfig(tenantId, selectedEmpresaId)
           : Promise.resolve(null),
+        selectedEmpresaId !== 'todas'
+          ? pb
+              .collection('certificados_digitais')
+              .getFullList({
+                filter: `tenant_id = "${tenantId}" && empresa = "${selectedEmpresaId}" && status = "ativo"`,
+              })
+              .catch(() => [])
+          : Promise.resolve([]),
       ])
       setEventos(evts)
       setConfig(cfg)
+      setCertAtivoEmpresa(Boolean(cfg?.certificado_a1 || (certs && certs.length > 0)))
     } catch (err) {
       console.error('Erro ao carregar e-Social:', err)
       toast({
@@ -408,6 +418,11 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
             <span className="font-bold text-base tracking-tight">
               Painel de Conformidade e-Social
             </span>
+            {certAtivoEmpresa && (
+              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold tracking-wider">
+                CERTIFICADO A1 VINCULADO
+              </Badge>
+            )}
             <Badge className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[11px] font-bold tracking-wider">
               MODO SUPERVISÃO ATIVO
             </Badge>

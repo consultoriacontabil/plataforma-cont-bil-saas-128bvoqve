@@ -79,6 +79,9 @@ export function PainelReinfDctfweb({
   const [transmittingReinfId, setTransmittingReinfId] = useState<string | null>(null)
   const [transmittingDctf, setTransmittingDctf] = useState(false)
 
+  // Certificado Ativo Vinculado
+  const [temCertificadoAtivo, setTemCertificadoAtivo] = useState<boolean>(false)
+
   // Modais
   const [modalXmlOpen, setModalXmlOpen] = useState(false)
   const [xmlVisualizando, setXmlVisualizando] = useState<ReinfEventoRecord | null>(null)
@@ -142,6 +145,25 @@ export function PainelReinfDctfweb({
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  useEffect(() => {
+    const checarCert = async () => {
+      const empId = selectedEmpresaId !== 'todas' ? selectedEmpresaId : empresaAtual?.id
+      if (!empId || empId === 'todas') {
+        setTemCertificadoAtivo(false)
+        return
+      }
+      try {
+        const certs = await pb.collection('certificados_digitais').getFullList({
+          filter: `empresa = "${empId}" && status = "ativo"`,
+        })
+        setTemCertificadoAtivo(certs.length > 0)
+      } catch {
+        setTemCertificadoAtivo(false)
+      }
+    }
+    checarCert()
+  }, [selectedEmpresaId, empresaAtual?.id])
 
   // Estatísticas do Reinf
   const reinfStats = useMemo(() => {
@@ -405,6 +427,11 @@ export function PainelReinfDctfweb({
                 <h3 className="text-sm font-bold text-[#0B1F3A]">
                   EFD-Reinf & DCTFWeb — Integração Fiscal e Previdenciária
                 </h3>
+                {temCertificadoAtivo && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
+                    Certificado A1 vinculado à empresa
+                  </Badge>
+                )}
                 <Badge className="bg-sky-100 text-sky-800 border-sky-300 text-[10px] font-semibold gap-1">
                   <ShieldCheck className="h-3 w-3" />
                   <span>Modo Supervisão Honesto</span>
