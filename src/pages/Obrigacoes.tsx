@@ -66,7 +66,11 @@ import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 import { fechoContabilService } from '@/services/fechoContabil'
-import { Sparkles, FileSpreadsheet } from 'lucide-react'
+import { guiasPagamentosService } from '@/services/guiasPagamentos'
+import { useRealtime } from '@/hooks/use-realtime'
+import { auditService } from '@/services/audit'
+import { Sparkles, FileSpreadsheet, RefreshCw, CheckCheck, Landmark, Info } from 'lucide-react'
+import type { GuiaPagamentoRecord } from '@/types'
 
 const TIPOS_OBRIGACOES: ObrigacaoTipo[] = [
   'DAS',
@@ -114,6 +118,25 @@ export default function Obrigacoes() {
   const [generatingFecho, setGeneratingFecho] = useState(false)
   const [regularidadeModalOpen, setRegularidadeModalOpen] = useState(false)
   const [empresaRegularidadeId, setEmpresaRegularidadeId] = useState<string>('')
+
+  // Modal e-CAC / Baixa Assistida de Guias
+  const [ecacModalOpen, setEcacModalOpen] = useState(false)
+  const [empresaEcacId, setEmpresaEcacId] = useState<string>('')
+  const [guiasEmpresa, setGuiasEmpresa] = useState<GuiaPagamentoRecord[]>([])
+  const [loadingGuias, setLoadingGuias] = useState(false)
+  const [selectedGuiaParaBaixa, setSelectedGuiaParaBaixa] = useState<GuiaPagamentoRecord | null>(
+    null,
+  )
+  const [baixaDataPagamento, setBaixaDataPagamento] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  )
+  const [baixaValorPago, setBaixaValorPago] = useState('')
+  const [baixaAutenticacao, setBaixaAutenticacao] = useState('')
+  const [baixaOrigem, setBaixaOrigem] = useState<'manual_supervisao' | 'conector_rfb'>(
+    'manual_supervisao',
+  )
+  const [baixaNoFinanceiro, setBaixaNoFinanceiro] = useState(true)
+  const [salvandoBaixa, setSalvandoBaixa] = useState(false)
 
   // Calendar State
   const [currentDate, setCurrentDate] = useState<Date>(new Date())
@@ -174,12 +197,104 @@ export default function Obrigacoes() {
     loadData()
   }, [loadData])
 
-  // Garantir que empresaRegularidadeId inicializa quando empresas carregarem
+  // Realtime updates para sincronização instantânea
+  useRealtime('obrigacoes', () => loadData())
+  useRealtime('guias_pagamentos', () => {
+    loadData()
+    if (empresaEcacId) {
+      carregarGuiasEmpresa(empresaEcacId)
+    }
+  })
+
+  // Garantir que empresaRegularidadeId e empresaEcacId inicializam quando empresas carregarem
   useEffect(() => {
     if (empresas.length > 0 && !empresaRegularidadeId) {
       setEmpresaRegularidadeId(empresas[0].id)
     }
-  }, [empresas, empresaRegularidadeId])
+    if (empresas.length > 0 && !empresaEcacId) {
+      setEmpresaEcacId(empresas[0].id)
+    }
+  }, [empresas, empresaRegularidadeId, empresaEcacId])
+
+  const carregarGuiasEmpresa = useCallback(async (empId: string) => {
+    if (!empId) return
+    setLoadingGuias(true)
+    try {
+      const list = await guiasPagamentosService.listGuias(empId)
+      setGuiasEmpresa(list)
+    } catch (err) {
+      console.error('Erro ao carregar guias para e-CAC:', err)
+      setGuiasEmpresa([])
+    } finally {
+      setLoadingGuias(false)
+    }
+  }, [])
+
+  const handleOpenEcacModal = async () => {
+    const targetEmp =
+      filterEmpresa !== 'todas' && filterEmpresa ? filterEmpresa : empresas[0]?.id || ''
+    setEmpresaEcacId(targetEmp)
+    if (targetEmp) {
+      await carregarGuiasEmpresa(targetEmp)
+    }
+    setSelectedGuiaParaBaixa(null)
+    setEcacModalOpen(true)
+  }
+
+  const handleIniciarBaixaGuia = (guia: GuiaPagamentoRecord) => {
+    setSelectedGuiaParaBaixa(guia)
+    setBaixaDataPagamento(new Date().toISOString().slice(0, 10))
+    setBaixaValorPago(String(guia.valor_total || guia.valor_original || ''))
+    setBaixaAutenticacao(`AUT-ECAC-${Date.now().toString().slice(-6)}`)
+    setBaixaOrigem('manual_supervisao')
+    setBaixaNoFinanceiro(true)
+  }
+
+  const handleConfirmarBaixaAssistida = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedGuiaParaBaixa || !tenant?.id || !member?.user_id) return
+
+    setSalvandoBaixa(true)
+    try {
+      // 1. Efetuar baixa assistida na guia de pagamentos (com baixa correlata na obrigação automática)
+      await guiasPagamentosService.marcarGuiaComoPaga({
+        guiaId: selectedGuiaParaBaixa.id,
+        tenantId: tenant.id,
+        empresaId: selectedGuiaParaBaixa.empresa,
+        usuarioId: member.user_id,
+        dataPagamento: baixaDataPagamento,
+        autenticacaoBancaria: `${baixaAutenticacao} (${baixaOrigem === 'conector_rfb' ? 'Conector RFB' : 'Supervisão Humana'})`,
+        baixarNoFinanceiro: baixaNoFinanceiro,
+      })
+
+      // 2. Registrar auditoria detalhada com origem de supervisão
+      await auditService.log(
+        tenant.id,
+        member.user_id,
+        'baixa_assistida_supervisao_ecac',
+        'guias_pagamentos',
+        selectedGuiaParaBaixa.id,
+        `Baixa assistida (Modo Supervisão) da guia ${selectedGuiaParaBaixa.tipo_guia.toUpperCase()} (Comp: ${selectedGuiaParaBaixa.periodo_apuracao}) no valor de R$ ${baixaValorPago}. Autenticação: ${baixaAutenticacao}. Origem: ${baixaOrigem}.`,
+      )
+
+      toast({
+        title: 'Baixa concluída com sucesso!',
+        description: `Guia ${selectedGuiaParaBaixa.tipo_guia.toUpperCase()} quitada e obrigação correlata liquidada no calendário.`,
+      })
+
+      setSelectedGuiaParaBaixa(null)
+      await Promise.all([loadData(), carregarGuiasEmpresa(selectedGuiaParaBaixa.empresa)])
+    } catch (err) {
+      console.error('Erro na baixa assistida:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro na baixa assistida',
+        description: 'Não foi possível confirmar a baixa da guia.',
+      })
+    } finally {
+      setSalvandoBaixa(false)
+    }
+  }
 
   // Open Create Modal
   const handleOpenCreate = () => {
@@ -521,6 +636,19 @@ export default function Obrigacoes() {
         </div>
 
         <div className="flex items-center flex-wrap gap-2">
+          {/* Botão de Busca e-CAC / Baixa Assistida */}
+          {canEdit && (
+            <Button
+              variant="outline"
+              onClick={handleOpenEcacModal}
+              className="gap-1.5 rounded-xl border-blue-300 bg-blue-50/80 text-blue-900 hover:bg-blue-100 text-xs font-semibold h-9 shadow-2xs"
+              title="Buscar recolhimentos e realizar baixa assistida de guias"
+            >
+              <Landmark className="h-4 w-4 text-blue-700" />
+              <span>Buscar Recolhimentos no e-CAC</span>
+            </Button>
+          )}
+
           {/* Botão de Painel de Regularidade */}
           <Button
             variant="outline"
@@ -1382,6 +1510,322 @@ export default function Obrigacoes() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Buscar Recolhimentos no e-CAC & Baixa Assistida das Guias (MODO SUPERVISÃO) */}
+      <Dialog open={ecacModalOpen} onOpenChange={setEcacModalOpen}>
+        <DialogContent className="max-w-3xl rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-[#1A2333] flex items-center gap-2">
+              <Landmark className="h-5 w-5 text-blue-700" />
+              <span>Consulta de Recolhimentos e-CAC / RFB (Baixa Assistida de Guias)</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Conferência de guias tributárias (DARF, DAS, DCTFWeb) com baixa assistida em tempo
+              real.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Banner Honesto - Padrão do Projeto: MODO SUPERVISÃO (NUNCA falso sucesso) */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold uppercase tracking-wider text-[11px] bg-blue-200/80 text-blue-900 px-2 py-0.5 rounded-md">
+                  MODO SUPERVISÃO
+                </span>
+                <span className="font-semibold text-blue-800">
+                  Aguardando credenciais / canal mTLS e-CAC
+                </span>
+              </div>
+              <p className="text-[11px] text-blue-950/80 leading-relaxed">
+                A consulta 100% automatizada e contínua junto à Receita Federal exige webservice
+                DTE/mTLS com o e-CNPJ (A1) da empresa ativo. Enquanto o conector direto opera em
+                modo supervisionado, utilize a <strong>baixa assistida</strong> abaixo para
+                conciliar comprovantes, informando a data, autenticação e valor pago. Ao confirmar,
+                a guia e a obrigação correlata são liquidadas no calendário e no Dashboard em tempo
+                real.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-1">
+            {/* Seletor da Empresa */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#1A2333]">Empresa Contribuinte</Label>
+              <Select
+                value={empresaEcacId || undefined}
+                onValueChange={(val) => {
+                  setEmpresaEcacId(val)
+                  carregarGuiasEmpresa(val)
+                  setSelectedGuiaParaBaixa(null)
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-xl border-[#E2E8F0]">
+                  <SelectValue placeholder="Selecione uma empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nome_fantasia || e.razao_social}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sub-painel: Formulário de Baixa Assistida quando uma Guia está selecionada */}
+            {selectedGuiaParaBaixa ? (
+              <form
+                onSubmit={handleConfirmarBaixaAssistida}
+                className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between border-b border-teal-200 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCheck className="h-4 w-4 text-[#0FA3A3]" />
+                    <span className="font-bold text-xs text-[#1A2333]">
+                      Registrar Baixa Assistida: {selectedGuiaParaBaixa.tipo_guia.toUpperCase()}{' '}
+                      (Comp: {selectedGuiaParaBaixa.periodo_apuracao})
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedGuiaParaBaixa(null)}
+                    className="h-6 text-[11px] text-[#64748B]"
+                  >
+                    Voltar à lista
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <Label className="text-[11px] font-semibold text-[#1A2333]">
+                      Data do Pagamento *
+                    </Label>
+                    <Input
+                      type="date"
+                      value={baixaDataPagamento}
+                      onChange={(e) => setBaixaDataPagamento(e.target.value)}
+                      className="h-8 text-xs rounded-lg mt-1"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] font-semibold text-[#1A2333]">
+                      Valor Pago (R$) *
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={baixaValorPago}
+                      onChange={(e) => setBaixaValorPago(e.target.value)}
+                      className="h-8 text-xs rounded-lg mt-1"
+                      placeholder="0,00"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] font-semibold text-[#1A2333]">
+                      Código de Autenticação / Recibo e-CAC *
+                    </Label>
+                    <Input
+                      type="text"
+                      value={baixaAutenticacao}
+                      onChange={(e) => setBaixaAutenticacao(e.target.value)}
+                      className="h-8 text-xs rounded-lg mt-1"
+                      placeholder="Ex: 89.231.002.A9F8..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] font-semibold text-[#1A2333]">
+                      Origem da Baixa
+                    </Label>
+                    <Select
+                      value={baixaOrigem}
+                      onValueChange={(val: 'manual_supervisao' | 'conector_rfb') =>
+                        setBaixaOrigem(val)
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs rounded-lg mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual_supervisao">
+                          Manual (Supervisão Contábil)
+                        </SelectItem>
+                        <SelectItem value="conector_rfb">Conector RFB / e-CAC Assistido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedGuiaParaBaixa(null)}
+                    disabled={salvandoBaixa}
+                    className="h-8 text-xs rounded-lg"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={salvandoBaixa}
+                    className="h-8 text-xs rounded-lg bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold gap-1.5"
+                  >
+                    {salvandoBaixa ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Processando baixa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCheck className="h-3.5 w-3.5" />
+                        <span>Confirmar Baixa & Liquidar Obrigação</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+
+            {/* Tabela de Guias de Pagamento da Empresa */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-[#1A2333]">
+                  Guias Cadastradas na Empresa ({guiasEmpresa.length})
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => carregarGuiasEmpresa(empresaEcacId)}
+                  disabled={loadingGuias}
+                  className="h-7 text-xs text-[#64748B] gap-1"
+                >
+                  <RefreshCw className={`h-3 w-3 ${loadingGuias ? 'animate-spin' : ''}`} />
+                  <span>Recarregar</span>
+                </Button>
+              </div>
+
+              {loadingGuias ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-[#64748B]">
+                  Carregando guias de pagamento...
+                </div>
+              ) : guiasEmpresa.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-[#64748B]">
+                  Nenhuma guia de pagamento registrada para esta empresa. As apurações fiscais e
+                  declarações DCTFWeb geram guias automaticamente.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {guiasEmpresa.map((g) => {
+                    const isPaga = g.situacao === 'paga'
+                    return (
+                      <div
+                        key={g.id}
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border text-xs ${
+                          isPaga
+                            ? 'bg-emerald-50/40 border-emerald-200'
+                            : 'bg-white border-slate-200 shadow-2xs hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[#1A2333] uppercase">
+                              {g.tipo_guia.replace('_', ' ')}
+                            </span>
+                            <Badge
+                              className={`text-[10px] ${
+                                isPaga
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : g.situacao === 'vencida'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {g.situacao.toUpperCase()}
+                            </Badge>
+                            <span className="text-[11px] text-[#64748B]">
+                              Receita: <strong>{g.codigo_receita}</strong> • Comp:{' '}
+                              <strong>{g.periodo_apuracao}</strong>
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-[#64748B] flex items-center gap-2">
+                            <span>
+                              Vencimento:{' '}
+                              {g.data_vencimento
+                                ? new Date(g.data_vencimento).toLocaleDateString('pt-BR', {
+                                    timeZone: 'UTC',
+                                  })
+                                : '—'}
+                            </span>
+                            <span>•</span>
+                            <span className="font-semibold text-[#1A2333]">
+                              R$ {Number(g.valor_total || 0).toFixed(2)}
+                            </span>
+                            {g.data_pagamento && (
+                              <>
+                                <span>•</span>
+                                <span className="text-emerald-700">
+                                  Pago em{' '}
+                                  {new Date(g.data_pagamento).toLocaleDateString('pt-BR', {
+                                    timeZone: 'UTC',
+                                  })}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          {isPaga ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-emerald-700 border-emerald-300 bg-white"
+                            >
+                              Liquidada
+                            </Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleIniciarBaixaGuia(g)}
+                              className="h-7 text-xs rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                            >
+                              Dar Baixa
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEcacModalOpen(false)}
+              className="rounded-xl border-[#E2E8F0] text-xs"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

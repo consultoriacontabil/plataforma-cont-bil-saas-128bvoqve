@@ -265,6 +265,73 @@ export const guiasPagamentosService = {
       `Guia ${guia.tipo_guia.toUpperCase()} (${guia.codigo_receita} - ${guia.periodo_apuracao}) no valor de R$ ${guia.valor_total.toFixed(2)} marcada como PAGA em ${params.dataPagamento}. Baixa no financeiro: ${params.baixarNoFinanceiro ? 'Sim' : 'Não'}.`,
     )
 
+    // Baixa correlata na obrigação fiscal correspondente se existir e ainda estiver pendente/atrasada
+    try {
+      // Mapeamento de tipo de guia para tipo de obrigação
+      const mapTipoGuiaParaObrigacao: Record<string, string[]> = {
+        das: ['DAS'],
+        darf: ['DARF', 'SPED', 'DIRF', 'EFD'],
+        darf_previdenciario: ['DARF', 'INSS', 'DCTF', 'GFIP'],
+        dctfweb: ['DCTF', 'DARF', 'INSS'],
+        dae_par: ['DARF', 'OUTROS'],
+        perdcomp: ['DARF', 'OUTROS'],
+      }
+      const tiposAceitos = mapTipoGuiaParaObrigacao[guia.tipo_guia] || ['DARF']
+
+      // Buscar obrigações não entregues da mesma empresa e competência/período
+      const compLimpa = (guia.periodo_apuracao || '').trim()
+      const compSemBarra = compLimpa.replace('/', '')
+      const obsCandidatas = await pb.collection('obrigacoes').getFullList<any>({
+        filter: `tenant_id = "${params.tenantId}" && empresa_id = "${params.empresaId}" && status != "entregue"`,
+        requestKey: null,
+      })
+
+      const obCorrelata = obsCandidatas.find((ob) => {
+        const obComp = (ob.competencia || '').trim()
+        const compMatch =
+          obComp === compLimpa ||
+          obComp.replace('/', '') === compSemBarra ||
+          obComp.toLowerCase().includes(compLimpa.toLowerCase()) ||
+          compLimpa.toLowerCase().includes(obComp.toLowerCase())
+        const tipoMatch = tiposAceitos.includes(ob.tipo)
+        return compMatch && tipoMatch
+      })
+
+      if (obCorrelata) {
+        await pb.collection('obrigacoes').update(obCorrelata.id, {
+          status: 'entregue',
+          data_entrega: params.dataPagamento
+            ? new Date(params.dataPagamento).toISOString()
+            : new Date().toISOString(),
+          observacoes: (
+            (obCorrelata.observacoes || '') +
+            ` [Baixa via quitação da guia ${guia.tipo_guia.toUpperCase()} - Recibo/Autenticação: ${params.autenticacaoBancaria || 'OK'}]`
+          ).trim(),
+        })
+
+        // Disparar evento global para atualização imediata do Dashboard e outras telas
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('rumo:obrigacao-atualizada', {
+              detail: { action: 'entregue', id: obCorrelata.id },
+              bubbles: true,
+            }),
+          )
+        }
+
+        await auditService.log(
+          params.tenantId,
+          params.usuarioId,
+          'obrigacao_liquidada_por_guia',
+          'obrigacoes',
+          obCorrelata.id,
+          `Obrigação ${obCorrelata.tipo} (${obCorrelata.competencia}) marcada automaticamente como ENTREGUE via baixa da Guia ${guia.id}.`,
+        )
+      }
+    } catch (errOb) {
+      console.warn('[Guias] Aviso ao baixar obrigação correlata:', errOb)
+    }
+
     return updated
   },
 

@@ -24,6 +24,7 @@ import { documentosService } from '@/services/documentos'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
 import { obrigacoesService } from '@/services/obrigacoes'
+import { useRealtime } from '@/hooks/use-realtime'
 import { certificadosService, type CertificadoSaudeInfo } from '@/services/certificados'
 import { certidoesService, ecacService } from '@/services/regularidade'
 import { EmpresaRegularidadeSection } from '@/components/EmpresaRegularidadeSection'
@@ -174,6 +175,31 @@ export default function EmpresaDetail() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Realtime updates para a tela de detalhes da empresa
+  useRealtime('obrigacoes', () => loadData())
+  useRealtime('fiscal', () => loadData())
+  useRealtime('documentos', () => loadData())
+  useRealtime('workflows', () => loadData())
+  useRealtime('guias_pagamentos', () => loadData())
+
+  const handleMarcarObrigacaoEntregue = async (obId: string) => {
+    try {
+      await obrigacoesService.marcarComoEntregue(obId, tenant?.id)
+      toast({
+        title: 'Obrigação transmitida!',
+        description: 'Status atualizado com sucesso para entregue.',
+      })
+      loadData()
+    } catch (err) {
+      console.error('Erro ao marcar obrigação entregue na empresa:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar',
+        description: 'Não foi possível marcar a obrigação como transmitida.',
+      })
+    }
+  }
 
   const handleEncerrar = async () => {
     if (!empresa) return
@@ -975,6 +1001,19 @@ export default function EmpresaDetail() {
                                   ? 'Em Andamento'
                                   : 'Pendente'}
                           </Badge>
+
+                          {ob.status !== 'entregue' && member?.perfil !== 'cliente' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarcarObrigacaoEntregue(ob.id)}
+                              className="h-7 text-[11px] rounded-lg border-teal-300 text-teal-700 hover:bg-teal-50 font-semibold gap-1"
+                              title="Marcar como entregue / transmitida"
+                            >
+                              <CheckCircle2 className="h-3 w-3 text-teal-600" />
+                              <span>Marcar Entregue</span>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     )

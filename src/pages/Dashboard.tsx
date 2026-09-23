@@ -19,7 +19,11 @@ import { empresasService } from '@/services/empresas'
 import { documentosService } from '@/services/documentos'
 import { workflowService } from '@/services/workflows'
 import { fiscalService } from '@/services/fiscal'
-import { obrigacoesService } from '@/services/obrigacoes'
+import {
+  obrigacoesService,
+  OBRIGACAO_ATUALIZADA_EVENT,
+  type ObrigacaoAtualizadaEventDetail,
+} from '@/services/obrigacoes'
 import { certificadosService } from '@/services/certificados'
 import { fechoMensalService } from '@/services/fechoMensal'
 import { companyOnboardingService } from '@/services/companyOnboarding'
@@ -164,18 +168,78 @@ export default function Dashboard() {
   useRealtime('certificados_digitais', () => loadData())
   useRealtime('fechamento_competencia', () => loadData())
   useRealtime('company_onboarding_workflow', () => loadData())
+  useRealtime('guias_pagamentos', () => loadData())
 
-  // Ação rápida de marcar obrigação entregue diretamente pelo Dashboard
+  // Atualização otimista local de uma obrigação
+  const aplicarAtualizacaoOtimistaObrigacao = useCallback(
+    (id: string, status: 'entregue' | 'pendente' | 'atrasada') => {
+      const dataEntregaNow = status === 'entregue' ? new Date().toISOString() : undefined
+      setObrigacoes((prev) =>
+        prev.map((o) =>
+          o.id === id
+            ? {
+                ...o,
+                status,
+                ...(dataEntregaNow ? { data_entrega: dataEntregaNow } : {}),
+              }
+            : o,
+        ),
+      )
+    },
+    [],
+  )
+
+  // Listener para o evento global rumo:obrigacao-atualizada disparado por qualquer tela
+  useEffect(() => {
+    const handleObrigacaoGlobal = (event: Event) => {
+      const custom = event as CustomEvent<ObrigacaoAtualizadaEventDetail>
+      const detail = custom.detail
+      if (!detail) {
+        loadData()
+        return
+      }
+
+      if (detail.action === 'entregue') {
+        aplicarAtualizacaoOtimistaObrigacao(detail.id, 'entregue')
+      } else if (detail.action === 'delete') {
+        setObrigacoes((prev) => prev.filter((o) => o.id !== detail.id))
+      } else if (detail.record) {
+        setObrigacoes((prev) => {
+          const exists = prev.some((o) => o.id === detail.id)
+          if (exists) {
+            return prev.map((o) => (o.id === detail.id ? { ...o, ...detail.record } : o))
+          }
+          return [detail.record!, ...prev]
+        })
+      }
+      // Re-sincroniza em background para manter consistência total
+      loadData()
+    }
+
+    window.addEventListener(OBRIGACAO_ATUALIZADA_EVENT, handleObrigacaoGlobal)
+    return () => {
+      window.removeEventListener(OBRIGACAO_ATUALIZADA_EVENT, handleObrigacaoGlobal)
+    }
+  }, [aplicarAtualizacaoOtimistaObrigacao, loadData])
+
+  // Ação rápida de marcar obrigação entregue diretamente pelo Dashboard com atualização otimista imediata
   const handleMarcarObrigacaoEntregue = async (obrigacaoId: string) => {
+    // 1. Atualização Otimista Imediata (limpa a pendência e atualiza KPIs na hora)
+    const backupAnterior = obrigacoes
+    aplicarAtualizacaoOtimistaObrigacao(obrigacaoId, 'entregue')
+
     try {
       await obrigacoesService.marcarComoEntregue(obrigacaoId, tenant?.id)
       toast({
         title: 'Obrigação transmitida!',
-        description: 'Status atualizado com sucesso no calendário fiscal.',
+        description: 'Status atualizado com sucesso no calendário fiscal e pendência liquidada.',
       })
-      await loadData()
+      // Confirmação final em background
+      loadData()
     } catch (err) {
       console.error('Erro ao marcar obrigação entregue:', err)
+      // Rollback se a requisição de fato rejeitou
+      setObrigacoes(backupAnterior)
       toast({
         variant: 'destructive',
         title: 'Erro ao atualizar',
