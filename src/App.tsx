@@ -16,6 +16,7 @@ import Documentos from '@/pages/Documentos'
 import WorkflowPage from '@/pages/Workflow'
 import Fiscal from '@/pages/Fiscal'
 import Integracoes from '@/pages/Integracoes'
+import PainelIntegracao from '@/pages/PainelIntegracao'
 import Usuarios from '@/pages/Usuarios'
 import Auditoria from '@/pages/Auditoria'
 import RumoAgentPage from '@/pages/RumoAgent'
@@ -108,6 +109,7 @@ export default function App() {
 
             <Route path="/relatorios" element={<Relatorios />} />
             <Route path="/integracoes" element={<Integracoes />} />
+            <Route path="/integracao" element={<PainelIntegracao />} />
             <Route path="/extensao" element={<ExtensaoWhatsAppPage />} />
 
             {/* Gestão */}

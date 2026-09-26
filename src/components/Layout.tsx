@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { RumoLogo } from './RumoLogo'
 import {
   Compass,
+  GitMerge,
   LayoutDashboard,
   Building2,
   FileText,
@@ -167,6 +168,7 @@ export default function Layout() {
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/extensao')) return 'Extensão WhatsApp Web'
+    if (path.startsWith('/integracao')) return 'Painel de Integração do Tripé'
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
     if (path.startsWith('/auditoria')) return 'Trilha de Auditoria'
@@ -325,6 +327,9 @@ export default function Layout() {
       group: 'CONTÁBIL',
       items: [
         { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
+        ...(member?.perfil !== 'cliente'
+          ? [{ label: 'Painel Integração', to: '/integracao', icon: GitMerge, badge: 'FASE 1' }]
+          : []),
         { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
         { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },
         { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
