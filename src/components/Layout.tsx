@@ -30,6 +30,7 @@ import {
   CheckSquare,
   PieChart,
   Boxes,
+  SlidersHorizontal,
   Wallet,
   TrendingUp,
   Plus,
@@ -168,6 +169,8 @@ export default function Layout() {
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
     if (path.startsWith('/extensao')) return 'Extensão WhatsApp Web'
+    if (path.startsWith('/lote')) return 'Processamento em Lote Multi-Empresas'
+    if (path.startsWith('/parametros-normativos')) return 'Motor de Cálculo & Parâmetros Normativos'
     if (path.startsWith('/integracao')) return 'Painel de Integração do Tripé'
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
@@ -295,7 +298,10 @@ export default function Layout() {
         },
         { label: 'Fiscal & SPED', to: '/fiscal', icon: Calculator },
         ...(member?.perfil !== 'cliente'
-          ? [{ label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' }]
+          ? [
+              { label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' },
+              { label: 'Rotinas em Lote', to: '/lote', icon: Layers, badge: 'FASE 3' },
+            ]
           : []),
         {
           label: 'Analytics Tributário',
@@ -331,7 +337,15 @@ export default function Layout() {
       items: [
         { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
         ...(member?.perfil !== 'cliente'
-          ? [{ label: 'Painel Integração', to: '/integracao', icon: GitMerge, badge: 'FASE 1' }]
+          ? [
+              { label: 'Painel Integração', to: '/integracao', icon: GitMerge, badge: 'FASE 1' },
+              {
+                label: 'Parâmetros Normativos',
+                to: '/parametros-normativos',
+                icon: SlidersHorizontal,
+                badge: 'FASE 3',
+              },
+            ]
           : []),
         { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
         { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },

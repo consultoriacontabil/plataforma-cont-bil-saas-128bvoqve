@@ -28,15 +28,33 @@ export interface FaixaInss {
   aliquota: number
 }
 
+import { PARAMETROS_INSS_PADRAO, PARAMETROS_IRRF_PADRAO } from '@/services/calculoUnificado'
+
 export const TABELA_INSS_PROGRESSIVA: FaixaInss[] = [
-  { limiteInferior: 0, limiteSuperior: 1412.0, aliquota: 0.075 },
-  { limiteInferior: 1412.0, limiteSuperior: 2666.68, aliquota: 0.09 },
-  { limiteInferior: 2666.68, limiteSuperior: 4000.03, aliquota: 0.12 },
-  { limiteInferior: 4000.03, limiteSuperior: 7786.02, aliquota: 0.14 },
+  {
+    limiteInferior: 0,
+    limiteSuperior: PARAMETROS_INSS_PADRAO.faixas[0].ate,
+    aliquota: PARAMETROS_INSS_PADRAO.faixas[0].aliquota,
+  },
+  {
+    limiteInferior: PARAMETROS_INSS_PADRAO.faixas[0].ate,
+    limiteSuperior: PARAMETROS_INSS_PADRAO.faixas[1].ate,
+    aliquota: PARAMETROS_INSS_PADRAO.faixas[1].aliquota,
+  },
+  {
+    limiteInferior: PARAMETROS_INSS_PADRAO.faixas[1].ate,
+    limiteSuperior: PARAMETROS_INSS_PADRAO.faixas[2].ate,
+    aliquota: PARAMETROS_INSS_PADRAO.faixas[2].aliquota,
+  },
+  {
+    limiteInferior: PARAMETROS_INSS_PADRAO.faixas[2].ate,
+    limiteSuperior: PARAMETROS_INSS_PADRAO.faixas[3].ate,
+    aliquota: PARAMETROS_INSS_PADRAO.faixas[3].aliquota,
+  },
 ]
 
-export const TETO_SALARIO_CONTRIBUICAO_INSS = 7786.02
-export const TETO_DESCONTO_INSS = 908.85 // Teto máximo progressivo apurado: 105.90 + 112.92 + 160.00 + 530.03 = 908.85
+export const TETO_SALARIO_CONTRIBUICAO_INSS = PARAMETROS_INSS_PADRAO.teto_salario_contribuicao
+export const TETO_DESCONTO_INSS = PARAMETROS_INSS_PADRAO.teto_desconto
 
 export function calcularInssProgressivo(baseCalculo: number): {
   inss: number
@@ -83,15 +101,40 @@ export interface FaixaIrrf {
   parcelaDeduzir: number
 }
 
-export const DEDUCAO_LEGAL_POR_DEPENDENTE_IRRF = 189.59
-export const DESCONTO_SIMPLIFICADO_MENSAL_IRRF = 564.8
+export const DEDUCAO_LEGAL_POR_DEPENDENTE_IRRF = PARAMETROS_IRRF_PADRAO.deducao_por_dependente
+export const DESCONTO_SIMPLIFICADO_MENSAL_IRRF = PARAMETROS_IRRF_PADRAO.desconto_simplificado_mensal
 
 export const TABELA_IRRF_PROGRESSIVA: FaixaIrrf[] = [
-  { limiteInferior: 0, limiteSuperior: 2259.2, aliquota: 0.0, parcelaDeduzir: 0.0 },
-  { limiteInferior: 2259.2, limiteSuperior: 2826.65, aliquota: 0.075, parcelaDeduzir: 169.44 },
-  { limiteInferior: 2826.65, limiteSuperior: 3751.05, aliquota: 0.15, parcelaDeduzir: 381.44 },
-  { limiteInferior: 3751.05, limiteSuperior: 4664.68, aliquota: 0.225, parcelaDeduzir: 662.77 },
-  { limiteInferior: 4664.68, limiteSuperior: Infinity, aliquota: 0.275, parcelaDeduzir: 896.0 },
+  {
+    limiteInferior: 0,
+    limiteSuperior: PARAMETROS_IRRF_PADRAO.faixas[0].ate,
+    aliquota: PARAMETROS_IRRF_PADRAO.faixas[0].aliquota,
+    parcelaDeduzir: PARAMETROS_IRRF_PADRAO.faixas[0].deducao,
+  },
+  {
+    limiteInferior: PARAMETROS_IRRF_PADRAO.faixas[0].ate,
+    limiteSuperior: PARAMETROS_IRRF_PADRAO.faixas[1].ate,
+    aliquota: PARAMETROS_IRRF_PADRAO.faixas[1].aliquota,
+    parcelaDeduzir: PARAMETROS_IRRF_PADRAO.faixas[1].deducao,
+  },
+  {
+    limiteInferior: PARAMETROS_IRRF_PADRAO.faixas[1].ate,
+    limiteSuperior: PARAMETROS_IRRF_PADRAO.faixas[2].ate,
+    aliquota: PARAMETROS_IRRF_PADRAO.faixas[2].aliquota,
+    parcelaDeduzir: PARAMETROS_IRRF_PADRAO.faixas[2].deducao,
+  },
+  {
+    limiteInferior: PARAMETROS_IRRF_PADRAO.faixas[2].ate,
+    limiteSuperior: PARAMETROS_IRRF_PADRAO.faixas[3].ate,
+    aliquota: PARAMETROS_IRRF_PADRAO.faixas[3].aliquota,
+    parcelaDeduzir: PARAMETROS_IRRF_PADRAO.faixas[3].deducao,
+  },
+  {
+    limiteInferior: PARAMETROS_IRRF_PADRAO.faixas[3].ate,
+    limiteSuperior: Infinity,
+    aliquota: PARAMETROS_IRRF_PADRAO.faixas[4].aliquota,
+    parcelaDeduzir: PARAMETROS_IRRF_PADRAO.faixas[4].deducao,
+  },
 ]
 
 export function calcularIrrfProgressivo(params: {

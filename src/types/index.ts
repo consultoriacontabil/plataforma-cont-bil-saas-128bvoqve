@@ -730,12 +730,36 @@ export interface AtivoPatrimonial extends RecordModel {
   status: AtivoStatus
   depreciacao_acumulada_calculada?: number
   ultima_competencia_depreciada?: string
+  setor_localizacao?: string
+  filial_unidade?: string
+  responsavel_bem?: string
   observacoes?: string
   expand?: {
     empresa?: Empresa
     conta_ativo?: ContaContabil
     conta_depreciacao_acumulada?: ContaContabil
     conta_despesa_depreciacao?: ContaContabil
+  }
+}
+
+export interface PatrimonioTransferenciaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  ativo: string
+  data_transferencia: string
+  origem_setor?: string
+  origem_filial?: string
+  origem_responsavel?: string
+  destino_setor: string
+  destino_filial?: string
+  destino_responsavel: string
+  motivo?: string
+  observacao?: string
+  usuario_id?: string
+  expand?: {
+    empresa?: Empresa
+    ativo?: AtivoPatrimonial
+    usuario_id?: User
   }
 }
 

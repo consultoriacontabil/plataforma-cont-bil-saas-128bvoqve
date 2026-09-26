@@ -46,6 +46,8 @@ import AnalyticsTributarioPage from '@/pages/AnalyticsTributario'
 import MonitoramentoLegislativoPage from '@/pages/MonitoramentoLegislativo'
 import PopTreinamentoPage from '@/pages/PopTreinamento'
 import ManualPage from '@/pages/Manual'
+import LotePage from '@/pages/LotePage'
+import ParametrosNormativosPage from '@/pages/ParametrosNormativosPage'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -111,8 +113,9 @@ export default function App() {
             <Route path="/relatorios" element={<Relatorios />} />
             <Route path="/integracoes" element={<Integracoes />} />
             <Route path="/integracao" element={<PainelIntegracao />} />
+            <Route path="/lote" element={<LotePage />} />
+            <Route path="/parametros-normativos" element={<ParametrosNormativosPage />} />
             <Route path="/extensao" element={<ExtensaoWhatsAppPage />} />
-
             {/* Gestão */}
             <Route path="/manual" element={<ManualPage />} />
             <Route path="/pop-treinamento" element={<PopTreinamentoPage />} />

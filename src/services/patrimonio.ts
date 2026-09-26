@@ -5,8 +5,10 @@ import type {
   AtivoStatus,
   TipoBaixaAtivo,
   BaixaAtivoRecord,
+  PatrimonioTransferenciaRecord,
   LancamentoContabil,
 } from '@/types'
+import { auditService } from '@/services/audit'
 
 export interface CreateAtivoInput {
   tenant_id: string
@@ -23,8 +25,24 @@ export interface CreateAtivoInput {
   conta_ativo: string
   conta_depreciacao_acumulada?: string
   conta_despesa_depreciacao?: string
+  setor_localizacao?: string
+  filial_unidade?: string
+  responsavel_bem?: string
   status?: AtivoStatus
   observacoes?: string
+}
+
+export interface TransferirAtivoInput {
+  tenant_id: string
+  empresa_id: string
+  ativo_id: string
+  data_transferencia: string
+  destino_setor: string
+  destino_filial?: string
+  destino_responsavel: string
+  motivo?: string
+  observacao?: string
+  usuario_id?: string
 }
 
 export interface RegistrarBaixaInput {
@@ -354,6 +372,66 @@ export const patrimonioService = {
     return pb.collection('baixas_ativos').getFullList<BaixaAtivoRecord>({
       filter,
       sort: '-data_baixa',
+      expand: 'ativo,empresa,usuario_id',
+    })
+  },
+
+  // === Transferência Física de Ativos (FASE 3) ===
+  async transferirAtivo(input: TransferirAtivoInput): Promise<PatrimonioTransferenciaRecord> {
+    const ativo = await this.getAtivo(input.ativo_id)
+
+    // 1. Gravar registro no histórico de transferências
+    const registro = await pb
+      .collection('patrimonio_transferencias')
+      .create<PatrimonioTransferenciaRecord>({
+        tenant_id: input.tenant_id,
+        empresa: input.empresa_id,
+        ativo: input.ativo_id,
+        data_transferencia: input.data_transferencia,
+        origem_setor: ativo.setor_localizacao || 'Não definido',
+        origem_filial: ativo.filial_unidade || 'Matriz',
+        origem_responsavel: ativo.responsavel_bem || 'Geral',
+        destino_setor: input.destino_setor,
+        destino_filial: input.destino_filial || ativo.filial_unidade || 'Matriz',
+        destino_responsavel: input.destino_responsavel,
+        motivo: input.motivo || '',
+        observacao: input.observacao || '',
+        usuario_id: input.usuario_id || undefined,
+      })
+
+    // 2. Atualizar localização e responsável atuais na coleção 'ativos'
+    await pb.collection('ativos').update(input.ativo_id, {
+      setor_localizacao: input.destino_setor,
+      filial_unidade: input.destino_filial || ativo.filial_unidade || 'Matriz',
+      responsavel_bem: input.destino_responsavel,
+    })
+
+    // 3. Registrar na auditoria
+    await auditService.log(
+      input.tenant_id,
+      input.usuario_id || '',
+      'transferencia_ativo_patrimonial',
+      'ativos',
+      input.ativo_id,
+      `Transferência interna do bem '${ativo.descricao}': de [${ativo.setor_localizacao || 'Geral'} / ${ativo.responsavel_bem || 'N/A'}] para [${input.destino_setor} / ${input.destino_responsavel}]. Motivo: ${input.motivo || 'Reorganização operacional'}.`,
+    )
+
+    return registro
+  },
+
+  async listTransferencias(tenantId: string, filters?: { ativoId?: string; empresaId?: string }) {
+    const filterParts: string[] = [`tenant_id = "${tenantId}"`]
+
+    if (filters?.ativoId) {
+      filterParts.push(`ativo = "${filters.ativoId}"`)
+    }
+    if (filters?.empresaId && filters.empresaId !== 'todas') {
+      filterParts.push(`empresa = "${filters.empresaId}"`)
+    }
+
+    return pb.collection('patrimonio_transferencias').getFullList<PatrimonioTransferenciaRecord>({
+      filter: filterParts.join(' && '),
+      sort: '-data_transferencia,-created',
       expand: 'ativo,empresa,usuario_id',
     })
   },

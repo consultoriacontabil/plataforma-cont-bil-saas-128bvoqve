@@ -83,12 +83,17 @@ export default function PatrimonioPage() {
   const [ativos, setAtivos] = useState<AtivoPatrimonial[]>([])
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([])
   const [baixasHistorico, setBaixasHistorico] = useState<BaixaAtivoRecord[]>([])
+  const [transferenciasHistorico, setTransferenciasHistorico] = useState<any[]>([])
+  const [selectedSetorFiltro, setSelectedSetorFiltro] = useState('todos')
 
   // Modais
   const [isNovoAtivoOpen, setIsNovoAtivoOpen] = useState(false)
   const [isDepreciarOpen, setIsDepreciarOpen] = useState(false)
   const [isBaixarOpen, setIsBaixarOpen] = useState(false)
   const [isHistoricoBaixasOpen, setIsHistoricoBaixasOpen] = useState(false)
+  const [isTransferirOpen, setIsTransferirOpen] = useState(false)
+  const [isHistoricoTransferenciasOpen, setIsHistoricoTransferenciasOpen] = useState(false)
+  const [ativoParaTransferencia, setAtivoParaTransferencia] = useState<AtivoPatrimonial | null>(null)
 
   // Permissões: Auxiliar não pode aprovar/baixar, Cliente bloqueado
   const isAuxiliar = member?.perfil === 'auxiliar'
@@ -110,6 +115,9 @@ export default function PatrimonioPage() {
     conta_ativo: '',
     conta_depreciacao_acumulada: '',
     conta_despesa_depreciacao: '',
+    setor_localizacao: 'Administrativo / TI',
+    filial_unidade: 'Matriz',
+    responsavel_bem: 'Coordenação Geral',
     observacoes: '',
   })
 
@@ -127,6 +135,17 @@ export default function PatrimonioPage() {
     motivo: '',
   })
   const [processingBaixa, setProcessingBaixa] = useState(false)
+
+  // Form State: Transferência Física (FASE 3)
+  const [transferForm, setTransferForm] = useState({
+    data_transferencia: new Date().toISOString().split('T')[0],
+    destino_setor: '',
+    destino_filial: 'Matriz',
+    destino_responsavel: '',
+    motivo: '',
+    observacao: '',
+  })
+  const [processingTransfer, setProcessingTransfer] = useState(false)
 
   // 1. Carregar Empresas e Contas Contábeis
   useEffect(() => {
@@ -225,6 +244,80 @@ export default function PatrimonioPage() {
     }
   }
 
+  // Carregar histórico de transferências
+  const loadTransferencias = async (ativoId?: string) => {
+    if (!tenant?.id) return
+    try {
+      const list = await patrimonioService.listTransferencias(tenant.id, {
+        ativoId,
+        empresaId: selectedEmpresaId,
+      })
+      setTransferenciasHistorico(list)
+      setIsHistoricoTransferenciasOpen(true)
+    } catch (err) {
+      console.error('Erro ao carregar transferências:', err)
+    }
+  }
+
+  const handleAbrirTransferencia = (ativo: AtivoPatrimonial) => {
+    setAtivoParaTransferencia(ativo)
+    setTransferForm({
+      data_transferencia: new Date().toISOString().split('T')[0],
+      destino_setor: '',
+      destino_filial: ativo.filial_unidade || 'Matriz',
+      destino_responsavel: '',
+      motivo: '',
+      observacao: '',
+    })
+    setIsTransferirOpen(true)
+  }
+
+  const handleConfirmarTransferencia = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!tenant?.id || !ativoParaTransferencia || !transferForm.destino_setor || !transferForm.destino_responsavel) {
+      toast({
+        variant: 'destructive',
+        title: 'Campos obrigatórios',
+        description: 'Informe o setor de destino e o novo responsável pelo bem.',
+      })
+      return
+    }
+
+    setProcessingTransfer(true)
+    try {
+      await patrimonioService.transferirAtivo({
+        tenant_id: tenant.id,
+        empresa_id: ativoParaTransferencia.empresa,
+        ativo_id: ativoParaTransferencia.id,
+        data_transferencia: transferForm.data_transferencia,
+        destino_setor: transferForm.destino_setor,
+        destino_filial: transferForm.destino_filial,
+        destino_responsavel: transferForm.destino_responsavel,
+        motivo: transferForm.motivo,
+        observacao: transferForm.observacao,
+        usuario_id: user?.id,
+      })
+
+      toast({
+        title: 'Transferência concluída!',
+        description: `Bem ${ativoParaTransferencia.descricao} alocado em ${transferForm.destino_setor} aos cuidados de ${transferForm.destino_responsavel}.`,
+      })
+
+      setIsTransferirOpen(false)
+      setAtivoParaTransferencia(null)
+      void loadAtivos()
+    } catch (err: any) {
+      console.error('Erro ao transferir bem:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro na transferência',
+        description: err?.message || 'Falha ao gravar transferência patrimonial.',
+      })
+    } finally {
+      setProcessingTransfer(false)
+    }
+  }
+
   // Totalizadores calculados
   const totalizadores = useMemo(() => {
     let custoTotal = 0
@@ -310,9 +403,11 @@ export default function PatrimonioPage() {
         conta_ativo: '',
         conta_depreciacao_acumulada: '',
         conta_despesa_depreciacao: '',
+        setor_localizacao: 'Administrativo / TI',
+        filial_unidade: 'Matriz',
+        responsavel_bem: 'Coordenação Geral',
         observacoes: '',
-      })
-      void loadAtivos()
+      })      void loadAtivos()
     } catch (err) {
       console.error('Erro ao cadastrar ativo:', err)
       toast({
@@ -431,6 +526,15 @@ export default function PatrimonioPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={() => loadTransferencias()}
+            variant="outline"
+            className="gap-2 rounded-xl text-xs font-semibold h-10 border-[#E2E8F0] bg-white shadow-xs hover:bg-slate-50"
+          >
+            <ArrowRightLeft className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Transferências</span>
+          </Button>
+
           <Button
             onClick={loadBaixas}
             variant="outline"
@@ -619,6 +723,32 @@ export default function PatrimonioPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Filtro por Localização / Setor (FASE 3) */}
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-4 pt-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                Filtrar por Setor / Localização Física
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                {['todos', 'Administrativo / TI', 'Operacional / Fábrica', 'Financeiro / Contábil', 'Comercial / Vendas', 'Diretoria'].map((st) => (
+                  <Button
+                    key={st}
+                    type="button"
+                    variant={selectedSetorFiltro === st ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedSetorFiltro(st)}
+                    className={cn(
+                      'h-7 rounded-lg text-xs',
+                      selectedSetorFiltro === st
+                        ? 'bg-[#0FA3A3] text-white hover:bg-[#0C8585]'
+                        : 'text-[#64748B] border-[#E2E8F0] hover:bg-slate-50',
+                    )}
+                  >
+                    {st === 'todos' ? 'Todos os Setores' : st}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -630,6 +760,7 @@ export default function PatrimonioPage() {
             <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] uppercase font-bold text-[10px] tracking-wider">
               <tr>
                 <th className="py-3 px-4">Descrição do Bem</th>
+                <th className="py-3 px-4">Localização & Responsável</th>
                 <th className="py-3 px-4">Empresa / NF</th>
                 <th className="py-3 px-4">Categoria</th>
                 <th className="py-3 px-4 text-right">Aquisição</th>
@@ -643,18 +774,26 @@ export default function PatrimonioPage() {
             <tbody className="divide-y divide-[#E2E8F0]">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={10} className="py-12 text-center text-[#94A3B8]">
                     Carregando patrimônio...
                   </td>
                 </tr>
-              ) : ativos.length === 0 ? (
+              ) : ativos.filter((a) => {
+                  if (selectedSetorFiltro === 'todos') return true
+                  return a.setor_localizacao?.toLowerCase().includes(selectedSetorFiltro.toLowerCase())
+                }).length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-[#94A3B8]">
+                  <td colSpan={10} className="py-12 text-center text-[#94A3B8]">
                     Nenhum bem patrimonial encontrado com os filtros selecionados.
                   </td>
                 </tr>
               ) : (
-                ativos.map((ativo) => {
+                ativos
+                  .filter((a) => {
+                    if (selectedSetorFiltro === 'todos') return true
+                    return a.setor_localizacao?.toLowerCase().includes(selectedSetorFiltro.toLowerCase())
+                  })
+                  .map((ativo) => {
                   const emp = empresas.find((e) => e.id === ativo.empresa)
                   const dep = ativo.depreciacao_acumulada_calculada || 0
                   const liq = Math.max(0, ativo.valor_aquisicao - dep)
@@ -676,6 +815,15 @@ export default function PatrimonioPage() {
                             {ativo.fornecedor || 'Não informado'}
                           </p>
                         </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-[#64748B]">
+                        <p className="font-medium text-[#1A2333] flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-[#0FA3A3]" />
+                          <span>{ativo.setor_localizacao || 'Geral / Não atribuído'}</span>
+                        </p>
+                        <p className="text-[10px] text-[#64748B]">
+                          Resp: {ativo.responsavel_bem || 'N/A'} • {ativo.filial_unidade || 'Matriz'}
+                        </p>
                       </td>
                       <td className="py-3.5 px-4 text-[#64748B]">
                         <p className="font-medium text-[#1A2333]">
@@ -738,19 +886,34 @@ export default function PatrimonioPage() {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        {ativo.status !== 'baixado' && canEdit ? (
-                          <Button
-                            onClick={() => handleAbrirBaixa(ativo)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 text-[11px] text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626]"
-                          >
-                            <ArrowDownCircle className="h-3.5 w-3.5" />
-                            <span>Baixar</span>
-                          </Button>
-                        ) : (
-                          <span className="text-[11px] text-[#94A3B8]">—</span>
-                        )}
+                        <div className="flex items-center justify-center gap-1">
+                          {ativo.status !== 'baixado' && canEdit && (
+                            <Button
+                              onClick={() => handleAbrirTransferencia(ativo)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-[11px] text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585]"
+                              title="Transferir localização ou responsável"
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                              <span>Transferir</span>
+                            </Button>
+                          )}
+
+                          {ativo.status !== 'baixado' && canEdit ? (
+                            <Button
+                              onClick={() => handleAbrirBaixa(ativo)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-[11px] text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626]"
+                            >
+                              <ArrowDownCircle className="h-3.5 w-3.5" />
+                              <span>Baixar</span>
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-[#94A3B8]">—</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -931,6 +1094,37 @@ export default function PatrimonioPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Localização Física e Responsável (FASE 3) */}
+              <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#1A2333]">Setor / Departamento</label>
+                  <Input
+                    value={formData.setor_localizacao}
+                    onChange={(e) => setFormData({ ...formData, setor_localizacao: e.target.value })}
+                    placeholder="Ex: TI / Administrativo"
+                    className="h-9 text-xs rounded-xl bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#1A2333]">Filial / Unidade</label>
+                  <Input
+                    value={formData.filial_unidade}
+                    onChange={(e) => setFormData({ ...formData, filial_unidade: e.target.value })}
+                    placeholder="Ex: Matriz"
+                    className="h-9 text-xs rounded-xl bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#1A2333]">Responsável pelo Bem</label>
+                  <Input
+                    value={formData.responsavel_bem}
+                    onChange={(e) => setFormData({ ...formData, responsavel_bem: e.target.value })}
+                    placeholder="Ex: Coordenação Geral"
+                    className="h-9 text-xs rounded-xl bg-white"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1204,6 +1398,206 @@ export default function PatrimonioPage() {
             <Button
               type="button"
               onClick={() => setIsHistoricoBaixasOpen(false)}
+              className="h-9 text-xs rounded-xl bg-[#0FA3A3] text-white"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Transferir Bem Patrimonial (FASE 3) */}
+      <Dialog open={isTransferirOpen} onOpenChange={setIsTransferirOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-2xl">
+          <form onSubmit={handleConfirmarTransferencia}>
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-[#1A2333] flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5 text-[#0FA3A3]" />
+                Transferência Física e de Responsabilidade
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[#64748B]">
+                Movimentação interna do bem patrimonial com rastreabilidade e histórico na auditoria
+              </DialogDescription>
+            </DialogHeader>
+
+            {ativoParaTransferencia && (
+              <div className="space-y-4 py-4 text-xs">
+                {/* Localização Atual */}
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <p className="font-bold text-[#1A2333]">{ativoParaTransferencia.descricao}</p>
+                  <p className="text-[#64748B] text-[11px] mt-1">
+                    <span className="font-semibold text-slate-700">Localização Atual:</span>{' '}
+                    {ativoParaTransferencia.setor_localizacao || 'Geral / Não atribuído'} (
+                    {ativoParaTransferencia.filial_unidade || 'Matriz'})
+                  </p>
+                  <p className="text-[#64748B] text-[11px]">
+                    <span className="font-semibold text-slate-700">Responsável Atual:</span>{' '}
+                    {ativoParaTransferencia.responsavel_bem || 'N/A'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-semibold text-[#1A2333]">Data da Transferência *</label>
+                    <Input
+                      type="date"
+                      value={transferForm.data_transferencia}
+                      onChange={(e) =>
+                        setTransferForm({ ...transferForm, data_transferencia: e.target.value })
+                      }
+                      className="h-9 text-xs rounded-xl"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-semibold text-[#1A2333]">Nova Filial / Unidade</label>
+                    <Input
+                      value={transferForm.destino_filial}
+                      onChange={(e) =>
+                        setTransferForm({ ...transferForm, destino_filial: e.target.value })
+                      }
+                      placeholder="Ex: Matriz ou Filial SP"
+                      className="h-9 text-xs rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-semibold text-[#1A2333]">Novo Setor / Destino *</label>
+                    <Input
+                      value={transferForm.destino_setor}
+                      onChange={(e) =>
+                        setTransferForm({ ...transferForm, destino_setor: e.target.value })
+                      }
+                      placeholder="Ex: Sala de Reunião / Comercial"
+                      className="h-9 text-xs rounded-xl"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-semibold text-[#1A2333]">Novo Responsável *</label>
+                    <Input
+                      value={transferForm.destino_responsavel}
+                      onChange={(e) =>
+                        setTransferForm({ ...transferForm, destino_responsavel: e.target.value })
+                      }
+                      placeholder="Nome do colaborador"
+                      className="h-9 text-xs rounded-xl"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#1A2333]">Motivo da Transferência</label>
+                  <Input
+                    value={transferForm.motivo}
+                    onChange={(e) => setTransferForm({ ...transferForm, motivo: e.target.value })}
+                    placeholder="Ex: Mudança de setor, promoção de colaborador, realocação física"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-[#1A2333]">Observações Adicionais</label>
+                  <Input
+                    value={transferForm.observacao}
+                    onChange={(e) =>
+                      setTransferForm({ ...transferForm, observacao: e.target.value })
+                    }
+                    placeholder="Anotações internas sobre o estado físico ou transporte..."
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsTransferirOpen(false)}
+                className="h-9 text-xs rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={processingTransfer}
+                className="h-9 text-xs rounded-xl bg-[#0FA3A3] text-white hover:bg-[#0C8585]"
+              >
+                {processingTransfer ? 'Gravando...' : 'Confirmar Transferência'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Histórico de Transferências (FASE 3) */}
+      <Dialog
+        open={isHistoricoTransferenciasOpen}
+        onOpenChange={setIsHistoricoTransferenciasOpen}
+      >
+        <DialogContent className="sm:max-w-[760px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-[#1A2333] flex items-center gap-2">
+              <History className="h-5 w-5 text-[#0FA3A3]" />
+              Histórico de Transferências Internas
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Trilha de auditoria das movimentações físicas e mudanças de custódia dos bens
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-96 overflow-y-auto space-y-2 py-2 text-xs">
+            {transferenciasHistorico.length === 0 ? (
+              <p className="py-8 text-center text-[#94A3B8]">
+                Nenhuma transferência interna realizada até o momento.
+              </p>
+            ) : (
+              transferenciasHistorico.map((t) => (
+                <div
+                  key={t.id}
+                  className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex flex-col gap-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-[#1A2333]">
+                      {t.expand?.ativo?.descricao || 'Ativo Patrimonial'}
+                    </p>
+                    <span className="text-[11px] font-medium text-[#64748B]">
+                      {new Date(t.data_transferencia).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] text-[#334155] pt-1">
+                    <span className="bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+                      De: {t.origem_setor || 'Geral'} ({t.origem_responsavel || 'N/A'})
+                    </span>
+                    <ArrowRightLeft className="h-3 w-3 text-[#0FA3A3]" />
+                    <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded font-semibold">
+                      Para: {t.destino_setor} ({t.destino_responsavel})
+                    </span>
+                  </div>
+
+                  {(t.motivo || t.observacao) && (
+                    <p className="text-[10px] text-[#64748B] pt-1">
+                      {t.motivo && <span className="font-semibold">Motivo: {t.motivo}</span>}
+                      {t.motivo && t.observacao && ' • '}
+                      {t.observacao && <span>Obs: {t.observacao}</span>}
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => setIsHistoricoTransferenciasOpen(false)}
               className="h-9 text-xs rounded-xl bg-[#0FA3A3] text-white"
             >
               Fechar

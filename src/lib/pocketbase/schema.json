@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T21:54:20.817Z",
+  "generatedAt": "2026-09-26T22:01:47.049Z",
   "collections": [
     {
       "name": "users",
@@ -2067,6 +2067,24 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "setor_localizacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "filial_unidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_bem",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -9871,6 +9889,231 @@
         "CREATE INDEX idx_defis_tenant ON defis_declaracoes (tenant_id)",
         "CREATE INDEX idx_defis_status ON defis_declaracoes (status)",
         "CREATE INDEX idx_defis_created ON defis_declaracoes (created DESC)"
+      ]
+    },
+    {
+      "name": "patrimonio_transferencias",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "ativo",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "ativos"
+        },
+        {
+          "name": "data_transferencia",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origem_setor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_filial",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_responsavel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destino_setor",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "destino_filial",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destino_responsavel",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "usuario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_patr_transf_ativo ON patrimonio_transferencias (ativo)",
+        "CREATE INDEX idx_patr_transf_empresa ON patrimonio_transferencias (empresa)",
+        "CREATE INDEX idx_patr_transf_tenant ON patrimonio_transferencias (tenant_id)",
+        "CREATE INDEX idx_patr_transf_data ON patrimonio_transferencias (data_transferencia DESC)"
+      ]
+    },
+    {
+      "name": "parametros_normativos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
+        "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "categoria",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "inss",
+            "irrf",
+            "fgts",
+            "simples_nacional",
+            "iss",
+            "lucro_presumido",
+            "outros"
+          ]
+        },
+        {
+          "name": "chave",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vigencia_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vigencia_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valores_json",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "atualizado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_param_norm_tenant ON parametros_normativos (tenant_id)",
+        "CREATE INDEX idx_param_norm_categoria ON parametros_normativos (categoria)",
+        "CREATE INDEX idx_param_norm_chave ON parametros_normativos (chave)",
+        "CREATE INDEX idx_param_norm_vigencia ON parametros_normativos (vigencia_inicio)"
       ]
     }
   ]
