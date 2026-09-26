@@ -19,6 +19,8 @@ import {
   Trash2,
   RefreshCw,
   ExternalLink,
+  ArrowRightLeft,
+  MapPin,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -93,7 +95,9 @@ export default function PatrimonioPage() {
   const [isHistoricoBaixasOpen, setIsHistoricoBaixasOpen] = useState(false)
   const [isTransferirOpen, setIsTransferirOpen] = useState(false)
   const [isHistoricoTransferenciasOpen, setIsHistoricoTransferenciasOpen] = useState(false)
-  const [ativoParaTransferencia, setAtivoParaTransferencia] = useState<AtivoPatrimonial | null>(null)
+  const [ativoParaTransferencia, setAtivoParaTransferencia] = useState<AtivoPatrimonial | null>(
+    null,
+  )
 
   // Permissões: Auxiliar não pode aprovar/baixar, Cliente bloqueado
   const isAuxiliar = member?.perfil === 'auxiliar'
@@ -274,7 +278,12 @@ export default function PatrimonioPage() {
 
   const handleConfirmarTransferencia = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!tenant?.id || !ativoParaTransferencia || !transferForm.destino_setor || !transferForm.destino_responsavel) {
+    if (
+      !tenant?.id ||
+      !ativoParaTransferencia ||
+      !transferForm.destino_setor ||
+      !transferForm.destino_responsavel
+    ) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
@@ -407,7 +416,8 @@ export default function PatrimonioPage() {
         filial_unidade: 'Matriz',
         responsavel_bem: 'Coordenação Geral',
         observacoes: '',
-      })      void loadAtivos()
+      })
+      void loadAtivos()
     } catch (err) {
       console.error('Erro ao cadastrar ativo:', err)
       toast({
@@ -730,7 +740,14 @@ export default function PatrimonioPage() {
                 Filtrar por Setor / Localização Física
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                {['todos', 'Administrativo / TI', 'Operacional / Fábrica', 'Financeiro / Contábil', 'Comercial / Vendas', 'Diretoria'].map((st) => (
+                {[
+                  'todos',
+                  'Administrativo / TI',
+                  'Operacional / Fábrica',
+                  'Financeiro / Contábil',
+                  'Comercial / Vendas',
+                  'Diretoria',
+                ].map((st) => (
                   <Button
                     key={st}
                     type="button"
@@ -780,7 +797,9 @@ export default function PatrimonioPage() {
                 </tr>
               ) : ativos.filter((a) => {
                   if (selectedSetorFiltro === 'todos') return true
-                  return a.setor_localizacao?.toLowerCase().includes(selectedSetorFiltro.toLowerCase())
+                  return a.setor_localizacao
+                    ?.toLowerCase()
+                    .includes(selectedSetorFiltro.toLowerCase())
                 }).length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-[#94A3B8]">
@@ -791,133 +810,136 @@ export default function PatrimonioPage() {
                 ativos
                   .filter((a) => {
                     if (selectedSetorFiltro === 'todos') return true
-                    return a.setor_localizacao?.toLowerCase().includes(selectedSetorFiltro.toLowerCase())
+                    return a.setor_localizacao
+                      ?.toLowerCase()
+                      .includes(selectedSetorFiltro.toLowerCase())
                   })
                   .map((ativo) => {
-                  const emp = empresas.find((e) => e.id === ativo.empresa)
-                  const dep = ativo.depreciacao_acumulada_calculada || 0
-                  const liq = Math.max(0, ativo.valor_aquisicao - dep)
-                  const baseDeprec = Math.max(
-                    0,
-                    ativo.valor_aquisicao - (ativo.valor_residual || 0),
-                  )
-                  const percentDeprec =
-                    baseDeprec > 0 ? Math.min(100, Math.round((dep / baseDeprec) * 100)) : 0
+                    const emp = empresas.find((e) => e.id === ativo.empresa)
+                    const dep = ativo.depreciacao_acumulada_calculada || 0
+                    const liq = Math.max(0, ativo.valor_aquisicao - dep)
+                    const baseDeprec = Math.max(
+                      0,
+                      ativo.valor_aquisicao - (ativo.valor_residual || 0),
+                    )
+                    const percentDeprec =
+                      baseDeprec > 0 ? Math.min(100, Math.round((dep / baseDeprec) * 100)) : 0
 
-                  return (
-                    <tr key={ativo.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-[#1A2333]">
-                        <div>
-                          <p>{ativo.descricao}</p>
-                          <p className="text-[10px] text-[#64748B] font-normal">
-                            Adquirido em{' '}
-                            {new Date(ativo.data_aquisicao).toLocaleDateString('pt-BR')} • Forn:{' '}
-                            {ativo.fornecedor || 'Não informado'}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-[#64748B]">
-                        <p className="font-medium text-[#1A2333] flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-[#0FA3A3]" />
-                          <span>{ativo.setor_localizacao || 'Geral / Não atribuído'}</span>
-                        </p>
-                        <p className="text-[10px] text-[#64748B]">
-                          Resp: {ativo.responsavel_bem || 'N/A'} • {ativo.filial_unidade || 'Matriz'}
-                        </p>
-                      </td>
-                      <td className="py-3.5 px-4 text-[#64748B]">
-                        <p className="font-medium text-[#1A2333]">
-                          {emp?.nome_fantasia || emp?.razao_social || 'Empresa'}
-                        </p>
-                        <p className="text-[10px]">{ativo.numero_nf || 'Sem NF'}</p>
-                      </td>
-                      <td className="py-3.5 px-4 text-[#64748B]">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] font-normal border-slate-200"
-                        >
-                          {CATEGORIA_DEFAULTS[ativo.categoria]?.label || ativo.categoria}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-semibold text-[#1A2333]">
-                        R${' '}
-                        {ativo.valor_aquisicao.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="py-3.5 px-4 text-right text-[#DC2626] font-medium">
-                        (-) R${' '}
-                        {dep.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-[#16A34A]">
-                        R${' '}
-                        {liq.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5">
-                          <div className="w-12 h-2 rounded-full bg-slate-100 overflow-hidden">
-                            <div
-                              className="h-full bg-[#0FA3A3]"
-                              style={{ width: `${percentDeprec}%` }}
-                            />
+                    return (
+                      <tr key={ativo.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-semibold text-[#1A2333]">
+                          <div>
+                            <p>{ativo.descricao}</p>
+                            <p className="text-[10px] text-[#64748B] font-normal">
+                              Adquirido em{' '}
+                              {new Date(ativo.data_aquisicao).toLocaleDateString('pt-BR')} • Forn:{' '}
+                              {ativo.fornecedor || 'Não informado'}
+                            </p>
                           </div>
-                          <span className="text-[11px] font-semibold text-[#64748B]">
-                            {percentDeprec}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {ativo.status === 'ativo' ? (
-                          <Badge className="bg-emerald-100 text-[#16A34A] border-emerald-200 text-[10px]">
-                            Ativo
+                        </td>
+                        <td className="py-3.5 px-4 text-[#64748B]">
+                          <p className="font-medium text-[#1A2333] flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-[#0FA3A3]" />
+                            <span>{ativo.setor_localizacao || 'Geral / Não atribuído'}</span>
+                          </p>
+                          <p className="text-[10px] text-[#64748B]">
+                            Resp: {ativo.responsavel_bem || 'N/A'} •{' '}
+                            {ativo.filial_unidade || 'Matriz'}
+                          </p>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#64748B]">
+                          <p className="font-medium text-[#1A2333]">
+                            {emp?.nome_fantasia || emp?.razao_social || 'Empresa'}
+                          </p>
+                          <p className="text-[10px]">{ativo.numero_nf || 'Sem NF'}</p>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#64748B]">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-normal border-slate-200"
+                          >
+                            {CATEGORIA_DEFAULTS[ativo.categoria]?.label || ativo.categoria}
                           </Badge>
-                        ) : ativo.status === 'depreciado' ? (
-                          <Badge className="bg-amber-100 text-[#D97706] border-amber-200 text-[10px]">
-                            Depreciado
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-slate-100 text-[#64748B] border-slate-200 text-[10px]">
-                            Baixado
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {ativo.status !== 'baixado' && canEdit && (
-                            <Button
-                              onClick={() => handleAbrirTransferencia(ativo)}
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-[11px] text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585]"
-                              title="Transferir localização ou responsável"
-                            >
-                              <ArrowRightLeft className="h-3.5 w-3.5" />
-                              <span>Transferir</span>
-                            </Button>
-                          )}
-
-                          {ativo.status !== 'baixado' && canEdit ? (
-                            <Button
-                              onClick={() => handleAbrirBaixa(ativo)}
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-[11px] text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626]"
-                            >
-                              <ArrowDownCircle className="h-3.5 w-3.5" />
-                              <span>Baixar</span>
-                            </Button>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-semibold text-[#1A2333]">
+                          R${' '}
+                          {ativo.valor_aquisicao.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-[#DC2626] font-medium">
+                          (-) R${' '}
+                          {dep.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-[#16A34A]">
+                          R${' '}
+                          {liq.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="inline-flex items-center gap-1.5">
+                            <div className="w-12 h-2 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-full bg-[#0FA3A3]"
+                                style={{ width: `${percentDeprec}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-semibold text-[#64748B]">
+                              {percentDeprec}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          {ativo.status === 'ativo' ? (
+                            <Badge className="bg-emerald-100 text-[#16A34A] border-emerald-200 text-[10px]">
+                              Ativo
+                            </Badge>
+                          ) : ativo.status === 'depreciado' ? (
+                            <Badge className="bg-amber-100 text-[#D97706] border-amber-200 text-[10px]">
+                              Depreciado
+                            </Badge>
                           ) : (
-                            <span className="text-[11px] text-[#94A3B8]">—</span>
+                            <Badge className="bg-slate-100 text-[#64748B] border-slate-200 text-[10px]">
+                              Baixado
+                            </Badge>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {ativo.status !== 'baixado' && canEdit && (
+                              <Button
+                                onClick={() => handleAbrirTransferencia(ativo)}
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-[11px] text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585]"
+                                title="Transferir localização ou responsável"
+                              >
+                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                                <span>Transferir</span>
+                              </Button>
+                            )}
+
+                            {ativo.status !== 'baixado' && canEdit ? (
+                              <Button
+                                onClick={() => handleAbrirBaixa(ativo)}
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-[11px] text-[#DC2626] hover:bg-red-50 hover:text-[#DC2626]"
+                              >
+                                <ArrowDownCircle className="h-3.5 w-3.5" />
+                                <span>Baixar</span>
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-[#94A3B8]">—</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
               )}
             </tbody>
           </table>
@@ -1102,7 +1124,9 @@ export default function PatrimonioPage() {
                   <label className="font-semibold text-[#1A2333]">Setor / Departamento</label>
                   <Input
                     value={formData.setor_localizacao}
-                    onChange={(e) => setFormData({ ...formData, setor_localizacao: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, setor_localizacao: e.target.value })
+                    }
                     placeholder="Ex: TI / Administrativo"
                     className="h-9 text-xs rounded-xl bg-white"
                   />
@@ -1537,10 +1561,7 @@ export default function PatrimonioPage() {
       </Dialog>
 
       {/* Modal: Histórico de Transferências (FASE 3) */}
-      <Dialog
-        open={isHistoricoTransferenciasOpen}
-        onOpenChange={setIsHistoricoTransferenciasOpen}
-      >
+      <Dialog open={isHistoricoTransferenciasOpen} onOpenChange={setIsHistoricoTransferenciasOpen}>
         <DialogContent className="sm:max-w-[760px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-[#1A2333] flex items-center gap-2">

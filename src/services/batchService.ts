@@ -200,36 +200,32 @@ export const batchService = {
                 tenantId,
                 empresaId: emp.id,
                 competencia,
+                usuarioId,
               })
 
-              if (resLoteContabil.status === 'competencia_fechada') {
+              if (resLoteContabil.competenciaFechada) {
                 resultadosOps.push({
                   operacaoId: opId,
                   status: 'aviso',
-                  mensagem: `Competência fechada: Lote ${resLoteContabil.loteRef} registrado como pendência para auditoria.`,
+                  mensagem: `Competência fechada: Lote contábil da folha bloqueado para auditoria.`,
                   detalhes: { ...resLoteContabil },
                 })
                 temAviso = true
-              } else if (resLoteContabil.status === 'ja_processado') {
-                resultadosOps.push({
-                  operacaoId: opId,
-                  status: 'aviso',
-                  mensagem: `Lote da folha já havia sido lançado previamente (Ref: ${resLoteContabil.loteRef}).`,
-                })
-                temAviso = true
-              } else if (resLoteContabil.status === 'sem_folhas') {
+              } else if (resLoteContabil.totalLancamentos === 0) {
                 resultadosOps.push({
                   operacaoId: opId,
                   status: 'aviso',
                   mensagem:
+                    resLoteContabil.avisos?.[0] ||
                     'Não há folhas de pagamento na competência para gerar partidas dobradas.',
+                  detalhes: { ...resLoteContabil },
                 })
                 temAviso = true
               } else {
                 resultadosOps.push({
                   operacaoId: opId,
                   status: 'sucesso',
-                  mensagem: `Lote contábil ${resLoteContabil.loteRef} gerado com ${resLoteContabil.lancamentosGerados} lançamentos (R$ ${resLoteContabil.totalBruto.toFixed(2)}).`,
+                  mensagem: `Lote contábil ${resLoteContabil.loteId} gerado com ${resLoteContabil.totalLancamentos} lançamentos (R$ ${resLoteContabil.totalDebito.toFixed(2)}).`,
                   detalhes: { ...resLoteContabil },
                 })
               }
@@ -248,10 +244,9 @@ export const batchService = {
               let detalheGuia = `Sincronizadas: ${sinc.inseridas} novas, ${sinc.atualizadas} atualizadas.`
               if (emp.regime_tributario === 'simples_nacional') {
                 // Verificar se já existe DAS na competência
-                const guiasExistentes = await guiasPagamentosService.listGuias(tenantId, {
-                  empresaId: emp.id,
-                  tipoGuia: 'das',
-                  periodoApuracao: competencia,
+                const guiasExistentes = await guiasPagamentosService.listGuias(emp.id, {
+                  tipo: 'das',
+                  periodo: competencia,
                 })
 
                 if (guiasExistentes.length === 0) {
@@ -343,9 +338,9 @@ export const batchService = {
               resultadosOps.push({
                 operacaoId: opId,
                 status: 'sucesso',
-                mensagem: `DRE gerada (Resultado: R$ ${dre.resultadoLiquidoExercicio.toFixed(2)}) e Balancete com ${balancete.itens.length} contas (Equilíbrio: ${balancete.fechado ? 'Sim' : 'Não'}).`,
+                mensagem: `DRE gerada (Resultado: R$ ${dre.resultadoLiquido.toFixed(2)}) e Balancete com ${balancete.itens.length} contas (Equilíbrio: ${balancete.fechado ? 'Sim' : 'Não'}).`,
                 detalhes: {
-                  resultadoLiquido: dre.resultadoLiquidoExercicio,
+                  resultadoLiquido: dre.resultadoLiquido,
                   totalDebitos: balancete.totalDebitos,
                   totalCreditos: balancete.totalCreditos,
                   fechado: balancete.fechado,
@@ -356,20 +351,46 @@ export const batchService = {
 
             case 'importar_xmls': {
               if (xmlFiles && xmlFiles.length > 0) {
-                const resXml = await xmlFiscalBatchService.processarLoteArquivos({
-                  tenantId,
-                  usuarioId,
-                  empresaIdPadrao: emp.id,
-                  arquivos: xmlFiles,
-                  gerarLancamentosContabeis: true,
-                })
-                resultadosOps.push({
-                  operacaoId: opId,
-                  status: resXml.falhas > 0 ? 'aviso' : 'sucesso',
-                  mensagem: `XMLs processados: ${resXml.processadosSucesso} sucesso, ${resXml.falhas} falhas.`,
-                  detalhes: { ...resXml },
-                })
-                if (resXml.falhas > 0) temAviso = true
+                const arquivosFormatados: Array<{ nome: string; conteudo: string }> = []
+                for (const file of xmlFiles) {
+                  try {
+                    const text = await file.text()
+                    arquivosFormatados.push({ nome: file.name, conteudo: text })
+                  } catch (readErr) {
+                    console.warn(`Erro ao ler arquivo XML ${file.name}:`, readErr)
+                  }
+                }
+
+                if (arquivosFormatados.length > 0) {
+                  const previaXml = await xmlFiscalBatchService.analisarLoteXml(
+                    arquivosFormatados,
+                    tenantId,
+                    emp.id,
+                    competencia,
+                  )
+                  const resXml = await xmlFiscalBatchService.executarImportacaoLote({
+                    tenantId,
+                    empresaId: emp.id,
+                    usuarioId,
+                    itens: previaXml.itens,
+                    acaoDuplicidadeGlobal: 'atualizar',
+                    gerarCascataContabil: true,
+                  })
+                  resultadosOps.push({
+                    operacaoId: opId,
+                    status: resXml.total_erros > 0 ? 'aviso' : 'sucesso',
+                    mensagem: `XMLs processados: ${resXml.total_criados} criadas, ${resXml.total_atualizados} atualizadas, ${resXml.total_erros} erros.`,
+                    detalhes: { ...resXml },
+                  })
+                  if (resXml.total_erros > 0) temAviso = true
+                } else {
+                  resultadosOps.push({
+                    operacaoId: opId,
+                    status: 'aviso',
+                    mensagem: 'Não foi possível ler o conteúdo dos arquivos XML.',
+                  })
+                  temAviso = true
+                }
               } else {
                 resultadosOps.push({
                   operacaoId: opId,
