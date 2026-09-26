@@ -160,14 +160,14 @@ export const integracaoContabilService = {
     // 1. Verificar se a competência contábil está fechada
     const fechada = await this.isCompetenciaFechada(tenantId, empresaId, competencia)
     if (fechada) {
-      await auditService.log({
-        tenant_id: tenantId,
-        usuario_id: usuarioId,
-        acao: 'bloqueio_lote_folha_competencia_fechada',
-        entidade: 'fechamento_competencia',
-        entidade_id: `${empresaId}-${competencia}`,
-        detalhes: `Tentativa de geração automática de lote contábil da folha bloqueada: competência ${competencia} está formalmente encerrada na empresa. Registrada pendência de reabertura para integração contábil.`,
-      })
+      await auditService.log(
+        tenantId,
+        usuarioId || '',
+        'bloqueio_lote_folha_competencia_fechada',
+        'fechamento_competencia',
+        `${empresaId}-${competencia}`,
+        `Tentativa de geração automática de lote contábil da folha bloqueada: competência ${competencia} está formalmente encerrada na empresa. Registrada pendência de reabertura para integração contábil.`,
+      )
       return {
         loteId: '',
         totalLancamentos: 0,
@@ -336,14 +336,14 @@ export const integracaoContabilService = {
     }
 
     // Auditoria da geração do lote
-    await auditService.log({
-      tenant_id: tenantId,
-      usuario_id: usuarioId,
-      acao: 'gerar_lote_contabil_folha_automatico',
-      entidade: 'lancamentos_contabeis',
-      entidade_id: loteId,
-      detalhes: `Lote de partidas dobradas ${loteId} gerado automaticamente da folha de pagamento ${competencia} (${folhas.length} holerites). Total Débito: R$ ${totalDebito.toFixed(2)}, Total Crédito: R$ ${totalCredito.toFixed(2)}. Origem: folha.`,
-    })
+    await auditService.log(
+      tenantId,
+      usuarioId || '',
+      'gerar_lote_contabil_folha_automatico',
+      'lancamentos_contabeis',
+      loteId,
+      `Lote de partidas dobradas ${loteId} gerado automaticamente da folha de pagamento ${competencia} (${folhas.length} holerites). Total Débito: R$ ${totalDebito.toFixed(2)}, Total Crédito: R$ ${totalCredito.toFixed(2)}. Origem: folha.`,
+    )
 
     return {
       loteId,
@@ -366,14 +366,14 @@ export const integracaoContabilService = {
     // 1. Validação de competência fechada
     const fechada = await this.isCompetenciaFechada(tenantId, empresaId, competencia)
     if (fechada) {
-      await auditService.log({
-        tenant_id: tenantId,
-        usuario_id: usuarioId,
-        acao: 'bloqueio_apuracao_fiscal_competencia_fechada',
-        entidade: 'fechamento_competencia',
-        entidade_id: `${empresaId}-${competencia}`,
-        detalhes: `Lançamento contábil de apuração fiscal (${tipoGuia.toUpperCase()}) bloqueado: competência ${competencia} está fechada.`,
-      })
+      await auditService.log(
+        tenantId,
+        usuarioId || '',
+        'bloqueio_apuracao_fiscal_competencia_fechada',
+        'fechamento_competencia',
+        `${empresaId}-${competencia}`,
+        `Lançamento contábil de apuração fiscal (${tipoGuia.toUpperCase()}) bloqueado: competência ${competencia} está fechada.`,
+      )
       return { loteId: '', sucesso: false, bloqueadoFechamento: true }
     }
 
@@ -409,14 +409,14 @@ export const integracaoContabilService = {
       criado_por: usuarioId,
     })
 
-    await auditService.log({
-      tenant_id: tenantId,
-      usuario_id: usuarioId,
-      acao: 'gerar_lancamento_apuracao_fiscal',
-      entidade: 'lancamentos_contabeis',
-      entidade_id: loteId,
-      detalhes: `Provisão de tributo ${tipoGuia.toUpperCase()} comp. ${competencia} no valor de R$ ${valorTotal.toFixed(2)} gerada com origem fiscal (lote: ${loteId}).`,
-    })
+    await auditService.log(
+      tenantId,
+      usuarioId || '',
+      'gerar_lancamento_apuracao_fiscal',
+      'lancamentos_contabeis',
+      loteId,
+      `Provisão de tributo ${tipoGuia.toUpperCase()} comp. ${competencia} no valor de R$ ${valorTotal.toFixed(2)} gerada com origem fiscal (lote: ${loteId}).`,
+    )
 
     return { loteId, sucesso: true }
   },
@@ -433,14 +433,14 @@ export const integracaoContabilService = {
     // 1. Validação de competência fechada
     const fechada = await this.isCompetenciaFechada(tenantId, empresaId, competencia)
     if (fechada) {
-      await auditService.log({
-        tenant_id: tenantId,
-        usuario_id: usuarioId,
-        acao: 'bloqueio_liquidacao_guia_competencia_fechada',
-        entidade: 'fechamento_competencia',
-        entidade_id: `${empresaId}-${competencia}`,
-        detalhes: `Lançamento de liquidação da guia ${tipoGuia.toUpperCase()} bloqueado: competência ${competencia} está fechada.`,
-      })
+      await auditService.log(
+        tenantId,
+        usuarioId || '',
+        'bloqueio_liquidacao_guia_competencia_fechada',
+        'fechamento_competencia',
+        `${empresaId}-${competencia}`,
+        `Lançamento de liquidação da guia ${tipoGuia.toUpperCase()} bloqueado: competência ${competencia} está fechada.`,
+      )
       return { loteId: '', sucesso: false, bloqueadoFechamento: true }
     }
 
@@ -474,14 +474,14 @@ export const integracaoContabilService = {
       criado_por: usuarioId,
     })
 
-    await auditService.log({
-      tenant_id: tenantId,
-      usuario_id: usuarioId,
-      acao: 'gerar_lancamento_liquidacao_guia_fiscal',
-      entidade: 'lancamentos_contabeis',
-      entidade_id: loteId,
-      detalhes: `Liquidação contábil da guia ${tipoGuia.toUpperCase()} comp. ${competencia} no valor de R$ ${valorPago.toFixed(2)} confirmada (lote: ${loteId}). Origem: fiscal.`,
-    })
+    await auditService.log(
+      tenantId,
+      usuarioId || '',
+      'gerar_lancamento_liquidacao_guia_fiscal',
+      'lancamentos_contabeis',
+      loteId,
+      `Liquidação contábil da guia ${tipoGuia.toUpperCase()} comp. ${competencia} no valor de R$ ${valorPago.toFixed(2)} confirmada (lote: ${loteId}). Origem: fiscal.`,
+    )
 
     return { loteId, sucesso: true }
   },
