@@ -372,6 +372,14 @@ export interface ContaContabil extends RecordModel {
 export type LancamentoTipo = 'debito' | 'credito'
 export type LancamentoStatus = 'rascunho' | 'confirmado'
 
+export type LancamentoOrigem =
+  | 'manual'
+  | 'folha'
+  | 'fiscal'
+  | 'financeiro'
+  | 'importacao'
+  | 'sistema'
+
 export interface LancamentoContabil extends RecordModel {
   tenant_id: string
   empresa: string
@@ -385,6 +393,7 @@ export interface LancamentoContabil extends RecordModel {
   competencia: string
   status: LancamentoStatus
   lote_id?: string
+  origem?: LancamentoOrigem
   criado_por?: string
   expand?: {
     empresa?: Empresa

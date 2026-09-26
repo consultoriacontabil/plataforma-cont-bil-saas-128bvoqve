@@ -18,6 +18,8 @@ export interface CreatePartidaDobradaInput {
   creditoContaId: string
   documentoId?: string
   status: LancamentoStatus
+  loteId?: string
+  origem?: import('@/types').LancamentoOrigem
   criado_por?: string
 }
 
@@ -111,7 +113,7 @@ export const contabilService = {
       }
     }
 
-    const loteId = `LOTE-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const loteId = input.loteId || `LOTE-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
     // 1. Débito
     const debRecord = await pb.collection('lancamentos_contabeis').create<LancamentoContabil>({
@@ -126,6 +128,7 @@ export const contabilService = {
       competencia: input.competencia,
       status: input.status,
       lote_id: loteId,
+      origem: input.origem || 'manual',
       documento: input.documentoId || undefined,
       criado_por: input.criado_por || undefined,
     })
@@ -143,6 +146,7 @@ export const contabilService = {
       competencia: input.competencia,
       status: input.status,
       lote_id: loteId,
+      origem: input.origem || 'manual',
       documento: input.documentoId || undefined,
       criado_por: input.criado_por || undefined,
     })

@@ -239,6 +239,19 @@ export const dpService = {
       )
     }
 
+    // FASE 1: Disparo automático do Lote Contábil de Partidas Dobradas da Folha (Origem: "folha")
+    // Se a competência contábil estiver fechada, o serviço captura e registra no audit_log sem abortar a folha.
+    try {
+      const { integracaoContabilService } = await import('@/services/integracaoContabil')
+      await integracaoContabilService.gerarLoteContabilFolha({
+        tenantId,
+        empresaId,
+        competencia,
+      })
+    } catch (errContabil) {
+      console.warn('Aviso na integracao contabil automatica da folha:', errContabil)
+    }
+
     return { gerados, totalBruto, totalLiquido }
   },
 

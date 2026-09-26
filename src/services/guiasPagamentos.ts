@@ -151,6 +151,26 @@ export const guiasPagamentosService = {
       )
     }
 
+    // FASE 1: Cascata Fiscal -> Contábil (Provisão da despesa tributária da guia)
+    // D (4.3.1 Despesa Tributária) / C (2.1.2.01 Impostos a Recolher)
+    try {
+      const { integracaoContabilService } = await import('@/services/integracaoContabil')
+      await integracaoContabilService.gerarLancamentoApuracaoTributo({
+        tenantId: input.tenant_id,
+        empresaId: input.empresa,
+        competencia: input.periodo_apuracao,
+        tipoGuia: input.tipo_guia as any,
+        valorTotal: input.valor_total,
+        numeroGuia: record.id,
+        usuarioId,
+        descricao:
+          input.descricao ||
+          `Provisão fiscal da guia ${input.tipo_guia.toUpperCase()} (${input.codigo_receita}) comp. ${input.periodo_apuracao}`,
+      })
+    } catch (errProv) {
+      console.warn('[Guias] Aviso na provisão contábil fiscal automática:', errProv)
+    }
+
     return record
   },
 
@@ -264,6 +284,25 @@ export const guiasPagamentosService = {
       guia.id,
       `Guia ${guia.tipo_guia.toUpperCase()} (${guia.codigo_receita} - ${guia.periodo_apuracao}) no valor de R$ ${guia.valor_total.toFixed(2)} marcada como PAGA em ${params.dataPagamento}. Baixa no financeiro: ${params.baixarNoFinanceiro ? 'Sim' : 'Não'}.`,
     )
+
+    // FASE 1: Cascata Fiscal -> Contábil (Lançamento automático de Liquidação da Guia)
+    // D (2.1.2.01 Impostos a Recolher) / C (1.1.1.02 Banco Conta Movimento)
+    try {
+      const { integracaoContabilService } = await import('@/services/integracaoContabil')
+      await integracaoContabilService.gerarLancamentoLiquidacaoGuia({
+        tenantId: params.tenantId,
+        empresaId: params.empresaId,
+        competencia: guia.periodo_apuracao,
+        tipoGuia: guia.tipo_guia,
+        valorPago: guia.valor_total,
+        dataPagamento: params.dataPagamento,
+        autenticacao: params.autenticacaoBancaria,
+        guiaId: guia.id,
+        usuarioId: params.usuarioId,
+      })
+    } catch (errLiq) {
+      console.warn('[Guias] Aviso na cascata fiscal->contábil de liquidação:', errLiq)
+    }
 
     // Baixa correlata na obrigação fiscal correspondente se existir e ainda estiver pendente/atrasada
     try {
