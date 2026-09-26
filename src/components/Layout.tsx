@@ -294,6 +294,9 @@ export default function Layout() {
           )[],
         },
         { label: 'Fiscal & SPED', to: '/fiscal', icon: Calculator },
+        ...(member?.perfil !== 'cliente'
+          ? [{ label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' }]
+          : []),
         {
           label: 'Analytics Tributário',
           to: '/analytics-tributario',

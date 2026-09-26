@@ -2847,3 +2847,132 @@ export interface EmpresaMigracaoOnboardingRecord extends RecordModel {
     tenant_id?: Tenant
   }
 }
+
+// -----------------------------------------------------------------------------
+// FASE 2: DEFIS (Declaração de Informações Socioeconômicas e Fiscais)
+// -----------------------------------------------------------------------------
+export type DefisStatus = 'rascunho' | 'pronto' | 'transmitido_supervisao'
+export type DefisTipoDeclaracao = 'original' | 'retificadora'
+export type DefisModoOperacao = 'supervisionado' | 'conector_oficial'
+
+export interface DefisElementoFiscal {
+  receita_mercado_interno: number
+  receita_mercado_externo: number
+  receita_locacao_bens: number
+  receita_isenta_imune: number
+  ganhos_capital: number
+  despesas_operacionais_totais: number
+  lucro_apurado: number
+  rendimento_socios_isento: number
+  rendimento_socios_tributado: number
+  saldo_caixa_inicio: number
+  saldo_caixa_fim: number
+  compras_mercadorias: number
+}
+
+export interface DefisSocioParticipacao {
+  nome: string
+  cpf: string
+  percentual_participacao: number
+  pro_labore_anual: number
+  rendimentos_isentos_lucros: number
+  irrf_retido: number
+}
+
+export interface DefisDeclaracaoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  ano_calendario: number
+  exercicio: number
+  tipo_declaracao: DefisTipoDeclaracao
+  status: DefisStatus
+  modo_operacao: DefisModoOperacao
+  faturamento_anual_declarado: number
+  total_das_pago: number
+  total_empregados_inicio: number
+  total_empregados_fim: number
+  elementos_fiscais_json: DefisElementoFiscal
+  dados_societarios_json: DefisSocioParticipacao[]
+  recibo_numero?: string
+  data_transmissao?: string
+  transmitido_por?: string
+  observacoes?: string
+  arquivo_exportado_txt?: string
+  expand?: {
+    empresa?: Empresa
+    transmitido_por?: User
+    tenant_id?: Tenant
+  }
+}
+
+// -----------------------------------------------------------------------------
+// FASE 2: IMPORTAÇÃO DE XML FISCAL EM LOTE (NF-e mod 55 e NFS-e)
+// -----------------------------------------------------------------------------
+export type XmlTipoDocumento = 'nfe_55' | 'nfse'
+export type XmlStatusPrevia = 'pronta' | 'duplicada' | 'erro'
+export type XmlAcaoDuplicidade = 'atualizar' | 'pular'
+
+export interface XmlImpostoItem {
+  base_calculo?: number
+  aliquota?: number
+  valor?: number
+}
+
+export interface XmlParsedNota {
+  arquivo_nome: string
+  tipo: XmlTipoDocumento
+  status_previa: XmlStatusPrevia
+  motivo_status?: string
+  chave_acesso: string
+  numero: string
+  serie?: string
+  data_emissao: string
+  competencia: string // MM/YYYY
+  // Emitente
+  emitente_cnpj_cpf: string
+  emitente_razao: string
+  emitente_fantasia?: string
+  emitente_uf?: string
+  // Destinatário / Tomador
+  destinatario_cnpj_cpf: string
+  destinatario_razao: string
+  // Valores
+  valor_total: number
+  valor_servicos?: number
+  valor_produtos?: number
+  natureza_operacao?: string
+  cfop_principal?: string
+  // Impostos
+  icms?: XmlImpostoItem
+  ipi?: XmlImpostoItem
+  pis?: XmlImpostoItem
+  cofins?: XmlImpostoItem
+  iss?: XmlImpostoItem & { retido?: boolean }
+  ir?: XmlImpostoItem
+  inss?: XmlImpostoItem
+  csll?: XmlImpostoItem
+  // XML original
+  conteudo_xml: string
+  // Duplicidade
+  nota_existente_id?: string
+  colecao_destino: 'nfe_recebidas' | 'nfse_notas_emitidas'
+}
+
+export interface PreviaImportacaoXmlResult {
+  total_arquivos: number
+  prontas: number
+  duplicadas: number
+  erros: number
+  itens: XmlParsedNota[]
+}
+
+export interface ExecutarImportacaoXmlResult {
+  sucesso: boolean
+  total_processados: number
+  total_criados: number
+  total_atualizados: number
+  total_ignorados: number
+  total_erros: number
+  lote_contabil_id?: string
+  mensagens: string[]
+}

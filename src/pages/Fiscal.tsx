@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Calculator,
   Plus,
@@ -56,6 +57,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { SpedEscrituracaoTab } from '@/components/SpedEscrituracaoTab'
 import { EmpresaNfeRecebidasTab } from '@/components/EmpresaNfeRecebidasTab'
+import { DefisTab } from '@/components/DefisTab'
+import { ModalImportacaoXmlLote } from '@/components/ModalImportacaoXmlLote'
 
 const OBRIGACOES: Array<{ id: FiscalTipoObrigacao; label: string }> = [
   { id: 'ecf', label: 'ECF (Escrituração Contábil Fiscal)' },
@@ -71,6 +74,18 @@ const OBRIGACOES: Array<{ id: FiscalTipoObrigacao; label: string }> = [
 export default function Fiscal() {
   const { user, tenant } = useAuth()
   const { toast } = useToast()
+  const location = useLocation()
+
+  const [activeTab, setActiveTab] = useState(() => {
+    if (location.pathname.includes('/defis')) return 'defis'
+    return 'obrigacoes'
+  })
+
+  useEffect(() => {
+    if (location.pathname.includes('/defis')) {
+      setActiveTab('defis')
+    }
+  }, [location.pathname])
 
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])
@@ -86,6 +101,7 @@ export default function Fiscal() {
   const [selectedRecord, setSelectedRecord] = useState<FiscalRecord | null>(null)
   const [entregarModalOpen, setEntregarModalOpen] = useState(false)
   const [rejeitarModalOpen, setRejeitarModalOpen] = useState(false)
+  const [importXmlModalOpen, setImportXmlModalOpen] = useState(false)
 
   // Create form
   const [createEmpresaId, setCreateEmpresaId] = useState('')
@@ -281,6 +297,17 @@ export default function Fiscal() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {(!user?.role || user.role === 'administrador' || user.role === 'contador') && (
+            <Button
+              onClick={() => setImportXmlModalOpen(true)}
+              variant="outline"
+              className="gap-2 rounded-xl border-teal-200 text-[#0FA3A3] hover:bg-teal-50 font-semibold text-xs h-10 shadow-xs"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Importar XMLs em Lote</span>
+            </Button>
+          )}
+
           <Button
             onClick={() => setCreateModalOpen(true)}
             className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white font-semibold text-xs h-10 shadow-xs"
@@ -291,14 +318,21 @@ export default function Fiscal() {
         </div>
       </div>
 
-      <Tabs defaultValue="obrigacoes" className="w-full space-y-6">
-        <TabsList className="bg-slate-100 p-1 rounded-xl">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+        <TabsList className="bg-slate-100 p-1 rounded-xl flex flex-wrap">
           <TabsTrigger
             value="obrigacoes"
             className="gap-2 text-xs py-2 px-4 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-xs"
           >
             <Layers className="w-3.5 h-3.5 text-teal-600" />
             Obrigações & Apurações
+          </TabsTrigger>
+          <TabsTrigger
+            value="defis"
+            className="gap-2 text-xs py-2 px-4 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-xs font-semibold text-slate-800"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+            DEFIS (Simples Nacional)
           </TabsTrigger>
           <TabsTrigger
             value="sped"
@@ -315,6 +349,15 @@ export default function Fiscal() {
             Busca NF-e (Destinatário / SEFAZ DFe)
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA DEFIS (SIMPLES NACIONAL) */}
+        <TabsContent value="defis" className="m-0">
+          <DefisTab
+            empresas={empresas}
+            selectedEmpresaId={createEmpresaId}
+            onSelectEmpresa={setCreateEmpresaId}
+          />
+        </TabsContent>
 
         {/* ABA 1: OBRIGAÇÕES */}
         <TabsContent value="obrigacoes" className="space-y-6 m-0">
@@ -557,6 +600,15 @@ export default function Fiscal() {
           })()}
         </TabsContent>
       </Tabs>
+
+      {/* Modal: Importação XML Fiscal em Lote */}
+      <ModalImportacaoXmlLote
+        open={importXmlModalOpen}
+        onOpenChange={setImportXmlModalOpen}
+        empresas={empresas}
+        selectedEmpresaId={createEmpresaId}
+        onImportacaoConcluida={() => loadData()}
+      />
 
       {/* Modal: Nova Obrigação */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>

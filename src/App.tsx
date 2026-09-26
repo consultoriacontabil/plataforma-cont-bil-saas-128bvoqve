@@ -86,6 +86,7 @@ export default function App() {
             <Route path="/workflow/:id" element={<WorkflowPage />} />
             <Route path="/obrigacoes" element={<Obrigacoes />} />
             <Route path="/fiscal" element={<Fiscal />} />
+            <Route path="/fiscal/defis" element={<Fiscal />} />
             <Route path="/analytics-tributario" element={<AnalyticsTributarioPage />} />
             <Route path="/monitoramento-legislativo" element={<MonitoramentoLegislativoPage />} />
             <Route path="/nfse-whatsapp" element={<NfseWhatsappPage />} />
