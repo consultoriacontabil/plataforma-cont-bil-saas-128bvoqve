@@ -7,7 +7,7 @@
  * {
  *   tenant_id: string,
  *   empresa_id: string,
- *   tipo: 'aviso' | 'guia' | 'demonstrativo' | 'previa' | 'documento',
+ *   tipo: 'aviso' | 'guia' | 'demonstrativo' | 'previa' | 'documento' | 'cobranca' | 'teste',
  *   referencia?: string,
  *   destinatario: string,
  *   mensagem: string,

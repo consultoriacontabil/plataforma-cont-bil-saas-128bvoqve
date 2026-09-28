@@ -926,45 +926,84 @@ export const nfseWhatsappService = {
     url: string,
     key: string,
     instance: string,
-  ): Promise<{ sucesso: boolean; mensagem: string; detalhe?: string }> {
+  ): Promise<{
+    sucesso: boolean
+    status:
+      | 'conectada'
+      | 'instancia_nao_encontrada'
+      | 'falha_autenticacao'
+      | 'url_inalcancavel'
+      | 'incompleta'
+    mensagem: string
+    detalhe?: string
+  }> {
     if (!url || !key || !instance) {
       return {
         sucesso: false,
-        mensagem: 'Informe URL base, Chave de API e Nome da Instância para testar a conexão.',
+        status: 'incompleta',
+        mensagem: 'Informe a URL da Evolution API, a chave de API e o nome da instância.',
       }
     }
 
     try {
       const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url
-      const res = await fetch(
-        `${cleanUrl}/instance/connectionState/${encodeURIComponent(instance)}`,
-        {
-          method: 'GET',
-          headers: {
-            apikey: key,
-          },
+      const endpoint = `${cleanUrl}/instance/connectionState/${encodeURIComponent(instance)}`
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          apikey: key,
         },
-      )
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
 
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
+        const state = data?.instance?.state || data?.state || 'open'
         return {
           sucesso: true,
-          mensagem: `Instância "${instance}" conectada com sucesso ao servidor Evolution API!`,
-          detalhe: JSON.stringify(data),
+          status: 'conectada',
+          mensagem: `Instância "${instance}" conectada com sucesso! Estado atual: ${state.toUpperCase()}`,
+          detalhe: JSON.stringify(data, null, 2),
         }
-      } else {
+      }
+
+      if (res.status === 401 || res.status === 403) {
         return {
           sucesso: false,
-          mensagem: `Servidor Evolution API respondeu com status ${res.status}. Verifique se a instância "${instance}" está ativa e a API Key está correta.`,
+          status: 'falha_autenticacao',
+          mensagem:
+            'Falha de autenticação (HTTP ' +
+            res.status +
+            '): a chave de API informada é inválida ou não autorizada na Evolution API.',
         }
+      }
+
+      if (res.status === 404) {
+        return {
+          sucesso: false,
+          status: 'instancia_nao_encontrada',
+          mensagem: `Instância não encontrada (HTTP 404): o nome de instância "${instance}" não existe na Evolution API. Verifique o nome digitado.`,
+        }
+      }
+
+      const bodyText = await res.text().catch(() => '')
+      return {
+        sucesso: false,
+        status: 'instancia_nao_encontrada',
+        mensagem: `A Evolution API retornou HTTP ${res.status}. ${bodyText ? `Resposta: ${bodyText.slice(0, 150)}` : ''}`,
+        detalhe: bodyText,
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
       return {
         sucesso: false,
+        status: 'url_inalcancavel',
         mensagem:
-          'Não foi possível alcançar o servidor Evolution API informado. Certifique-se de que o host está online e acessível publicamente (HTTPS).',
+          'URL inalcançável: não foi possível conectar ao servidor da Evolution API. Verifique se o endereço está correto, com HTTPS e acessível via internet (sem bloqueio de CORS ou rede local/localhost).',
         detalhe: errMsg,
       }
     }

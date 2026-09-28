@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Users, UserPlus, Trash2, Search, MessageSquare } from 'lucide-react'
+import { Users, UserPlus, Trash2, Search, MessageSquare, CreditCard } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
 import { empresasService } from '@/services/empresas'
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WhatsAppEnvioAtivoPanel } from '@/components/WhatsAppEnvioAtivoPanel'
+import { CobrancasTab } from '@/components/CobrancasTab'
 import {
   Select,
   SelectContent,
@@ -178,7 +179,7 @@ export default function PortalAcessosPage() {
         )}
       </div>
 
-      {/* Abas: Logins do Portal & Envio Ativo por WhatsApp */}
+      {/* Abas: Logins do Portal, Envio Ativo por WhatsApp & Cobrança Boleto/PIX */}
       <Tabs defaultValue="acessos" className="space-y-4">
         <TabsList className="bg-slate-100 p-1 rounded-2xl h-11 border border-slate-200">
           <TabsTrigger
@@ -194,6 +195,13 @@ export default function PortalAcessosPage() {
           >
             <MessageSquare className="h-4 w-4" />
             <span>Envio Ativo por WhatsApp</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="cobrancas"
+            className="rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-2xs gap-2 px-4"
+          >
+            <CreditCard className="h-4 w-4" />
+            <span>Cobrança Boleto/PIX</span>
             <Badge className="bg-[#0FA3A3]/20 text-[#0FA3A3] text-[10px] ml-1 font-bold">
               NOVO
             </Badge>
@@ -303,6 +311,11 @@ export default function PortalAcessosPage() {
             empresas={empresas}
             canManage={canManage}
           />
+        </TabsContent>
+
+        {/* ABA 3: COBRANÇA BOLETO / PIX */}
+        <TabsContent value="cobrancas">
+          <CobrancasTab tenantId={tenant?.id || ''} empresas={empresas} canManage={canManage} />
         </TabsContent>
       </Tabs>
 

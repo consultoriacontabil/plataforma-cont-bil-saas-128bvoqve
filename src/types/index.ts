@@ -686,7 +686,14 @@ export interface PortalAcesso extends RecordModel {
 }
 
 // === Envio Ativo por WhatsApp & Preferências ===
-export type WhatsAppEnvioTipo = 'aviso' | 'guia' | 'demonstrativo' | 'previa' | 'documento'
+export type WhatsAppEnvioTipo =
+  | 'aviso'
+  | 'guia'
+  | 'demonstrativo'
+  | 'previa'
+  | 'documento'
+  | 'cobranca'
+  | 'teste'
 export type WhatsAppEnvioStatus =
   | 'fila'
   | 'aguardando_credenciais'
@@ -704,10 +711,39 @@ export interface WhatsAppNotificacoesAutorizadasRecord extends RecordModel {
   permitir_previas?: boolean
   permitir_demonstrativos?: boolean
   permitir_documentos?: boolean
+  permitir_cobrancas?: boolean
   ativo?: boolean
   observacoes?: string
   expand?: {
     empresa?: Empresa
+  }
+}
+
+// === Cobranças por Boleto / PIX ===
+export type CobrancaTipo = 'pix' | 'boleto'
+export type CobrancaStatus = 'pendente' | 'pago' | 'cancelado' | 'vencido'
+
+export interface CobrancaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  tipo: CobrancaTipo
+  descricao: string
+  competencia?: string
+  valor: number
+  vencimento: string
+  status: CobrancaStatus
+  chave_pix?: string
+  beneficiario_nome?: string
+  codigo_barras?: string
+  payload_pix?: string
+  link_boleto?: string
+  whatsapp_envio_id?: string
+  pago_em?: string
+  pago_valor?: number
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    whatsapp_envio_id?: WhatsAppEnvioRecord
   }
 }
 
@@ -1505,6 +1541,8 @@ export interface NfseConfigRecord extends RecordModel {
   evolution_api_url?: string
   evolution_api_key?: string
   evolution_instance?: string
+  chave_pix_padrao?: string
+  beneficiario_padrao?: string
   modo_operacao: ModoOperacaoNfse
   auto_aprovar_alta_confianca: boolean
   provedor_fiscal?: ProvedorFiscalTipo

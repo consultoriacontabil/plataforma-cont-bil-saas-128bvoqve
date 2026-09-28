@@ -19,6 +19,7 @@ export interface SalvarAutorizacaoInput {
   permitir_previas?: boolean
   permitir_demonstrativos?: boolean
   permitir_documentos?: boolean
+  permitir_cobrancas?: boolean
   ativo?: boolean
   observacoes?: string
 }
@@ -98,6 +99,7 @@ export const whatsappAtivoService = {
         permitir_previas: input.permitir_previas ?? true,
         permitir_demonstrativos: input.permitir_demonstrativos ?? true,
         permitir_documentos: input.permitir_documentos ?? true,
+        permitir_cobrancas: input.permitir_cobrancas ?? true,
         ativo: input.ativo ?? true,
         observacoes: input.observacoes || '',
       })
@@ -262,6 +264,67 @@ export const whatsappAtivoService = {
       `Você pode visualizá-lo com segurança e efetuar o download a qualquer momento no Portal do Cliente:\n` +
       `🔗 https://rumoconsultoriacontabil.com.br\n\n` +
       `_Central de GED & Documentos Digitais Rumo Contábil._`
+    )
+  },
+
+  gerarTemplateCobranca(params: {
+    empresa: Empresa
+    descricao: string
+    competencia?: string
+    valor: number
+    vencimento: string
+    chavePix?: string
+    payloadPix?: string
+    codigoBarras?: string
+    beneficiarioNome?: string
+    linkBoleto?: string
+  }): string {
+    const nome = params.empresa.nome_fantasia || params.empresa.razao_social
+    const compStr = params.competencia ? ` (Comp. ${params.competencia})` : ''
+    const valorFmt = params.valor.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    const vencFmt = params.vencimento.includes('T')
+      ? params.vencimento.split('T')[0]
+      : params.vencimento
+    const dataPartes = vencFmt.split('-')
+    const vencFormatado =
+      dataPartes.length === 3 ? `${dataPartes[2]}/${dataPartes[1]}/${dataPartes[0]}` : vencFmt
+
+    let meioPagamento = ''
+    if (params.chavePix || params.payloadPix) {
+      meioPagamento += `\n🔑 *PAGAMENTO VIA PIX:*`
+      if (params.beneficiarioNome) {
+        meioPagamento += `\n• *Beneficiário:* ${params.beneficiarioNome}`
+      }
+      if (params.chavePix) {
+        meioPagamento += `\n• *Chave PIX:* ${params.chavePix}`
+      }
+      if (params.payloadPix) {
+        meioPagamento += `\n\n*PIX Copia e Cola:* \n\`\`\`${params.payloadPix}\`\`\``
+      }
+    }
+
+    if (params.codigoBarras) {
+      meioPagamento += `\n\n📄 *BOLETO BANCÁRIO:*`
+      meioPagamento += `\n• *Linha digitável / Código de barras:*\n\`\`\`${params.codigoBarras}\`\`\``
+    }
+
+    if (params.linkBoleto) {
+      meioPagamento += `\n🔗 *Link do Boleto em PDF:*\n${params.linkBoleto}`
+    }
+
+    return (
+      `💳 *AVISO DE COBRANÇA - HONORÁRIOS E SERVIÇOS CONTÁBEIS*\n\n` +
+      `Prezado cliente da empresa *${nome}*,\n` +
+      `Encaminhamos a fatura referente a *${params.descricao}*${compStr}.\n\n` +
+      `💵 *Valor:* R$ ${valorFmt}\n` +
+      `📅 *Vencimento:* ${vencFormatado}\n` +
+      `${meioPagamento}\n\n` +
+      `Acesse também o extrato financeiro no Portal do Cliente:\n` +
+      `🔗 https://rumoconsultoriacontabil.com.br/portal-acessos\n\n` +
+      `_Agradecemos pela parceria! Qualquer dúvida, nossa equipe está à disposição._`
     )
   },
 }

@@ -32,6 +32,8 @@ import {
   ExternalLink,
   AlertCircle,
   SlidersHorizontal,
+  Send,
+  QrCode,
 } from 'lucide-react'
 import type {
   NfseConfigRecord,
@@ -148,10 +150,32 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
     config?.prazo_dias_cancelamento || 30,
   )
 
+  // Configuração padrão de PIX para cobrança
+  const [chavePixPadrao, setChavePixPadrao] = useState<string>(config?.chave_pix_padrao || '')
+  const [beneficiarioPadrao, setBeneficiarioPadrao] = useState<string>(
+    config?.beneficiario_padrao || '',
+  )
+
   const [salvando, setSalvando] = useState(false)
   const [testandoEvo, setTestandoEvo] = useState(false)
   const [resultadoTesteEvo, setResultadoTesteEvo] = useState<{
     sucesso: boolean
+    status:
+      | 'conectada'
+      | 'instancia_nao_encontrada'
+      | 'falha_autenticacao'
+      | 'url_inalcancavel'
+      | 'incompleta'
+    mensagem: string
+    detalhe?: string
+  } | null>(null)
+
+  // Envio de mensagem de teste real via Evolution API
+  const [numeroTesteWa, setNumeroTesteWa] = useState<string>('')
+  const [disparandoTesteWa, setDisparandoTesteWa] = useState(false)
+  const [resultadoDisparoTeste, setResultadoDisparoTeste] = useState<{
+    sucesso: boolean
+    status: string
     mensagem: string
   } | null>(null)
 
@@ -221,6 +245,8 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           evolution_api_url: evolutionUrl.trim(),
           evolution_api_key: evolutionKey.trim(),
           evolution_instance: evolutionInstance.trim(),
+          chave_pix_padrao: chavePixPadrao.trim(),
+          beneficiario_padrao: beneficiarioPadrao.trim(),
           modo_operacao: modoOperacao,
           auto_aprovar_alta_confianca: autoAprovar,
           provedor_fiscal: provedorFiscal,
@@ -278,18 +304,98 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
       setResultadoTesteEvo(res)
       if (res.sucesso) {
         toast({
-          title: 'Conexão estabelecida com sucesso',
+          title: 'Conexão estabelecida com sucesso!',
           description: res.mensagem,
         })
       } else {
         toast({
-          title: 'Falha no teste com a Evolution API',
+          title: 'Resultado do teste com a Evolution API',
           description: res.mensagem,
-          variant: 'destructive',
+          variant: res.status === 'falha_autenticacao' ? 'destructive' : 'default',
         })
       }
     } finally {
       setTestandoEvo(false)
+    }
+  }
+
+  const handleDispararMensagemTeste = async () => {
+    const rawNum = numeroTesteWa.replace(/\D/g, '')
+    if (rawNum.length < 10) {
+      toast({
+        title: 'Número inválido',
+        description: 'Digite o número do WhatsApp com DDD (ex: 41999998888 ou 11988887777).',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const empId = empresaPadrao || (empresas.length > 0 ? empresas[0].id : '')
+    if (!empId) {
+      toast({
+        title: 'Empresa necessária',
+        description: 'Selecione uma empresa prestadora padrão para associar ao registro de teste.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setDisparandoTesteWa(true)
+    setResultadoDisparoTeste(null)
+    try {
+      const resp = await whatsappAtivoService.dispararEnvio({
+        tenant_id: tenantId,
+        empresa_id: empId,
+        tipo: 'teste',
+        referencia: 'teste_conexao_painel',
+        destinatario: rawNum,
+        mensagem:
+          '🔔 *TESTE DE INTEGRAÇÃO - RUMO CONTÁBIL*\n\n' +
+          'Esta é uma mensagem de teste enviada pela Plataforma Contábil SaaS via Evolution API.\n\n' +
+          `• *Instância:* ${evolutionInstance || 'não identificada'}\n` +
+          `• *Data/Hora:* ${new Date().toLocaleString('pt-BR')}\n\n` +
+          'Se você recebeu esta notificação, a integração com o WhatsApp está operando normalmente!',
+        origem: 'manual',
+      })
+
+      setResultadoDisparoTeste({
+        sucesso: resp.sucesso,
+        status: resp.status,
+        mensagem: resp.mensagem || 'Mensagem processada.',
+      })
+
+      if (resp.status === 'enviado') {
+        toast({
+          title: 'Mensagem de teste enviada!',
+          description: 'A mensagem real foi transmitida para o WhatsApp com sucesso.',
+        })
+      } else if (resp.status === 'aguardando_credenciais') {
+        toast({
+          title: 'Modo Supervisão (Sem credenciais)',
+          description:
+            'A mensagem foi gravada na fila com status "aguardando_credenciais". Configure URL pública, API Key e Instância para envio externo real.',
+        })
+      } else {
+        toast({
+          title: 'Falha no envio',
+          description: resp.erro || 'Não foi possível transmitir a mensagem.',
+          variant: 'destructive',
+        })
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      setResultadoDisparoTeste({
+        sucesso: false,
+        status: 'falhou',
+        mensagem: errMsg,
+      })
+      toast({
+        title: 'Erro ao disparar teste',
+        description: errMsg,
+        variant: 'destructive',
+      })
+    } finally {
+      setDisparandoTesteWa(false)
     }
   }
 
@@ -1079,20 +1185,178 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
 
             {resultadoTesteEvo && (
               <div
-                className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border ${
+                className={`flex items-start gap-2 text-xs font-medium px-3 py-2 rounded-lg border max-w-xl ${
                   resultadoTesteEvo.sucesso
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                    : resultadoTesteEvo.status === 'falha_autenticacao'
+                      ? 'bg-rose-50 text-rose-800 border-rose-200'
+                      : resultadoTesteEvo.status === 'instancia_nao_encontrada'
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : 'bg-slate-100 text-slate-800 border-slate-200'
                 }`}
               >
                 {resultadoTesteEvo.sucesso ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : resultadoTesteEvo.status === 'falha_autenticacao' ? (
+                  <XCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
                 ) : (
-                  <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 )}
-                <span>{resultadoTesteEvo.mensagem}</span>
+                <div className="space-y-0.5">
+                  <div className="font-bold">
+                    {resultadoTesteEvo.status === 'conectada' && 'Instância Conectada'}
+                    {resultadoTesteEvo.status === 'instancia_nao_encontrada' &&
+                      'Instância não encontrada'}
+                    {resultadoTesteEvo.status === 'falha_autenticacao' && 'Falha de Autenticação'}
+                    {resultadoTesteEvo.status === 'url_inalcancavel' && 'URL Inalcançável'}
+                    {resultadoTesteEvo.status === 'incompleta' && 'Campos Incompletos'}
+                  </div>
+                  <p className="text-[11px] font-normal leading-relaxed">
+                    {resultadoTesteEvo.mensagem}
+                  </p>
+                </div>
               </div>
             )}
+          </div>
+
+          {/* Envio de Teste Real para Número Pessoal */}
+          <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-4 space-y-3 mt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Send className="h-4 w-4 text-[#0FA3A3]" />
+                <span className="text-xs font-bold text-[#1A2333]">
+                  Envio Real de Teste para o seu WhatsApp
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] border-teal-200 text-teal-800 bg-white"
+              >
+                Auditoria em whatsapp_envios
+              </Badge>
+            </div>
+            <p className="text-xs text-[#64748B] leading-relaxed">
+              Digite seu número pessoal para disparar uma mensagem de teste real pela instância
+              configurada. Caso as credenciais não estejam ativas, a mensagem será gravada com o
+              status <code>aguardando_credenciais</code> (Modo Supervisão honesto).
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={numeroTesteWa}
+                onChange={(e) => setNumeroTesteWa(e.target.value)}
+                placeholder="DDD + Número (ex: 41 99999-8888)"
+                className="text-xs h-9 bg-white max-w-sm"
+                disabled={disparandoTesteWa || !canEdit}
+              />
+              <Button
+                onClick={handleDispararMensagemTeste}
+                disabled={disparandoTesteWa || !numeroTesteWa.trim() || !canEdit}
+                className="bg-[#0FA3A3] hover:bg-[#0d8c8c] text-white text-xs gap-1.5 h-9 shrink-0"
+              >
+                {disparandoTesteWa ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Enviando Teste...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5" />
+                    Disparar Teste Real
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {resultadoDisparoTeste && (
+              <div
+                className={`flex items-start gap-2 text-xs font-medium px-3 py-2 rounded-lg border ${
+                  resultadoDisparoTeste.status === 'enviado'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : resultadoDisparoTeste.status === 'aguardando_credenciais'
+                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                }`}
+              >
+                {resultadoDisparoTeste.status === 'enviado' ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : resultadoDisparoTeste.status === 'aguardando_credenciais' ? (
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <div className="font-bold">
+                    Status:{' '}
+                    {resultadoDisparoTeste.status === 'enviado'
+                      ? 'Transmitido com Sucesso (Modo Real)'
+                      : resultadoDisparoTeste.status === 'aguardando_credenciais'
+                        ? 'Aguardando Credenciais Externas (Modo Supervisão)'
+                        : 'Falha no Envio'}
+                  </div>
+                  <p className="text-[11px] font-normal leading-relaxed mt-0.5">
+                    {resultadoDisparoTeste.mensagem}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card 2.1: Parâmetros Padrão de PIX & Cobrança do Escritório */}
+      <Card className="rounded-2xl border-slate-200 shadow-xs">
+        <CardHeader className="pb-3 border-b border-slate-100">
+          <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-[#0FA3A3]" />
+              Dados Padrão para Cobrança PIX / Honorários
+            </div>
+            <Badge
+              variant="outline"
+              className="text-[10px] border-teal-200 bg-teal-50 text-teal-800"
+            >
+              EMV BR Code Padrão BACEN
+            </Badge>
+          </CardTitle>
+          <CardDescription className="text-xs text-[#64748B]">
+            Configure a chave PIX e o nome do beneficiário do escritório que serão sugeridos
+            automaticamente ao gerar faturas e cobranças para envio por WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1A2333]">
+                Chave PIX do Escritório (Padrão)
+              </Label>
+              <Input
+                value={chavePixPadrao}
+                onChange={(e) => setChavePixPadrao(e.target.value)}
+                placeholder="Ex: CNPJ, e-mail, telefone ou chave aleatória"
+                className="text-xs h-9"
+                disabled={!canEdit}
+              />
+              <p className="text-[11px] text-[#94A3B8]">
+                Utilizada para gerar o payload PIX copia-e-cola nas cobranças enviadas por WhatsApp.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-[#1A2333]">
+                Nome do Beneficiário / Razão Social
+              </Label>
+              <Input
+                value={beneficiarioPadrao}
+                onChange={(e) => setBeneficiarioPadrao(e.target.value)}
+                placeholder="Ex: RUMO CONTABILIDADE LTDA"
+                className="text-xs h-9"
+                disabled={!canEdit}
+              />
+              <p className="text-[11px] text-[#94A3B8]">
+                Aparece no resumo da mensagem e no padrão EMV BR Code (Tag 59).
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

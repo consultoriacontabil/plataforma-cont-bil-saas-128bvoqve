@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Phone,
   Check,
+  CreditCard,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -88,6 +89,7 @@ export function WhatsAppEnvioAtivoPanel({
   const [permitePrevias, setPermitePrevias] = useState(true)
   const [permiteDemonstrativos, setPermiteDemonstrativos] = useState(true)
   const [permiteDocumentos, setPermiteDocumentos] = useState(true)
+  const [permiteCobrancas, setPermiteCobrancas] = useState(true)
   const [observacoes, setObservacoes] = useState('')
 
   // Histórico de Envios
@@ -144,6 +146,7 @@ export function WhatsAppEnvioAtivoPanel({
         setPermitePrevias(authRec ? !!authRec.permitir_previas : true)
         setPermiteDemonstrativos(authRec ? !!authRec.permitir_demonstrativos : true)
         setPermiteDocumentos(authRec ? !!authRec.permitir_documentos : true)
+        setPermiteCobrancas(authRec ? authRec.permitir_cobrancas !== false : true)
         setObservacoes(authRec?.observacoes || '')
 
         setEnvios(enviosList)
@@ -182,6 +185,7 @@ export function WhatsAppEnvioAtivoPanel({
         permitir_previas: permitePrevias,
         permitir_demonstrativos: permiteDemonstrativos,
         permitir_documentos: permiteDocumentos,
+        permitir_cobrancas: permiteCobrancas,
         ativo: true,
         observacoes: observacoes.trim(),
       }
@@ -523,6 +527,12 @@ export function WhatsAppEnvioAtivoPanel({
         return <FileText className="h-3.5 w-3.5 text-emerald-500" />
       case 'documento':
         return <FolderOpen className="h-3.5 w-3.5 text-purple-500" />
+      case 'cobranca':
+        return <CreditCard className="h-3.5 w-3.5 text-teal-600" />
+      case 'teste':
+        return <Send className="h-3.5 w-3.5 text-sky-500" />
+      default:
+        return <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
     }
   }
 
@@ -725,6 +735,23 @@ export function WhatsAppEnvioAtivoPanel({
                       <Switch
                         checked={permiteDocumentos}
                         onCheckedChange={setPermiteDocumentos}
+                        disabled={!canManage}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5 cursor-pointer">
+                          <CreditCard className="h-3.5 w-3.5 text-teal-600" />
+                          Cobranças & Faturas (PIX / Boleto)
+                        </Label>
+                        <p className="text-[10px] text-slate-500">
+                          Envio automático e manual de cobranças com chave PIX e copia-e-cola
+                        </p>
+                      </div>
+                      <Switch
+                        checked={permiteCobrancas}
+                        onCheckedChange={setPermiteCobrancas}
                         disabled={!canManage}
                       />
                     </div>

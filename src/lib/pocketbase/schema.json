@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T19:28:56.742Z",
+  "generatedAt": "2026-09-28T19:50:09.657Z",
   "collections": [
     {
       "name": "users",
@@ -4640,6 +4640,18 @@
         },
         {
           "name": "ia_mensagem_fora_horario",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "chave_pix_padrao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "beneficiario_padrao",
           "type": "text",
           "required": false,
           "system": false
@@ -10202,6 +10214,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "permitir_cobrancas",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -10239,7 +10257,15 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["aviso", "guia", "demonstrativo", "previa", "documento"]
+          "selectValues": [
+            "aviso",
+            "guia",
+            "demonstrativo",
+            "previa",
+            "documento",
+            "cobranca",
+            "teste"
+          ]
         },
         {
           "name": "referencia",
@@ -10306,6 +10332,146 @@
         "CREATE INDEX idx_wa_envios_tipo ON whatsapp_envios (tipo)",
         "CREATE INDEX idx_wa_envios_origem ON whatsapp_envios (origem)",
         "CREATE INDEX idx_wa_envios_created ON whatsapp_envios (created DESC)"
+      ]
+    },
+    {
+      "name": "cobrancas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pix", "boleto"]
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "pago", "cancelado", "vencido"]
+        },
+        {
+          "name": "chave_pix",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "beneficiario_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_barras",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload_pix",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_boleto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "whatsapp_envio_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "whatsapp_envios"
+        },
+        {
+          "name": "pago_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pago_valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_cobrancas_tenant_emp ON cobrancas (tenant_id, empresa)",
+        "CREATE INDEX idx_cobrancas_status ON cobrancas (status)",
+        "CREATE INDEX idx_cobrancas_vencimento ON cobrancas (vencimento)",
+        "CREATE INDEX idx_cobrancas_tipo ON cobrancas (tipo)"
       ]
     }
   ]
