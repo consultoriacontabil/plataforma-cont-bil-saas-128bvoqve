@@ -685,6 +685,48 @@ export interface PortalAcesso extends RecordModel {
   }
 }
 
+// === Envio Ativo por WhatsApp & Preferências ===
+export type WhatsAppEnvioTipo = 'aviso' | 'guia' | 'demonstrativo' | 'previa' | 'documento'
+export type WhatsAppEnvioStatus =
+  | 'fila'
+  | 'aguardando_credenciais'
+  | 'enviado'
+  | 'falhou'
+  | 'cancelado'
+export type WhatsAppEnvioOrigem = 'manual' | 'elliza' | 'agendador'
+
+export interface WhatsAppNotificacoesAutorizadasRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  telefone_destinatario?: string
+  permitir_avisos?: boolean
+  permitir_guias?: boolean
+  permitir_previas?: boolean
+  permitir_demonstrativos?: boolean
+  permitir_documentos?: boolean
+  ativo?: boolean
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
+export interface WhatsAppEnvioRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  tipo: WhatsAppEnvioTipo
+  referencia?: string
+  destinatario: string
+  mensagem: string
+  status: WhatsAppEnvioStatus
+  origem: WhatsAppEnvioOrigem
+  erro?: string
+  detalhes_json?: Record<string, unknown>
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
 // === Módulo Fecho Contábil Automático ===
 export type MapeamentoOrigem = 'obrigacao' | 'documento'
 

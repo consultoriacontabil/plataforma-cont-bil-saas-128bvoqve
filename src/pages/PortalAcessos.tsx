@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import {
-  Users,
-  Building2,
-  Mail,
-  UserPlus,
-  CheckCircle2,
-  XCircle,
-  Trash2,
-  ExternalLink,
-  ShieldAlert,
-  Search,
-} from 'lucide-react'
+import { Users, UserPlus, Trash2, Search, MessageSquare } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
 import { empresasService } from '@/services/empresas'
@@ -19,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { WhatsAppEnvioAtivoPanel } from '@/components/WhatsAppEnvioAtivoPanel'
 import {
   Select,
   SelectContent,
@@ -167,13 +157,13 @@ export default function PortalAcessosPage() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">
-              Gestão de Acessos do Portal
+              Portal & Acessos do Cliente
             </h2>
             <Badge className="bg-[#0FA3A3] text-white text-[11px] font-semibold">Clientes</Badge>
           </div>
           <p className="text-xs text-[#64748B]">
-            Libere e controle os logins dos contatos das empresas clientes para consulta de
-            obrigações e envio de documentos
+            Gerencie os logins dos contatos das empresas clientes e configure o envio ativo por
+            WhatsApp de guias, avisos e demonstrativos
           </p>
         </div>
 
@@ -188,96 +178,133 @@ export default function PortalAcessosPage() {
         )}
       </div>
 
-      {/* Busca */}
-      <div className="flex items-center bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por contato, e-mail ou empresa..."
-            className="pl-9 h-9 text-xs rounded-xl border-[#E2E8F0]"
-          />
-        </div>
-      </div>
+      {/* Abas: Logins do Portal & Envio Ativo por WhatsApp */}
+      <Tabs defaultValue="acessos" className="space-y-4">
+        <TabsList className="bg-slate-100 p-1 rounded-2xl h-11 border border-slate-200">
+          <TabsTrigger
+            value="acessos"
+            className="rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-2xs gap-2 px-4"
+          >
+            <Users className="h-4 w-4" />
+            <span>Acessos & Logins ({acessos.length})</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="whatsapp-ativo"
+            className="rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-2xs gap-2 px-4"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>Envio Ativo por WhatsApp</span>
+            <Badge className="bg-[#0FA3A3]/20 text-[#0FA3A3] text-[10px] ml-1 font-bold">
+              NOVO
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tabela de Acessos */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold border-b border-[#E2E8F0]">
-              <tr>
-                <th className="py-3 px-4">Nome do Contato</th>
-                <th className="py-3 px-4">E-mail de Login</th>
-                <th className="py-3 px-4">Empresa Vinculada</th>
-                <th className="py-3 px-4">Criado em</th>
-                <th className="py-3 px-4">Status</th>
-                {canManage && <th className="py-3 px-4 text-right">Ações</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-[#1A2333]">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-[#94A3B8]">
-                    Carregando acessos do portal...
-                  </td>
-                </tr>
-              ) : filteredAcessos.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-[#94A3B8]">
-                    Nenhum acesso cadastrado. Clique em &quot;Convidar Contato&quot; para liberar
-                    uma empresa.
-                  </td>
-                </tr>
-              ) : (
-                filteredAcessos.map((a) => (
-                  <tr key={a.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-[#1A2333]">{a.nome_contato}</td>
-                    <td className="py-3.5 px-4 font-mono text-[#0FA3A3]">{a.email}</td>
-                    <td className="py-3.5 px-4 font-medium text-[#475569]">
-                      {a.expand?.empresa?.nome_fantasia || a.expand?.empresa?.razao_social || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-[#64748B]">{formatDatePtBr(a.created)}</td>
-                    <td className="py-3.5 px-4">
-                      {a.ativo ? (
-                        <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
-                          Ativo
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-[#FEE2E2] text-[#DC2626] border-rose-200">
-                          Bloqueado
-                        </Badge>
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggle(a.id, a.ativo)}
-                            className="h-7 text-[11px] font-semibold"
-                          >
-                            {a.ativo ? 'Bloquear' : 'Ativar'}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(a.id, a.nome_contato)}
-                            className="h-7 w-7 p-0 text-[#64748B] hover:text-[#EF4444]"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    )}
+        {/* ABA 1: ACESSOS E LOGINS */}
+        <TabsContent value="acessos" className="space-y-4">
+          {/* Busca */}
+          <div className="flex items-center bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
+              <Input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por contato, e-mail ou empresa..."
+                className="pl-9 h-9 text-xs rounded-xl border-[#E2E8F0]"
+              />
+            </div>
+          </div>
+
+          {/* Tabela de Acessos */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold border-b border-[#E2E8F0]">
+                  <tr>
+                    <th className="py-3 px-4">Nome do Contato</th>
+                    <th className="py-3 px-4">E-mail de Login</th>
+                    <th className="py-3 px-4">Empresa Vinculada</th>
+                    <th className="py-3 px-4">Criado em</th>
+                    <th className="py-3 px-4">Status</th>
+                    {canManage && <th className="py-3 px-4 text-right">Ações</th>}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[#1A2333]">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-[#94A3B8]">
+                        Carregando acessos do portal...
+                      </td>
+                    </tr>
+                  ) : filteredAcessos.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-[#94A3B8]">
+                        Nenhum acesso cadastrado. Clique em &quot;Convidar Contato&quot; para
+                        liberar uma empresa.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAcessos.map((a) => (
+                      <tr key={a.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-[#1A2333]">{a.nome_contato}</td>
+                        <td className="py-3.5 px-4 font-mono text-[#0FA3A3]">{a.email}</td>
+                        <td className="py-3.5 px-4 font-medium text-[#475569]">
+                          {a.expand?.empresa?.nome_fantasia ||
+                            a.expand?.empresa?.razao_social ||
+                            '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-[#64748B]">{formatDatePtBr(a.created)}</td>
+                        <td className="py-3.5 px-4">
+                          {a.ativo ? (
+                            <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
+                              Ativo
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-[#FEE2E2] text-[#DC2626] border-rose-200">
+                              Bloqueado
+                            </Badge>
+                          )}
+                        </td>
+                        {canManage && (
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggle(a.id, a.ativo)}
+                                className="h-7 text-[11px] font-semibold"
+                              >
+                                {a.ativo ? 'Bloquear' : 'Ativar'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(a.id, a.nome_contato)}
+                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#EF4444]"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ABA 2: ENVIO ATIVO POR WHATSAPP */}
+        <TabsContent value="whatsapp-ativo">
+          <WhatsAppEnvioAtivoPanel
+            tenantId={tenant?.id || ''}
+            empresas={empresas}
+            canManage={canManage}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Modal Convidar Contato */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

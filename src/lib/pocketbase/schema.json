@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T17:41:20.007Z",
+  "generatedAt": "2026-09-28T19:28:56.742Z",
   "collections": [
     {
       "name": "users",
@@ -10114,6 +10114,198 @@
         "CREATE INDEX idx_param_norm_categoria ON parametros_normativos (categoria)",
         "CREATE INDEX idx_param_norm_chave ON parametros_normativos (chave)",
         "CREATE INDEX idx_param_norm_vigencia ON parametros_normativos (vigencia_inicio)"
+      ]
+    },
+    {
+      "name": "whatsapp_notificacoes_autorizadas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "telefone_destinatario",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permitir_avisos",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permitir_guias",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permitir_previas",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permitir_demonstrativos",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permitir_documentos",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_wa_autoriz_tenant_emp ON whatsapp_notificacoes_autorizadas (tenant_id, empresa)",
+        "CREATE INDEX idx_wa_autoriz_empresa ON whatsapp_notificacoes_autorizadas (empresa)"
+      ]
+    },
+    {
+      "name": "whatsapp_envios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aviso", "guia", "demonstrativo", "previa", "documento"]
+        },
+        {
+          "name": "referencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destinatario",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["fila", "aguardando_credenciais", "enviado", "falhou", "cancelado"]
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["manual", "elliza", "agendador"]
+        },
+        {
+          "name": "erro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detalhes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_wa_envios_tenant_emp ON whatsapp_envios (tenant_id, empresa)",
+        "CREATE INDEX idx_wa_envios_status ON whatsapp_envios (status)",
+        "CREATE INDEX idx_wa_envios_tipo ON whatsapp_envios (tipo)",
+        "CREATE INDEX idx_wa_envios_origem ON whatsapp_envios (origem)",
+        "CREATE INDEX idx_wa_envios_created ON whatsapp_envios (created DESC)"
       ]
     }
   ]

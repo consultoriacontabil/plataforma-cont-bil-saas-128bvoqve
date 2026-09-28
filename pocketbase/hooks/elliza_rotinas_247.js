@@ -38,11 +38,14 @@ cronAdd('elliza_rotinas_247_monitor', '15 * * * *', () => {
         const tipoObr = obr.getString('tipo')
         const vencimento = obr.getString('vencimento')
         const comp = obr.getString('competencia')
+        const valorObr = obr.getFloat('valor') || 0
 
         let empNome = 'Empresa'
+        let empTel = ''
         try {
           const emp = $app.findRecordById('empresas', empresaId)
           empNome = emp.getString('nome_fantasia') || emp.getString('razao_social')
+          empTel = emp.getString('telefone') || ''
         } catch (_) {}
 
         const isHoje = vencimento.slice(0, 10) === hojeStr
@@ -103,6 +106,176 @@ cronAdd('elliza_rotinas_247_monitor', '15 * * * *', () => {
             notif.set('lida', false)
             $app.save(notif)
           }
+        }
+
+        // =========================================================================
+        // Enfileiramento / Envio Ativo por WhatsApp via ELLIZA / Agendador
+        // Verifica se a empresa autorizou o envio de "avisos"
+        // =========================================================================
+        try {
+          const authList = $app.findRecordsByFilter(
+            'whatsapp_notificacoes_autorizadas',
+            "tenant_id = '" + tenantId + "' && empresa = '" + empresaId + "' && ativo = true",
+            '',
+            1,
+            0,
+          )
+
+          if (authList.length > 0) {
+            const authConfig = authList[0]
+            const permiteAvisos = authConfig.getBool('permitir_avisos')
+
+            if (permiteAvisos) {
+              const telDestino = authConfig.getString('telefone_destinatario') || empTel
+              const numLimpo = (telDestino || '').replace(/\D/g, '')
+
+              if (numLimpo.length >= 10) {
+                const refKey = 'AVISO-' + tipoObr + '-' + comp + '-' + vencimento.slice(0, 10)
+                const twentyFourHoursAgo = new Date(now.getTime() - 24 * 3600000).toISOString()
+
+                const envioJaRegistrado = $app.findRecordsByFilter(
+                  'whatsapp_envios',
+                  "tenant_id = '" +
+                    tenantId +
+                    "' && empresa = '" +
+                    empresaId +
+                    "' && referencia = '" +
+                    refKey +
+                    "' && created >= '" +
+                    twentyFourHoursAgo +
+                    "'",
+                  '',
+                  1,
+                  0,
+                )
+
+                if (envioJaRegistrado.length === 0) {
+                  // Montar texto padronizado do aviso
+                  const valorFmt =
+                    valorObr > 0 ? ' | Valor: R$ ' + valorObr.toFixed(2).replace('.', ',') : ''
+                  const textoWa =
+                    '📌 *AVISO DE OBRIGAÇÃO - RUMO CONTÁBIL*\n\n' +
+                    'Olá! Informamos que a obrigação contábil/fiscal *' +
+                    tipoObr +
+                    '* da empresa *' +
+                    empNome +
+                    '* (Competência: ' +
+                    comp +
+                    ') tem vencimento em *' +
+                    vencimento.slice(0, 10) +
+                    '*' +
+                    valorFmt +
+                    '.\n\n' +
+                    'Acesse o Portal do Cliente para consultar e baixar os comprovantes: https://rumoconsultoriacontabil.com.br\n\n' +
+                    '_Mensagem automática enviada pela hiperautomação ELLIZA 24/7._'
+
+                  // Verificar credenciais Evolution API no tenant
+                  let cfgRec = null
+                  try {
+                    cfgRec = $app.findFirstRecordByData('nfse_config', 'tenant_id', tenantId)
+                  } catch (_) {}
+
+                  const evoUrl = cfgRec ? cfgRec.getString('evolution_api_url') : ''
+                  const evoKey = cfgRec ? cfgRec.getString('evolution_api_key') : ''
+                  const evoInstance = cfgRec ? cfgRec.getString('evolution_instance') : ''
+
+                  const hasCreds = Boolean(
+                    evoUrl &&
+                    evoKey &&
+                    evoInstance &&
+                    evoUrl.trim() !== '' &&
+                    !evoUrl.includes('.internal') &&
+                    !evoUrl.includes('localhost'),
+                  )
+
+                  const enviosCol = $app.findCollectionByNameOrId('whatsapp_envios')
+                  const envioRecord = new Record(enviosCol)
+                  envioRecord.set('tenant_id', tenantId)
+                  envioRecord.set('empresa', empresaId)
+                  envioRecord.set('tipo', 'aviso')
+                  envioRecord.set('referencia', refKey)
+                  envioRecord.set('destinatario', numLimpo)
+                  envioRecord.set('mensagem', textoWa)
+                  envioRecord.set('origem', 'elliza')
+
+                  if (!hasCreds) {
+                    envioRecord.set('status', 'aguardando_credenciais')
+                    envioRecord.set(
+                      'erro',
+                      'Modo Supervisão: Evolution API não configurada ou servidor sem credenciais ativas. Configure em Integrações -> NFS-e & WhatsApp.',
+                    )
+                    envioRecord.set('detalhes_json', {
+                      modo: 'supervisao',
+                      motivo: 'aguardando_credenciais_evolution_api',
+                      origem: 'elliza_rotinas_247_monitor',
+                    })
+                    $app.save(envioRecord)
+                    console.log(
+                      '[ELLIZA 24/7] Aviso WhatsApp enfileirado em modo supervisão (aguardando credenciais) para:',
+                      empNome,
+                    )
+                  } else {
+                    // Tentar envio real
+                    let baseUrl = evoUrl
+                    if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1)
+                    const sendEndpoint =
+                      baseUrl + '/message/sendText/' + encodeURIComponent(evoInstance)
+                    let destJid = numLimpo
+                    if (!destJid.includes('@')) destJid = destJid + '@s.whatsapp.net'
+
+                    try {
+                      const resp = $http.send({
+                        url: sendEndpoint,
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          apikey: evoKey,
+                        },
+                        body: JSON.stringify({
+                          number: destJid,
+                          text: textoWa,
+                          options: { delay: 1000, presence: 'composing' },
+                        }),
+                        timeout: 10,
+                      })
+
+                      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+                        envioRecord.set('status', 'enviado')
+                        envioRecord.set('detalhes_json', {
+                          statusCode: resp.statusCode,
+                          resposta: resp.json,
+                        })
+                        $app.save(envioRecord)
+                        console.log(
+                          '[ELLIZA 24/7] Aviso WhatsApp enviado com sucesso para:',
+                          empNome,
+                        )
+                      } else {
+                        envioRecord.set('status', 'falhou')
+                        envioRecord.set(
+                          'erro',
+                          'Evolution API retornou status ' +
+                            resp.statusCode +
+                            ': ' +
+                            (resp.rawText || ''),
+                        )
+                        $app.save(envioRecord)
+                      }
+                    } catch (errHttp) {
+                      envioRecord.set('status', 'falhou')
+                      envioRecord.set(
+                        'erro',
+                        'Falha na chamada Evolution API: ' + (errHttp.message || String(errHttp)),
+                      )
+                      $app.save(envioRecord)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (errWa) {
+          console.log('[ELLIZA 24/7] Erro ao processar envio WhatsApp ativo:', errWa)
         }
       }
     } catch (errObr) {
