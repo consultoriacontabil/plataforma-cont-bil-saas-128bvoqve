@@ -1,4 +1,4 @@
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { CobrancaRecord, CobrancaStatus, CobrancaTipo, Empresa } from '@/types'
 import { auditService } from './audit'
 import { whatsappAtivoService } from './whatsappAtivo'
@@ -108,18 +108,20 @@ export const cobrancasService = {
       observacoes: input.observacoes || '',
     })
 
-    await auditService.log({
-      tenant_id: input.tenant_id,
-      action: 'cobranca_criada',
-      entidade: 'cobrancas',
-      registro_id: rec.id,
-      dados_novos: {
+    const userId = pb.authStore.record?.id || 'system'
+    await auditService.log(
+      input.tenant_id,
+      userId,
+      'cobranca_criada',
+      'cobrancas',
+      rec.id,
+      JSON.stringify({
         tipo: input.tipo,
         valor: input.valor,
         vencimento: input.vencimento,
         empresa: input.empresa,
-      },
-    })
+      }),
+    )
 
     return rec
   },
@@ -152,14 +154,18 @@ export const cobrancasService = {
       payload_pix: payloadPix,
     })
 
-    await auditService.log({
-      tenant_id: atual.tenant_id,
-      action: 'cobranca_atualizada',
-      entidade: 'cobrancas',
-      registro_id: id,
-      dados_anteriores: { status: atual.status, valor: atual.valor },
-      dados_novos: dados,
-    })
+    const userId = pb.authStore.record?.id || 'system'
+    await auditService.log(
+      atual.tenant_id,
+      userId,
+      'cobranca_atualizada',
+      'cobrancas',
+      id,
+      JSON.stringify({
+        dados_anteriores: { status: atual.status, valor: atual.valor },
+        dados_novos: dados,
+      }),
+    )
 
     return updated
   },
@@ -184,14 +190,18 @@ export const cobrancasService = {
       pago_valor: valorPago,
     })
 
-    await auditService.log({
-      tenant_id: cob.tenant_id,
-      action: 'cobranca_baixada_paga',
-      entidade: 'cobrancas',
-      registro_id: params.id,
-      dados_anteriores: { status: cob.status },
-      dados_novos: { status: 'pago', pago_em: dataPagamento, pago_valor: valorPago },
-    })
+    const userId = pb.authStore.record?.id || 'system'
+    await auditService.log(
+      cob.tenant_id,
+      userId,
+      'cobranca_baixada_paga',
+      'cobrancas',
+      params.id,
+      JSON.stringify({
+        dados_anteriores: { status: cob.status },
+        dados_novos: { status: 'pago', pago_em: dataPagamento, pago_valor: valorPago },
+      }),
+    )
 
     return updated
   },
@@ -210,14 +220,18 @@ export const cobrancasService = {
         : cob.observacoes,
     })
 
-    await auditService.log({
-      tenant_id: cob.tenant_id,
-      action: 'cobranca_cancelada',
-      entidade: 'cobrancas',
-      registro_id: id,
-      dados_anteriores: { status: cob.status },
-      dados_novos: { status: 'cancelado', motivo },
-    })
+    const userId = pb.authStore.record?.id || 'system'
+    await auditService.log(
+      cob.tenant_id,
+      userId,
+      'cobranca_cancelada',
+      'cobrancas',
+      id,
+      JSON.stringify({
+        dados_anteriores: { status: cob.status },
+        dados_novos: { status: 'cancelado', motivo },
+      }),
+    )
 
     return updated
   },
@@ -230,11 +244,11 @@ export const cobrancasService = {
     empresa: Empresa
     telefone?: string
     origem?: 'manual' | 'elliza' | 'agendador'
-  }): Promise<{ sucesso: boolean; status: string; mensagem: string; envio_id?: string }> {
+  }): Promise<{ sucesso: boolean; status: string; mensagem?: string; envio_id?: string }> {
     const { cobranca, empresa } = params
 
     // 1. Obter autorização de envio da empresa
-    const autoriz = await whatsappAtivoService.getAutorizacaoEmpresa(empresa.id)
+    const autoriz = await whatsappAtivoService.getAutorizacaoEmpresa(cobranca.tenant_id, empresa.id)
     if (autoriz && !autoriz.ativo) {
       throw new Error(
         `O canal de WhatsApp para ${empresa.razao_social} está desativado nas preferências.`,

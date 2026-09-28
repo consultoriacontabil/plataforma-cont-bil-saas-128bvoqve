@@ -18,6 +18,8 @@ export interface SalvarConfigInput {
   evolution_api_url?: string
   evolution_api_key?: string
   evolution_instance?: string
+  chave_pix_padrao?: string
+  beneficiario_padrao?: string
   modo_operacao: 'simulacao' | 'producao'
   auto_aprovar_alta_confianca: boolean
   provedor_fiscal?: ProvedorFiscalTipo

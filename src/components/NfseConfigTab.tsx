@@ -43,6 +43,7 @@ import type {
   ProvedorEmpresaConfig,
 } from '@/types'
 import { nfseWhatsappService } from '@/services/nfseWhatsapp'
+import { whatsappAtivoService } from '@/services/whatsappAtivo'
 import { FiscalAdapterFactory } from '@/services/fiscalAdapters'
 import { useToast } from '@/hooks/use-toast'
 import { maskCnpj } from '@/lib/formatters'
