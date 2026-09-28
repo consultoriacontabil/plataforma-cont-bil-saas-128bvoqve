@@ -20,6 +20,7 @@ import PainelIntegracao from '@/pages/PainelIntegracao'
 import Usuarios from '@/pages/Usuarios'
 import Auditoria from '@/pages/Auditoria'
 import RumoAgentPage from '@/pages/RumoAgent'
+import EllizaPage from '@/pages/EllizaPage'
 import Perfil from '@/pages/Perfil'
 import Obrigacoes from '@/pages/Obrigacoes'
 import Relatorios from '@/pages/Relatorios'
@@ -123,6 +124,9 @@ export default function App() {
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/usuarios/perfis" element={<Usuarios />} />
             <Route path="/auditoria" element={<Auditoria />} />
+
+            {/* ELLIZA — Hiperautomação 24/7 Nativa */}
+            <Route path="/elliza" element={<EllizaPage />} />
 
             {/* Rumo Agent (Native IA) */}
             <Route path="/rumo-agent" element={<RumoAgentPage />} />

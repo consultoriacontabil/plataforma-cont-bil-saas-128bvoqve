@@ -256,6 +256,12 @@ export default function PopTreinamentoPage() {
         </div>
 
         <div className="flex items-center gap-2 print:hidden flex-wrap">
+          <Link to="/elliza">
+            <Button className="bg-[#0FA3A3] hover:bg-[#0c8282] text-white flex items-center gap-2 text-xs h-9 shadow-xs">
+              <Bot className="h-4 w-4" />
+              Conversar com ELLIZA 24/7
+            </Button>
+          </Link>
           <Link to="/manual">
             <Button
               variant="outline"
@@ -276,7 +282,7 @@ export default function PopTreinamentoPage() {
           {!isReadOnly && (
             <Button
               onClick={handleSalvarFicha}
-              className="bg-[#0FA3A3] hover:bg-[#0c8282] text-white flex items-center gap-2 text-xs h-9"
+              className="bg-slate-800 hover:bg-slate-900 text-white flex items-center gap-2 text-xs h-9"
             >
               <Award className="h-4 w-4" />
               Validar Treinamento

@@ -38,6 +38,7 @@ import {
   FileCheck,
   MessageSquare,
   HelpCircle,
+  Bot,
 } from 'lucide-react'
 import {
   Dialog,
@@ -175,6 +176,7 @@ export default function Layout() {
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
     if (path.startsWith('/auditoria')) return 'Trilha de Auditoria'
+    if (path.startsWith('/elliza')) return 'ELLIZA (Hiperautomação 24/7)'
     if (path.startsWith('/rumo-agent')) return 'Rumo Agent (IA)'
     if (path.startsWith('/perfil')) return 'Minha Conta'
     return 'Rumo Contábil'
@@ -362,6 +364,7 @@ export default function Layout() {
     {
       group: 'GESTÃO & INTEGRAÇÕES',
       items: [
+        { label: 'ELLIZA (24/7)', to: '/elliza', icon: Bot, badge: '24/7' },
         { label: 'Manual de Ativação', to: '/manual', icon: BookOpen, badge: 'GUIA' },
         { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'ELLIZA' },
         { label: 'Extensão WhatsApp', to: '/extensao', icon: Sparkles, badge: 'NOVO' },
@@ -462,35 +465,35 @@ export default function Layout() {
           ))}
         </div>
 
-        {/* Footer Sidebar Entry: Rumo Agent highlight */}
-        <div className="border-t border-[#123B6D]/60 p-3">
+        {/* Footer Sidebar Entry: ELLIZA 24/7 highlight */}
+        <div className="border-t border-[#123B6D]/60 p-3 space-y-2">
           <NavLink
-            to="/rumo-agent"
+            to="/elliza"
             className={({ isActive }) =>
               cn(
                 'group flex items-center justify-between rounded-xl p-2.5 text-sm font-medium transition-all shadow-sm',
                 isActive
                   ? 'bg-gradient-to-r from-[#0FA3A3] to-[#0C8585] text-white ring-2 ring-[#0FA3A3]/50'
-                  : 'bg-[#123B6D]/60 text-white hover:bg-[#123B6D]',
+                  : 'bg-gradient-to-r from-[#0E3A5A] to-[#123B6D] text-white hover:bg-[#123B6D]',
                 collapsed && 'justify-center p-2',
               )
             }
-            title={collapsed ? 'Rumo Agent (IA)' : undefined}
+            title={collapsed ? 'ELLIZA 24/7' : undefined}
           >
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0FA3A3]/20 text-[#0FA3A3] group-hover:bg-[#0FA3A3]/30">
-                <Sparkles className="h-4 w-4 text-[#0FA3A3]" />
+                <Bot className="h-4 w-4 text-[#0FA3A3]" />
               </div>
               {!collapsed && (
                 <div className="flex flex-col text-left">
-                  <span className="font-semibold text-white">Rumo Agent</span>
-                  <span className="text-[11px] text-[#94A3B8]">Assistente IA Contábil</span>
+                  <span className="font-semibold text-white">ELLIZA</span>
+                  <span className="text-[11px] text-[#94A3B8]">Hiperautomação 24/7</span>
                 </div>
               )}
             </div>
             {!collapsed && (
               <Badge className="bg-[#0FA3A3] hover:bg-[#0FA3A3] text-white text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
-                NOVO
+                24/7
               </Badge>
             )}
           </NavLink>
@@ -562,18 +565,18 @@ export default function Layout() {
                   })}
                 </div>
               ))}
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
                 <NavLink
-                  to="/rumo-agent"
+                  to="/elliza"
                   className="flex items-center justify-between rounded-lg bg-[#123B6D] p-3 text-sm font-medium text-white"
                 >
                   <div className="flex items-center gap-3">
-                    <Sparkles className="h-5 w-5 text-[#0FA3A3]" />
-                    <span>Rumo Agent</span>
+                    <Bot className="h-5 w-5 text-[#0FA3A3]" />
+                    <span>ELLIZA 24/7</span>
                   </div>
-                  <Badge className="bg-[#0FA3A3] text-white text-[10px]">NOVO</Badge>
+                  <Badge className="bg-[#0FA3A3] text-white text-[10px]">24/7</Badge>
                 </NavLink>
-              </div>
+              </div>{' '}
             </div>
           </div>
         </div>
