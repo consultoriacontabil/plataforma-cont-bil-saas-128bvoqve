@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
+import { EllizaDiretivasTab } from '@/components/EllizaDiretivasTab'
 import { ellizaAgentService, type EllizaStatusResponse } from '@/services/ellizaAgent'
 import type { AgentConversationRecord } from '@/types'
 import { cn } from '@/lib/utils'
@@ -37,9 +38,12 @@ const PROMPT_SUGESTOES = [
 ]
 
 export default function EllizaPage() {
-  const { user, tenant } = useAuth()
+  const { user, tenant, member } = useAuth()
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
+
+  const canEditDiretivas = member?.perfil === 'administrador'
+  const canApproveFila = member?.perfil === 'administrador' || member?.perfil === 'contador'
 
   const [conversations, setConversations] = useState<AgentConversationRecord[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
@@ -381,6 +385,10 @@ export default function EllizaPage() {
             <MessageSquare className="h-4 w-4 text-[#0FA3A3]" />
             Chat com a ELLIZA
           </TabsTrigger>
+          <TabsTrigger value="diretivas" className="text-xs font-semibold flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+            Diretivas & Fila de Aprovação
+          </TabsTrigger>
           <TabsTrigger value="rotinas" className="text-xs font-semibold flex items-center gap-2">
             <Cpu className="h-4 w-4 text-emerald-600" />
             Central de Rotinas 24/7 & Limites
@@ -564,7 +572,18 @@ export default function EllizaPage() {
         </TabsContent>
 
         {/* =========================================================================
-            ABA 2: CENTRAL DE ROTINAS 24/7 & LIMITES
+            ABA 2: DIRETIVAS OPERACIONAIS & FILA DE APROVAÇÃO HUMANA
+           ========================================================================= */}
+        <TabsContent value="diretivas" className="space-y-4">
+          <EllizaDiretivasTab
+            tenantId={tenant?.id || ''}
+            canEdit={canEditDiretivas}
+            canApprove={canApproveFila}
+          />
+        </TabsContent>
+
+        {/* =========================================================================
+            ABA 3: CENTRAL DE ROTINAS 24/7 & LIMITES
            ========================================================================= */}
         <TabsContent value="rotinas" className="space-y-6">
           {/* Card dos Limites e Definição Acordada */}

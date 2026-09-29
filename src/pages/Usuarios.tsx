@@ -11,7 +11,10 @@ import {
   Mail,
   Loader2,
   Lock,
+  Bot,
+  Sparkles,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { usersService } from '@/services/users'
 import { formatDatePtBr } from '@/lib/formatters'
@@ -169,6 +172,21 @@ export default function Usuarios() {
         return <Badge className="bg-[#3B82F6] text-white">Auxiliar</Badge>
       case 'consultor':
         return <Badge className="bg-slate-200 text-slate-700">Consultor</Badge>
+      case 'cliente':
+        return (
+          <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50">
+            Cliente
+          </Badge>
+        )
+      case 'elliza':
+        return (
+          <Badge className="bg-gradient-to-r from-teal-600 to-[#0FA3A3] text-white gap-1 shadow-2xs font-bold border-teal-500">
+            <Bot className="h-3 w-3" />
+            ELLIZA (Agente IA)
+          </Badge>
+        )
+      default:
+        return <Badge variant="secondary">{role}</Badge>
     }
   }
 
@@ -238,38 +256,86 @@ export default function Usuarios() {
                       </tr>
                     ) : (
                       members.map((m) => {
-                        const initials = (
-                          m.expand?.user_id?.name ||
-                          m.expand?.user_id?.email ||
-                          'U'
-                        )
-                          .slice(0, 2)
-                          .toUpperCase()
+                        const isElliza =
+                          m.perfil === 'elliza' ||
+                          m.expand?.user_id?.email === 'elliza@rumo.contabil' ||
+                          (m.expand?.user_id?.name || '').includes('ELLIZA')
+
+                        const initials = isElliza
+                          ? 'EL'
+                          : (m.expand?.user_id?.name || m.expand?.user_id?.email || 'U')
+                              .slice(0, 2)
+                              .toUpperCase()
+
                         return (
-                          <tr key={m.id} className="hover:bg-slate-50/75 transition-colors">
+                          <tr
+                            key={m.id}
+                            className={cn(
+                              'transition-colors',
+                              isElliza
+                                ? 'bg-teal-50/40 hover:bg-teal-50/70'
+                                : 'hover:bg-slate-50/75',
+                            )}
+                          >
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="bg-[#0B1F3A] text-white text-xs font-bold">
-                                    {initials}
+                                  <AvatarFallback
+                                    className={cn(
+                                      'text-xs font-bold text-white',
+                                      isElliza ? 'bg-[#0FA3A3]' : 'bg-[#0B1F3A]',
+                                    )}
+                                  >
+                                    {isElliza ? <Bot className="h-4 w-4" /> : initials}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-semibold text-[#1A2333]">
-                                    {m.expand?.user_id?.name || 'Sem nome'}
-                                  </p>
-                                  {m.user_id === user?.id && (
-                                    <span className="text-[10px] text-[#0FA3A3] font-semibold">
-                                      (Você)
-                                    </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="font-semibold text-[#1A2333]">
+                                      {isElliza
+                                        ? 'ELLIZA Contábil (IA)'
+                                        : m.expand?.user_id?.name || 'Sem nome'}
+                                    </p>
+                                    {isElliza && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] bg-teal-50 border-teal-300 text-teal-800 font-semibold gap-1 py-0 px-1.5"
+                                      >
+                                        <Sparkles className="h-2.5 w-2.5" />
+                                        Motor Automatizado 24/7
+                                      </Badge>
+                                    )}
+                                    {m.user_id === user?.id && !isElliza && (
+                                      <span className="text-[10px] text-[#0FA3A3] font-semibold">
+                                        (Você)
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isElliza && (
+                                    <p className="text-[10px] text-slate-500">
+                                      Agente de serviço Skip Cloud — não humano (opera conforme
+                                      diretivas)
+                                    </p>
                                   )}
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-[#64748B]">{m.expand?.user_id?.email}</td>
+                            <td className="py-3 px-4 text-[#64748B]">
+                              {isElliza ? (
+                                <span className="font-mono text-[11px] text-teal-700">
+                                  {m.expand?.user_id?.email || 'elliza@rumo.contabil'}
+                                </span>
+                              ) : (
+                                m.expand?.user_id?.email
+                              )}
+                            </td>
                             <td className="py-3 px-4">{getRoleBadge(m.perfil)}</td>
                             <td className="py-3 px-4">
-                              {m.status === 'ativo' ? (
+                              {isElliza ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                                  24/7 Ativo
+                                </Badge>
+                              ) : m.status === 'ativo' ? (
                                 <Badge className="bg-[#DCFCE7] text-[#166534]">Ativo</Badge>
                               ) : (
                                 <Badge className="bg-[#FEF3C7] text-[#92400E]">
@@ -282,7 +348,11 @@ export default function Usuarios() {
                             </td>
                             {isAdmin && (
                               <td className="py-3 px-4 text-right">
-                                {m.user_id !== user?.id && (
+                                {isElliza ? (
+                                  <span className="text-[10px] text-slate-400 italic">
+                                    Gerenciado em /elliza
+                                  </span>
+                                ) : m.user_id !== user?.id ? (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button
@@ -313,7 +383,7 @@ export default function Usuarios() {
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
-                                )}
+                                ) : null}
                               </td>
                             )}
                           </tr>
@@ -329,7 +399,7 @@ export default function Usuarios() {
 
         {/* Tab 2: Perfis e Matriz RBAC */}
         <TabsContent value="perfis" className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {/* Administrador */}
             <Card className="rounded-2xl border-l-4 border-l-[#0B1F3A] border-[#E2E8F0] shadow-xs">
               <CardHeader className="pb-3">
@@ -452,6 +522,40 @@ export default function Usuarios() {
                 <div className="flex items-center gap-2 text-[#94A3B8]">
                   <Lock className="h-3.5 w-3.5" />
                   <span>Sem permissão de gravação</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ELLIZA (Motor Automatizado) */}
+            <Card className="rounded-2xl border-l-4 border-l-[#0FA3A3] border-teal-200 bg-teal-50/20 shadow-xs">
+              <CardHeader className="pb-3">
+                <Badge className="w-fit bg-[#0FA3A3] text-white flex items-center gap-1">
+                  <Bot className="h-3 w-3" />
+                  ELLIZA (Agente IA)
+                </Badge>
+                <CardTitle className="text-sm font-bold text-[#1A2333] mt-2">
+                  Motor Autônomo 24/7
+                </CardTitle>
+                <CardDescription className="text-xs text-[#64748B]">
+                  Perfil operacional de serviço para rotinas em segundo plano
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-xs space-y-2 border-t pt-3">
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Opera sob diretivas de autonomia</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Enfileira ações para aprovação</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Auditoria e varredura de prazos</span>
+                </div>
+                <div className="flex items-center gap-2 text-teal-800 font-semibold">
+                  <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                  <span>Conta de serviço não humana</span>
                 </div>
               </CardContent>
             </Card>

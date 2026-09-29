@@ -1,8 +1,38 @@
 import pb from '@/lib/pocketbase/client'
-import { CobrancaRecord, CobrancaStatus, CobrancaTipo, Empresa } from '@/types'
+import {
+  CobrancaRecord,
+  CobrancaStatus,
+  CobrancaTipo,
+  Empresa,
+  CobrancaRecorrenteRecord,
+} from '@/types'
 import { auditService } from './audit'
 import { whatsappAtivoService } from './whatsappAtivo'
 import { gerarPayloadPixEmv } from '@/lib/pixEmv'
+
+export interface CreateCobrancaRecorrenteInput {
+  tenant_id: string
+  empresa: string
+  descricao: string
+  valor: number
+  dia_do_mes: number
+  dia_vencimento: number
+  meio: CobrancaTipo
+  chave_pix?: string
+  beneficiario_nome?: string
+  autorizar_envio_whatsapp?: boolean
+  ativo?: boolean
+  observacoes?: string
+}
+
+export interface ProcessarRecorrentesResult {
+  sucesso: boolean
+  geradas: number
+  lembretesEnviados: number
+  bloqueadasPorDiretiva: number
+  executado_em: string
+  erro?: string
+}
 
 export interface CreateCobrancaInput {
   tenant_id: string
@@ -300,5 +330,122 @@ export const cobrancasService = {
     }
 
     return resp
+  },
+
+  /**
+   * Listar regras de cobranças recorrentes do tenant
+   */
+  async listRecorrentes(tenantId: string, empresaId?: string): Promise<CobrancaRecorrenteRecord[]> {
+    if (!tenantId) return []
+    const parts = [`tenant_id = "${tenantId}"`]
+    if (empresaId && empresaId !== 'todas') {
+      parts.push(`empresa = "${empresaId}"`)
+    }
+    try {
+      return await pb.collection('cobrancas_recorrentes').getFullList<CobrancaRecorrenteRecord>({
+        filter: parts.join(' && '),
+        sort: 'dia_do_mes,empresa',
+        expand: 'empresa',
+      })
+    } catch (err) {
+      console.error('Erro ao listar cobranças recorrentes:', err)
+      return []
+    }
+  },
+
+  /**
+   * Criar uma nova recorrência de mensalidade
+   */
+  async createRecorrente(input: CreateCobrancaRecorrenteInput): Promise<CobrancaRecorrenteRecord> {
+    const rec = await pb.collection('cobrancas_recorrentes').create<CobrancaRecorrenteRecord>({
+      tenant_id: input.tenant_id,
+      empresa: input.empresa,
+      descricao: input.descricao,
+      valor: input.valor,
+      dia_do_mes: input.dia_do_mes,
+      dia_vencimento: input.dia_vencimento,
+      meio: input.meio,
+      chave_pix: input.chave_pix || '',
+      beneficiario_nome: input.beneficiario_nome || '',
+      autorizar_envio_whatsapp: input.autorizar_envio_whatsapp ?? true,
+      ativo: input.ativo ?? true,
+      observacoes: input.observacoes || '',
+    })
+
+    const userId = pb.authStore.record?.id || 'system'
+    await auditService.log(
+      input.tenant_id,
+      userId,
+      'cobranca_recorrente_criada',
+      'cobrancas_recorrentes',
+      rec.id,
+      JSON.stringify({
+        empresa: input.empresa,
+        valor: input.valor,
+        dia_do_mes: input.dia_do_mes,
+        dia_vencimento: input.dia_vencimento,
+      }),
+    )
+
+    return rec
+  },
+
+  /**
+   * Atualizar uma recorrência existente
+   */
+  async updateRecorrente(
+    id: string,
+    dados: Partial<CobrancaRecorrenteRecord>,
+    tenantId: string,
+  ): Promise<CobrancaRecorrenteRecord> {
+    const updated = await pb
+      .collection('cobrancas_recorrentes')
+      .update<CobrancaRecorrenteRecord>(id, dados)
+
+    const userId = pb.authStore.record?.id || 'system'
+    await auditService.log(
+      tenantId,
+      userId,
+      'cobranca_recorrente_atualizada',
+      'cobrancas_recorrentes',
+      id,
+      JSON.stringify(dados),
+    )
+
+    return updated
+  },
+
+  /**
+   * Ativar / Pausar recorrência
+   */
+  async toggleAtivoRecorrente(
+    id: string,
+    ativo: boolean,
+    tenantId: string,
+  ): Promise<CobrancaRecorrenteRecord> {
+    return this.updateRecorrente(id, { ativo }, tenantId)
+  },
+
+  /**
+   * Disparar endpoint de processamento imediato das recorrências
+   * POST /backend/v1/cobrancas/processar-recorrentes
+   */
+  async processarRecorrentesAgora(): Promise<ProcessarRecorrentesResult> {
+    const token = pb.authStore.token
+    const baseUrl = import.meta.env.VITE_POCKETBASE_URL || ''
+    const res = await fetch(`${baseUrl}/backend/v1/cobrancas/processar-recorrentes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.erro || `Falha no processamento (HTTP ${res.status})`)
+    }
+
+    return await res.json()
   },
 }
