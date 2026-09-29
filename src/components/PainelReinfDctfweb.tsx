@@ -50,6 +50,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { formatDatePtBr, formatDateTimePtBr } from '@/lib/formatters'
+import { BadgeTransmissaoAutonomia } from '@/components/BadgeTransmissaoAutonomia'
 
 interface PainelReinfDctfwebProps {
   empresas: Empresa[]

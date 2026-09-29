@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast'
 import { whatsappAtivoService } from '@/services/whatsappAtivo'
 import { certificadosService } from '@/services/certificados'
 import { nfseWhatsappService } from '@/services/nfseWhatsapp'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import type { WhatsAppEnvioRecord } from '@/types'
 import {
   ShieldCheck,

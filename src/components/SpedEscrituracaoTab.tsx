@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { spedService, VERSOES_SPED, calculateMd5 } from '@/services/sped'
 import { auditService } from '@/services/audit'
+import { BadgeTransmissaoAutonomia } from '@/components/BadgeTransmissaoAutonomia'
 import type {
   SpedArquivoRecord,
   SpedTipoArquivo,
@@ -357,17 +358,22 @@ export function SpedEscrituracaoTab({ empresas, selectedEmpresaId }: SpedEscritu
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="font-semibold text-slate-900 text-sm">
                   Transparência de Conformidade e Transmissão SPED
                 </h4>
-                {temCertificadoAtivo && (
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-bold">
-                    Certificado A1 vinculado à empresa
-                  </Badge>
-                )}
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[11px]">
-                  Modo Supervisão Contábil
+                <BadgeTransmissaoAutonomia
+                  tipo="certificado_a1"
+                  isCredenciado={temCertificadoAtivo}
+                  detalhe={
+                    temCertificadoAtivo
+                      ? 'Certificado A1 ativo vinculado à empresa. Geração, assinatura e validação SPED com credenciamento ativo.'
+                      : 'Certificado A1 ausente ou pendente na empresa selecionada. A escrituração SPED opera em Modo Supervisão para validação contábil humana via PVA.'
+                  }
+                  configUrl="/obrigacoes"
+                />
+                <Badge variant="outline" className="text-slate-600 border-slate-300 text-[10px]">
+                  Guia Prático RFB / COTEPE
                 </Badge>
               </div>
               <p className="text-xs text-slate-600 mt-0.5 max-w-3xl">
