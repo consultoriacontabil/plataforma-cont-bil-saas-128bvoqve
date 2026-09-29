@@ -321,3 +321,142 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
     })
   }
 })
+
+/**
+ * Endpoint para despachar a fila retida em 'aguardando_credenciais'
+ * Rota: POST /backend/v1/whatsapp-ativo/despachar-fila
+ */
+routerAdd('POST', '/backend/v1/whatsapp-ativo/despachar-fila', (e) => {
+  const auth = e.auth
+  if (!auth) {
+    return e.json(401, { erro: 'Requer autenticação' })
+  }
+
+  const app = e.app
+  let body = {}
+  try {
+    body = e.requestInfo().body
+  } catch (_) {}
+
+  const tenantId = body.tenant_id
+  if (!tenantId) {
+    return e.json(400, { erro: 'tenant_id é obrigatório' })
+  }
+
+  // 1. Obter configurações da Evolution API
+  let evoUrl = ''
+  let evoKey = ''
+  let evoInstance = ''
+  try {
+    const cfg = app.findFirstRecordByData('nfse_config', 'tenant_id', tenantId)
+    evoUrl = cfg.getString('evolution_api_url')
+    evoKey = cfg.getString('evolution_api_key')
+    evoInstance = cfg.getString('evolution_instance')
+  } catch (_) {}
+
+  if (
+    !evoUrl ||
+    !evoKey ||
+    !evoInstance ||
+    evoUrl.includes('.internal') ||
+    evoUrl.includes('localhost')
+  ) {
+    return e.json(400, {
+      sucesso: false,
+      erro: 'Credenciais válidas da Evolution API não encontradas no tenant. A fila permanece em Modo Supervisão.',
+      total_processados: 0,
+      total_enviados: 0,
+    })
+  }
+
+  // 2. Buscar itens retidos em 'aguardando_credenciais'
+  let pendentes = []
+  try {
+    pendentes = app.findRecordsByFilter(
+      'whatsapp_envios',
+      `tenant_id = '${tenantId}' && status = 'aguardando_credenciais'`,
+      '-created',
+      50,
+    )
+  } catch (err) {
+    return e.json(500, { erro: 'Erro ao consultar fila: ' + String(err) })
+  }
+
+  if (pendentes.length === 0) {
+    return e.json(200, {
+      sucesso: true,
+      mensagem: 'Nenhum item pendente na fila de aguardando credenciais.',
+      total_processados: 0,
+      total_enviados: 0,
+      total_falhas: 0,
+    })
+  }
+
+  const endpoint = `${evoUrl.replace(/\/+$/, '')}/message/sendText/${evoInstance}`
+  let totalEnviados = 0
+  let totalFalhas = 0
+
+  for (let i = 0; i < pendentes.length; i++) {
+    const item = pendentes[i]
+    try {
+      const dest = item.getString('destinatario')
+      const msg = item.getString('mensagem')
+      const resp = $http.send({
+        url: endpoint,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: evoKey },
+        data: JSON.stringify({ number: dest, text: msg }),
+        timeout: 10,
+      })
+
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        item.set('status', 'enviado')
+        item.set('erro', '')
+        item.set('detalhes_json', {
+          despachado_manualmente_painel: true,
+          enviado_em: new Date().toISOString(),
+          response_status: resp.statusCode,
+        })
+        app.save(item)
+        totalEnviados++
+      } else {
+        item.set('status', 'falhou')
+        item.set('erro', `Evolution API retornou HTTP ${resp.statusCode} ao despachar fila`)
+        app.save(item)
+        totalFalhas++
+      }
+    } catch (errItem) {
+      item.set('status', 'falhou')
+      item.set('erro', `Erro de rede ao despachar: ${String(errItem)}`)
+      app.save(item)
+      totalFalhas++
+    }
+  }
+
+  // Registrar auditoria
+  try {
+    const aCol = app.findCollectionByNameOrId('audit_log')
+    const aRec = new Record(aCol)
+    aRec.set('tenant_id', tenantId)
+    aRec.set('usuario_id', auth.id)
+    aRec.set('acao', 'DESPACHO_FILA_WHATSAPP')
+    aRec.set('entidade_tipo', 'whatsapp_envios')
+    aRec.set(
+      'detalhes',
+      JSON.stringify({
+        total_processados: pendentes.length,
+        total_enviados: totalEnviados,
+        total_falhas: totalFalhas,
+      }),
+    )
+    app.save(aRec)
+  } catch (_) {}
+
+  return e.json(200, {
+    sucesso: true,
+    mensagem: `Fila processada com sucesso: ${totalEnviados} enviado(s), ${totalFalhas} falha(s) de ${pendentes.length} item(ns).`,
+    total_processados: pendentes.length,
+    total_enviados: totalEnviados,
+    total_falhas: totalFalhas,
+  })
+})

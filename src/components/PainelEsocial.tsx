@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { esocialService } from '@/services/esocial'
+import { BadgeTransmissaoAutonomia } from '@/components/BadgeTransmissaoAutonomia'
 import type {
   Empresa,
   EsocialEventoRecord,
@@ -419,14 +420,16 @@ export const PainelEsocial: React.FC<PainelEsocialProps> = ({
             <span className="font-bold text-base tracking-tight">
               Painel de Conformidade e-Social
             </span>
-            {certAtivoEmpresa && (
-              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold tracking-wider">
-                CERTIFICADO A1 VINCULADO
-              </Badge>
-            )}
-            <Badge className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[11px] font-bold tracking-wider">
-              MODO SUPERVISÃO ATIVO
-            </Badge>
+            <BadgeTransmissaoAutonomia
+              tipo="certificado_a1"
+              isCredenciado={certAtivoEmpresa}
+              detalhe={
+                certAtivoEmpresa
+                  ? 'Certificado A1 válido vinculado à empresa. Validação e transmissão autorizadas.'
+                  : 'Certificado A1 ausente ou pendente. A transmissão e-Social opera em Modo Supervisão para auditoria contábil humana.'
+              }
+              configUrl="/obrigacoes"
+            />
             <Badge variant="outline" className="text-slate-300 border-slate-700 text-[11px]">
               Layout S-1.1 Oficial
             </Badge>

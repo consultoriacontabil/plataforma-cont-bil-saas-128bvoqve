@@ -67,6 +67,86 @@ export const certificadosService = {
   },
 
   /**
+   * Retorna um resumo consolidado do status de certificados do tenant
+   */
+  async getStatusCertificadosTenant(tenantId: string): Promise<{
+    total: number
+    ativos: number
+    vencidos: number
+    aVencer30d: number
+    semCertificado: number
+    proximoVencimento?: {
+      titular: string
+      empresaNome?: string
+      validade: string
+      diasRestantes: number
+    } | null
+    certificados: Array<CertificadoDigitalRecord & { saudeInfo: CertificadoSaudeInfo }>
+  }> {
+    try {
+      const records = await this.list(tenantId)
+      let ativos = 0
+      let vencidos = 0
+      let aVencer30d = 0
+      let proximoVencimento: {
+        titular: string
+        empresaNome?: string
+        validade: string
+        diasRestantes: number
+      } | null = null
+      let menorDias = Infinity
+
+      const processados = records.map((cert) => {
+        const saudeInfo = this.calcularSaude(cert)
+        if (saudeInfo.saude === 'valido') ativos++
+        else if (saudeInfo.saude === 'proximo_vencimento') {
+          ativos++
+          aVencer30d++
+        } else if (saudeInfo.saude === 'expirado') {
+          vencidos++
+        }
+
+        if (
+          saudeInfo.diasRestantes !== undefined &&
+          saudeInfo.diasRestantes >= 0 &&
+          saudeInfo.diasRestantes < menorDias
+        ) {
+          menorDias = saudeInfo.diasRestantes
+          proximoVencimento = {
+            titular: cert.titular,
+            empresaNome: cert.expand?.empresa?.razao_social || cert.expand?.empresa?.nome_fantasia,
+            validade: cert.validade,
+            diasRestantes: saudeInfo.diasRestantes,
+          }
+        }
+
+        return { ...cert, saudeInfo }
+      })
+
+      return {
+        total: records.length,
+        ativos,
+        vencidos,
+        aVencer30d,
+        semCertificado: 0,
+        proximoVencimento,
+        certificados: processados,
+      }
+    } catch (err) {
+      console.warn('Erro ao calcular status consolidado de certificados:', err)
+      return {
+        total: 0,
+        ativos: 0,
+        vencidos: 0,
+        aVencer30d: 0,
+        semCertificado: 0,
+        proximoVencimento: null,
+        certificados: [],
+      }
+    }
+  },
+
+  /**
    * Salva ou atualiza um certificado digital
    */
   async save(

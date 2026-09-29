@@ -428,14 +428,21 @@ export function PainelReinfDctfweb({
                 <h3 className="text-sm font-bold text-[#0B1F3A]">
                   EFD-Reinf & DCTFWeb — Integração Fiscal e Previdenciária
                 </h3>
-                {temCertificadoAtivo && (
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
-                    Certificado A1 vinculado à empresa
-                  </Badge>
-                )}
-                <Badge className="bg-sky-100 text-sky-800 border-sky-300 text-[10px] font-semibold gap-1">
-                  <ShieldCheck className="h-3 w-3" />
-                  <span>Modo Supervisão Honesto</span>
+                <BadgeTransmissaoAutonomia
+                  tipo="certificado_a1"
+                  isCredenciado={temCertificadoAtivo}
+                  detalhe={
+                    temCertificadoAtivo
+                      ? 'Certificado A1 válido vinculado à empresa. EFD-Reinf e DCTFWeb operam com credenciamento ativo.'
+                      : 'Certificado A1 ausente ou pendente. As transmissões federais operam em Modo Supervisão com auditoria prévia.'
+                  }
+                  configUrl="/obrigacoes"
+                />
+                <Badge
+                  variant="outline"
+                  className="border-sky-300 text-sky-800 bg-sky-50 text-[10px] font-medium"
+                >
+                  Layout v2.01 Oficial
                 </Badge>
               </div>
               <p className="text-xs text-[#64748B] mt-0.5">

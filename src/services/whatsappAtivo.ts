@@ -130,14 +130,24 @@ export const whatsappAtivoService = {
   /**
    * Helper para verificar se as credenciais Evolution API estão ativas no tenant
    */
-  async getStatusEvolutionTenant(
-    tenantId: string,
-  ): Promise<{ configurado: boolean; url: string; instance: string }> {
+  async getStatusEvolutionTenant(tenantId: string): Promise<{
+    configurado: boolean
+    url: string
+    instance: string
+    ultimoTeste?: {
+      sucesso?: boolean
+      status?: string
+      mensagem?: string
+      data?: string
+    } | null
+    dataUltimoTeste?: string
+  }> {
     try {
       const cfg = await pb.collection('nfse_config').getFirstListItem(`tenant_id = "${tenantId}"`)
       const url = (cfg.get('evolution_api_url') as string) || ''
       const key = (cfg.get('evolution_api_key') as string) || ''
       const instance = (cfg.get('evolution_instance') as string) || ''
+      const ultimoTeste = (cfg.get('ultimo_teste_evolution') as any) || null
 
       const isConfigured = Boolean(
         url &&
@@ -152,9 +162,57 @@ export const whatsappAtivoService = {
         configurado: isConfigured,
         url,
         instance,
+        ultimoTeste,
+        dataUltimoTeste: ultimoTeste?.data || (cfg.get('updated') as string) || undefined,
       }
     } catch (_) {
       return { configurado: false, url: '', instance: '' }
+    }
+  },
+
+  /**
+   * Conta e lista mensagens retidas na fila em 'aguardando_credenciais'
+   */
+  async getFilaAguardandoCredenciais(tenantId: string): Promise<{
+    total: number
+    itens: WhatsAppEnvioRecord[]
+  }> {
+    try {
+      const records = await pb.collection('whatsapp_envios').getFullList<WhatsAppEnvioRecord>({
+        filter: `tenant_id = "${tenantId}" && status = "aguardando_credenciais"`,
+        sort: '-created',
+        expand: 'empresa',
+      })
+      return {
+        total: records.length,
+        itens: records,
+      }
+    } catch (err) {
+      console.warn('Erro ao consultar fila aguardando credenciais:', err)
+      return { total: 0, itens: [] }
+    }
+  },
+
+  /**
+   * Despacha a fila de mensagens retidas através do endpoint de backend
+   */
+  async despacharFilaRetida(tenantId: string): Promise<{
+    sucesso: boolean
+    mensagem: string
+    total_processados: number
+    total_enviados: number
+    total_falhas: number
+  }> {
+    const res = await pb.send('/backend/v1/whatsapp-ativo/despachar-fila', {
+      method: 'POST',
+      body: { tenant_id: tenantId },
+    })
+    return res as {
+      sucesso: boolean
+      mensagem: string
+      total_processados: number
+      total_enviados: number
+      total_falhas: number
     }
   },
 

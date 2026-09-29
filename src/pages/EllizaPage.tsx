@@ -26,7 +26,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { EllizaDiretivasTab } from '@/components/EllizaDiretivasTab'
+import { PainelStatusAutonomia } from '@/components/PainelStatusAutonomia'
 import { ellizaAgentService, type EllizaStatusResponse } from '@/services/ellizaAgent'
+import { Activity } from 'lucide-react'
 import type { AgentConversationRecord } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -381,6 +383,13 @@ export default function EllizaPage() {
       {/* Painel de Abas: Chat da ELLIZA e Central de Rotinas 24/7 */}
       <Tabs defaultValue="chat" className="space-y-6">
         <TabsList className="bg-slate-100 p-1 border border-slate-200">
+          <TabsTrigger
+            value="status_autonomia"
+            className="text-xs font-semibold flex items-center gap-2"
+          >
+            <Activity className="h-4 w-4 text-[#0FA3A3]" />
+            Status de Autonomia
+          </TabsTrigger>
           <TabsTrigger value="chat" className="text-xs font-semibold flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-[#0FA3A3]" />
             Chat com a ELLIZA
@@ -394,6 +403,13 @@ export default function EllizaPage() {
             Central de Rotinas 24/7 & Limites
           </TabsTrigger>
         </TabsList>
+
+        {/* =========================================================================
+            ABA: STATUS DE AUTONOMIA & CREDENCIAIS OPERACIONAIS (FRENTE 3)
+           ========================================================================= */}
+        <TabsContent value="status_autonomia" className="space-y-6">
+          <PainelStatusAutonomia tenantId={tenant?.id || ''} canManage={canApproveFila} />
+        </TabsContent>
 
         {/* =========================================================================
             ABA 1: INTERFACE DE CHAT DA ELLIZA
