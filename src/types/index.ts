@@ -2,7 +2,13 @@ import type { RecordModel } from 'pocketbase'
 import type { ItemCheckPassoAbertura } from '@/lib/passosAberturaConfig'
 
 export type { ItemCheckPassoAbertura }
-export type UserRole = 'administrador' | 'contador' | 'auxiliar' | 'consultor' | 'cliente'
+export type UserRole =
+  | 'administrador'
+  | 'contador'
+  | 'auxiliar'
+  | 'consultor'
+  | 'cliente'
+  | 'elliza'
 export type UserStatus = 'ativo' | 'convite_pendente'
 
 export interface User extends RecordModel {
@@ -738,12 +744,79 @@ export interface CobrancaRecord extends RecordModel {
   payload_pix?: string
   link_boleto?: string
   whatsapp_envio_id?: string
+  recorrencia_id?: string
+  lembretes_enviados?: string[]
   pago_em?: string
   pago_valor?: number
   observacoes?: string
   expand?: {
     empresa?: Empresa
     whatsapp_envio_id?: WhatsAppEnvioRecord
+    recorrencia_id?: CobrancaRecorrenteRecord
+  }
+}
+
+// === Cobranças Recorrentes (Mensalidades Automáticas) ===
+export interface CobrancaRecorrenteRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  descricao: string
+  valor: number
+  dia_do_mes: number
+  dia_vencimento: number
+  meio: CobrancaTipo
+  chave_pix?: string
+  beneficiario_nome?: string
+  autorizar_envio_whatsapp?: boolean
+  ativo: boolean
+  ultima_competencia_gerada?: string
+  proxima_geracao?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
+// === Diretivas Operacionais & Autonomia ELLIZA ===
+export type EllizaAtividade =
+  | 'folha_dp'
+  | 'fiscal_apuracao'
+  | 'contabil_lancamentos'
+  | 'obrigacoes_transmissao'
+  | 'whatsapp_envio'
+  | 'cobranca'
+  | 'atendimento'
+
+export type EllizaNivelAutonomia = 'somente_leitura' | 'executar_com_aprovacao' | 'autonomo'
+
+export interface EllizaDiretivaRecord extends RecordModel {
+  tenant_id: string
+  atividade: EllizaAtividade
+  nivel_autonomia: EllizaNivelAutonomia
+  ativo: boolean
+  janela_inicio?: string
+  janela_fim?: string
+  limite_diario?: number
+  observacoes?: string
+}
+
+export type EllizaAprovacaoStatus = 'pendente' | 'aprovado' | 'rejeitado' | 'executado' | 'falhou'
+
+export interface EllizaAprovacaoRecord extends RecordModel {
+  tenant_id: string
+  atividade: EllizaAtividade
+  titulo: string
+  descricao?: string
+  entidade_tipo?: string
+  entidade_id?: string
+  payload_acao?: Record<string, unknown>
+  status: EllizaAprovacaoStatus
+  aprovado_por?: string
+  decidido_em?: string
+  justificativa?: string
+  resultado_execucao?: string
+  expand?: {
+    aprovado_por?: User
   }
 }
 

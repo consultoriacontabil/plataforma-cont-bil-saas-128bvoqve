@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T19:50:09.657Z",
+  "generatedAt": "2026-09-29T22:18:35.653Z",
   "collections": [
     {
       "name": "users",
@@ -163,7 +163,14 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["administrador", "contador", "auxiliar", "consultor", "cliente"]
+          "selectValues": [
+            "administrador",
+            "contador",
+            "auxiliar",
+            "consultor",
+            "cliente",
+            "elliza"
+          ]
         },
         {
           "name": "status",
@@ -10465,6 +10472,19 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "lembretes_enviados",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recorrencia_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "cobrancas_recorrentes"
         }
       ],
       "indexes": [
@@ -10472,6 +10492,332 @@
         "CREATE INDEX idx_cobrancas_status ON cobrancas (status)",
         "CREATE INDEX idx_cobrancas_vencimento ON cobrancas (vencimento)",
         "CREATE INDEX idx_cobrancas_tipo ON cobrancas (tipo)"
+      ]
+    },
+    {
+      "name": "elliza_diretivas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "atividade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "folha_dp",
+            "fiscal_apuracao",
+            "contabil_lancamentos",
+            "obrigacoes_transmissao",
+            "whatsapp_envio",
+            "cobranca",
+            "atendimento"
+          ]
+        },
+        {
+          "name": "nivel_autonomia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["somente_leitura", "executar_com_aprovacao", "autonomo"]
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "janela_inicio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "janela_fim",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "limite_diario",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_elliza_dir_tenant_ativ ON elliza_diretivas (tenant_id, atividade)",
+        "CREATE INDEX idx_elliza_dir_tenant ON elliza_diretivas (tenant_id)",
+        "CREATE INDEX idx_elliza_dir_nivel ON elliza_diretivas (nivel_autonomia)"
+      ]
+    },
+    {
+      "name": "elliza_aprovacoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "atividade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "folha_dp",
+            "fiscal_apuracao",
+            "contabil_lancamentos",
+            "obrigacoes_transmissao",
+            "whatsapp_envio",
+            "cobranca",
+            "atendimento"
+          ]
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entidade_tipo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entidade_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload_acao",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "aprovado", "rejeitado", "executado", "falhou"]
+        },
+        {
+          "name": "aprovado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "decidido_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justificativa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado_execucao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_elliza_aprov_tenant_status ON elliza_aprovacoes (tenant_id, status)",
+        "CREATE INDEX idx_elliza_aprov_created ON elliza_aprovacoes (created DESC)",
+        "CREATE INDEX idx_elliza_aprov_entidade ON elliza_aprovacoes (entidade_tipo, entidade_id)"
+      ]
+    },
+    {
+      "name": "cobrancas_recorrentes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dia_do_mes",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dia_vencimento",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meio",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pix", "boleto"]
+        },
+        {
+          "name": "chave_pix",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "beneficiario_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "autorizar_envio_whatsapp",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_competencia_gerada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proxima_geracao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_cobr_rec_tenant_emp ON cobrancas_recorrentes (tenant_id, empresa)",
+        "CREATE INDEX idx_cobr_rec_ativo ON cobrancas_recorrentes (ativo)",
+        "CREATE INDEX idx_cobr_rec_dia ON cobrancas_recorrentes (dia_do_mes)"
       ]
     }
   ]
