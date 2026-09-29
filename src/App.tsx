@@ -49,6 +49,7 @@ import PopTreinamentoPage from '@/pages/PopTreinamento'
 import ManualPage from '@/pages/Manual'
 import LotePage from '@/pages/LotePage'
 import ParametrosNormativosPage from '@/pages/ParametrosNormativosPage'
+import BackupPage from '@/pages/BackupPage'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -124,7 +125,8 @@ export default function App() {
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/usuarios/perfis" element={<Usuarios />} />
             <Route path="/auditoria" element={<Auditoria />} />
-
+            <Route path="/backup" element={<BackupPage />} />
+            <Route path="/configuracoes/backup" element={<BackupPage />} />
             {/* ELLIZA — Hiperautomação 24/7 Nativa */}
             <Route path="/elliza" element={<EllizaPage />} />
 

@@ -103,6 +103,42 @@ export interface ExclusaoEmpresaBackupRecord extends RecordModel {
   }
 }
 
+// === Módulo Sistema de Backup Independente ===
+export type BackupExecucaoTipo = 'agendado' | 'manual' | 'ged_lote'
+export type BackupExecucaoStatus = 'sucesso' | 'parcial' | 'falhou'
+
+export interface BackupExecucaoRecord extends RecordModel {
+  tenant_id: string
+  data_execucao: string
+  tipo: BackupExecucaoTipo
+  status: BackupExecucaoStatus
+  tamanho_estimado_bytes?: number
+  contagem_registros?: Record<string, number>
+  colecoes_exportadas?: string[]
+  colecoes_com_erro?: string[]
+  total_documentos_ged?: number
+  executado_por?: string
+  mensagem?: string
+  erro_detalhe?: string
+  retencao_dias?: number
+  snapshot_json?: any
+  expand?: {
+    executado_por?: User
+  }
+}
+
+export interface DocumentoGedManifestItem {
+  id: string
+  nome_arquivo: string
+  arquivo_storage: string
+  tipo: string
+  status: string
+  created: string
+  empresa_id: string
+  empresa_razao: string
+  empresa_cnpj: string
+}
+
 export type DocumentoTipo =
   | 'contrato_social'
   | 'alteracao_contratual'

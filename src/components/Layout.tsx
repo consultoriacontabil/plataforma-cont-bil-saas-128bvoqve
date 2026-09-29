@@ -39,6 +39,7 @@ import {
   MessageSquare,
   HelpCircle,
   Bot,
+  Database,
 } from 'lucide-react'
 import {
   Dialog,
@@ -176,6 +177,8 @@ export default function Layout() {
     if (path.startsWith('/integracoes')) return 'Integrações'
     if (path.startsWith('/usuarios')) return 'Usuários & Perfis'
     if (path.startsWith('/auditoria')) return 'Trilha de Auditoria'
+    if (path.startsWith('/backup') || path.startsWith('/configuracoes/backup'))
+      return 'Sistema de Backup Independente'
     if (path.startsWith('/elliza')) return 'ELLIZA (Hiperautomação 24/7)'
     if (path.startsWith('/rumo-agent')) return 'Rumo Agent (IA)'
     if (path.startsWith('/perfil')) return 'Minha Conta'
@@ -372,6 +375,16 @@ export default function Layout() {
         { label: 'Relatórios', to: '/relatorios', icon: Layers },
         ...(member?.perfil !== 'cliente'
           ? [{ label: 'Usuários & Perfis', to: '/usuarios', icon: Users }]
+          : []),
+        ...(member?.perfil === 'administrador'
+          ? [
+              {
+                label: 'Backup Independente',
+                to: '/backup',
+                icon: Database,
+                badge: 'LGPD',
+              },
+            ]
           : []),
         { label: 'Auditoria', to: '/auditoria', icon: ShieldCheck },
         { label: 'Integrações', to: '/integracoes', icon: Compass },
@@ -970,7 +983,7 @@ export default function Layout() {
             <p>© 2025 Rumo Consultoria Contábil. Todos os direitos reservados.</p>
             <div className="flex items-center gap-3">
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-[#1A2333]">
-                v0.0.51
+                v0.0.94
               </span>
               <span className="text-[11px] text-[#94A3B8]">Plataforma Segura SSL</span>
             </div>
