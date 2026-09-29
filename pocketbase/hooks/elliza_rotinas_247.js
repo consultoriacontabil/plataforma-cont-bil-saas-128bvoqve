@@ -18,18 +18,17 @@ cronAdd('elliza_rotinas_247_monitor', '0 * * * *', () => {
   let totalEnfileiradasAprovacao = 0
 
   try {
-    // 1. Obter usuário de serviço ELLIZA
+    // 1. Obter identificador do Perfil Operacional ou conta de serviço ELLIZA
     let ellizaUserId = null
     try {
-      const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
-      ellizaUserId = u.id
+      const p = app.findFirstRecordByFilter('elliza_perfil', 'status = "ativo"')
+      ellizaUserId = p.id
     } catch (_) {
       try {
-        const u2 = app.findFirstRecordByData('_pb_users_auth_', 'name', 'ELLIZA Contábil (IA)')
-        ellizaUserId = u2.id
+        const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
+        ellizaUserId = u.id
       } catch (__) {}
     }
-
     const hoje = new Date()
     const limite3Dias = new Date(hoje.getTime() + 3 * 24 * 60 * 60 * 1000)
     const hojeStr = hoje.toISOString().split('T')[0]
@@ -265,15 +264,14 @@ routerAdd('POST', '/backend/v1/elliza/rotinas-247/executar', (e) => {
   try {
     let ellizaUserId = null
     try {
-      const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
-      ellizaUserId = u.id
+      const p = app.findFirstRecordByFilter('elliza_perfil', 'status = "ativo"')
+      ellizaUserId = p.id
     } catch (_) {
       try {
-        const u2 = app.findFirstRecordByData('_pb_users_auth_', 'name', 'ELLIZA Contábil (IA)')
-        ellizaUserId = u2.id
+        const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
+        ellizaUserId = u.id
       } catch (__) {}
     }
-
     const hoje = new Date()
     const limite3Dias = new Date(hoje.getTime() + 3 * 24 * 60 * 60 * 1000)
     const hojeStr = hoje.toISOString().split('T')[0]

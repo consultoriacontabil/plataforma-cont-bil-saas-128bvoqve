@@ -724,6 +724,21 @@ export function SpedEscrituracaoTab({ empresas, selectedEmpresaId }: SpedEscritu
                         )}
                       </div>
 
+                      {/* Prévia de blocos gerados */}
+                      {arq.resumo_blocos_json && Object.keys(arq.resumo_blocos_json).length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                          <span className="text-[10px] text-slate-400 font-medium">Blocos:</span>
+                          {Object.entries(arq.resumo_blocos_json).map(([b, cnt]) => (
+                            <span
+                              key={b}
+                              className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded border border-slate-200"
+                            >
+                              {b}: {cnt}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {arq.observacoes && (
                         <p className="text-[11px] text-slate-500 italic truncate max-w-xl">
                           {arq.observacoes}

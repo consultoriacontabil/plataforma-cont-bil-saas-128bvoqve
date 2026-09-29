@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T22:18:35.653Z",
+  "generatedAt": "2026-09-29T22:46:59.093Z",
   "collections": [
     {
       "name": "users",
@@ -10577,6 +10577,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "perfil_elliza",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "elliza_perfil"
         }
       ],
       "indexes": [
@@ -10818,6 +10825,101 @@
         "CREATE INDEX idx_cobr_rec_tenant_emp ON cobrancas_recorrentes (tenant_id, empresa)",
         "CREATE INDEX idx_cobr_rec_ativo ON cobrancas_recorrentes (ativo)",
         "CREATE INDEX idx_cobr_rec_dia ON cobrancas_recorrentes (dia_do_mes)"
+      ]
+    },
+    {
+      "name": "elliza_perfil",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "nome_exibicao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "versao_motor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "pausado", "manutencao"]
+        },
+        {
+          "name": "tipo_agente",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["hiperautomacao_247", "assistente_cognitivo", "servico_integrado"]
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modo_operacao_padrao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["supervisao_humana", "autonomia_assistida", "autonomo_diretivas"]
+        },
+        {
+          "name": "configuracoes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_ciclo_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_elliza_perfil_tenant ON elliza_perfil (tenant_id)",
+        "CREATE INDEX idx_elliza_perfil_status ON elliza_perfil (status)"
       ]
     }
   ]

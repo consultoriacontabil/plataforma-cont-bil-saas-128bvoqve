@@ -33,15 +33,15 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
     })
   }
 
-  // 1. Obter usuário de serviço ELLIZA para auditoria
+  // 1. Obter identificador do Perfil Operacional ou conta de serviço ELLIZA para auditoria
   let ellizaUserId = null
   try {
-    const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
-    ellizaUserId = u.id
+    const p = app.findFirstRecordByFilter('elliza_perfil', 'status = "ativo"')
+    ellizaUserId = p.id
   } catch (_) {
     try {
-      const u2 = app.findFirstRecordByData('_pb_users_auth_', 'name', 'ELLIZA Contábil (IA)')
-      ellizaUserId = u2.id
+      const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
+      ellizaUserId = u.id
     } catch (__) {}
   }
 
@@ -256,6 +256,39 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
           app.save(aRec)
         } catch (_) {}
       }
+
+      // Se houver mensagens anteriores pendentes em 'aguardando_credenciais', processar/disparar a fila em lote
+      try {
+        const pendentes = app.findRecordsByFilter(
+          'whatsapp_envios',
+          `tenant_id = '${tenantId}' && status = 'aguardando_credenciais'`,
+          '-created',
+          5,
+        )
+        for (let p = 0; p < pendentes.length; p++) {
+          const pend = pendentes[p]
+          try {
+            const pDest = pend.getString('destinatario')
+            const pTxt = pend.getString('mensagem')
+            const rPend = $http.send({
+              url: endpoint,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', apikey: evoKey },
+              data: JSON.stringify({ number: pDest, text: pTxt }),
+              timeout: 10,
+            })
+            if (rPend.statusCode >= 200 && rPend.statusCode < 300) {
+              pend.set('status', 'enviado')
+              pend.set('erro', '')
+              pend.set('detalhes_json', {
+                despachado_automatico_fila: true,
+                enviado_em: new Date().toISOString(),
+              })
+              app.save(pend)
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
 
       return e.json(200, {
         sucesso: true,

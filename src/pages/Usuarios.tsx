@@ -17,8 +17,11 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { usersService } from '@/services/users'
+import { ellizaDiretivasService } from '@/services/ellizaDiretivas'
 import { formatDatePtBr } from '@/lib/formatters'
-import type { TenantMember, UserRole } from '@/types'
+import type { TenantMember, UserRole, EllizaPerfilRecord } from '@/types'
+import { Link } from 'react-router-dom'
+import { ExternalLink, Cpu, Activity, Sliders, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,7 +58,9 @@ export default function Usuarios() {
   const { toast } = useToast()
 
   const [members, setMembers] = useState<TenantMember[]>([])
+  const [ellizaPerfil, setEllizaPerfil] = useState<EllizaPerfilRecord | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingPerfil, setLoadingPerfil] = useState(true)
 
   // Invite modal
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
@@ -77,8 +82,15 @@ export default function Usuarios() {
     if (!tenant?.id) return
     try {
       setLoading(true)
+      // Carregar apenas membros humanos (exclui conta elliza se houver)
       const res = await usersService.listMembers(tenant.id)
-      setMembers(res)
+      const apenasHumanos = res.filter(
+        (m) =>
+          m.perfil !== 'elliza' &&
+          m.expand?.user_id?.email !== 'elliza@rumo.contabil' &&
+          !(m.expand?.user_id?.name || '').includes('[SERVIÇO INTERNO DESATIVADO]'),
+      )
+      setMembers(apenasHumanos)
     } catch (err) {
       console.error('Error loading members:', err)
       toast({
@@ -90,9 +102,23 @@ export default function Usuarios() {
     }
   }, [tenant?.id, toast])
 
+  const loadEllizaPerfil = useCallback(async () => {
+    if (!tenant?.id) return
+    try {
+      setLoadingPerfil(true)
+      const perfil = await ellizaDiretivasService.getPerfilOperacional(tenant.id)
+      setEllizaPerfil(perfil)
+    } catch (err) {
+      console.error('Error loading ELLIZA perfil:', err)
+    } finally {
+      setLoadingPerfil(false)
+    }
+  }, [tenant?.id])
+
   useEffect(() => {
     loadMembers()
-  }, [loadMembers])
+    loadEllizaPerfil()
+  }, [loadMembers, loadEllizaPerfil])
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -226,175 +252,239 @@ export default function Usuarios() {
         </TabsList>
 
         {/* Tab 1: Usuários */}
-        <TabsContent value="usuarios">
-          <Card className="rounded-2xl border-[#E2E8F0] shadow-xs overflow-hidden">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
-                      <th className="py-3.5 px-4">Nome do Usuário</th>
-                      <th className="py-3.5 px-4">E-mail</th>
-                      <th className="py-3.5 px-4">Perfil</th>
-                      <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4">Data de Entrada</th>
-                      {isAdmin && <th className="py-3.5 px-4 text-right">Ações</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {loading ? (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-[#64748B]">
-                          Carregando equipe...
-                        </td>
-                      </tr>
-                    ) : members.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-[#94A3B8]">
-                          Nenhum usuário cadastrado.
-                        </td>
-                      </tr>
-                    ) : (
-                      members.map((m) => {
-                        const isElliza =
-                          m.perfil === 'elliza' ||
-                          m.expand?.user_id?.email === 'elliza@rumo.contabil' ||
-                          (m.expand?.user_id?.name || '').includes('ELLIZA')
+        <TabsContent value="usuarios" className="space-y-6">
+          {/* SEÇÃO PRÓPRIA: PERFIL OPERACIONAL DA ELLIZA (NÃO HUMANO) */}
+          <Card className="rounded-2xl border-2 border-teal-500/40 bg-gradient-to-br from-teal-50/70 via-slate-50 to-emerald-50/40 shadow-xs overflow-hidden">
+            <CardHeader className="pb-3 border-b border-teal-100 bg-teal-50/40">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-teal-600 to-[#0FA3A3] text-white flex items-center justify-center shadow-xs">
+                    <Bot className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-sm font-bold text-[#1A2333]">
+                        Perfil Operacional — {ellizaPerfil?.nome_exibicao || 'ELLIZA (Agente IA)'}
+                      </CardTitle>
+                      <Badge className="bg-[#0FA3A3] text-white text-[10px] gap-1 font-bold">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        Agente de Serviço Não Humano
+                      </Badge>
+                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
+                        Status: {ellizaPerfil?.status === 'ativo' ? '24/7 Ativo' : 'Operacional'}
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-xs text-[#64748B] mt-0.5">
+                      Identidade autônoma de automação do escritório contábil (desacoplada de contas
+                      de usuários humanos).
+                    </CardDescription>
+                  </div>
+                </div>
 
-                        const initials = isElliza
-                          ? 'EL'
-                          : (m.expand?.user_id?.name || m.expand?.user_id?.email || 'U')
-                              .slice(0, 2)
-                              .toUpperCase()
+                <div className="flex items-center gap-2">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs rounded-xl border-teal-300 text-teal-800 bg-white hover:bg-teal-50 h-8 font-semibold shadow-2xs"
+                  >
+                    <Link to="/elliza">
+                      <Sliders className="h-3.5 w-3.5" />
+                      <span>Gerenciar Diretivas</span>
+                      <ExternalLink className="h-3 w-3 ml-0.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
 
-                        return (
-                          <tr
-                            key={m.id}
-                            className={cn(
-                              'transition-colors',
-                              isElliza
-                                ? 'bg-teal-50/40 hover:bg-teal-50/70'
-                                : 'hover:bg-slate-50/75',
-                            )}
-                          >
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback
-                                    className={cn(
-                                      'text-xs font-bold text-white',
-                                      isElliza ? 'bg-[#0FA3A3]' : 'bg-[#0B1F3A]',
-                                    )}
-                                  >
-                                    {isElliza ? <Bot className="h-4 w-4" /> : initials}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <p className="font-semibold text-[#1A2333]">
-                                      {isElliza
-                                        ? 'ELLIZA Contábil (IA)'
-                                        : m.expand?.user_id?.name || 'Sem nome'}
-                                    </p>
-                                    {isElliza && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[10px] bg-teal-50 border-teal-300 text-teal-800 font-semibold gap-1 py-0 px-1.5"
-                                      >
-                                        <Sparkles className="h-2.5 w-2.5" />
-                                        Motor Automatizado 24/7
-                                      </Badge>
-                                    )}
-                                    {m.user_id === user?.id && !isElliza && (
-                                      <span className="text-[10px] text-[#0FA3A3] font-semibold">
-                                        (Você)
-                                      </span>
-                                    )}
-                                  </div>
-                                  {isElliza && (
-                                    <p className="text-[10px] text-slate-500">
-                                      Agente de serviço Skip Cloud — não humano (opera conforme
-                                      diretivas)
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-[#64748B]">
-                              {isElliza ? (
-                                <span className="font-mono text-[11px] text-teal-700">
-                                  {m.expand?.user_id?.email || 'elliza@rumo.contabil'}
-                                </span>
-                              ) : (
-                                m.expand?.user_id?.email
-                              )}
-                            </td>
-                            <td className="py-3 px-4">{getRoleBadge(m.perfil)}</td>
-                            <td className="py-3 px-4">
-                              {isElliza ? (
-                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
-                                  24/7 Ativo
-                                </Badge>
-                              ) : m.status === 'ativo' ? (
-                                <Badge className="bg-[#DCFCE7] text-[#166534]">Ativo</Badge>
-                              ) : (
-                                <Badge className="bg-[#FEF3C7] text-[#92400E]">
-                                  Convite Pendente
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-[#64748B]">
-                              {formatDatePtBr(m.created)}
-                            </td>
-                            {isAdmin && (
-                              <td className="py-3 px-4 text-right">
-                                {isElliza ? (
-                                  <span className="text-[10px] text-slate-400 italic">
-                                    Gerenciado em /elliza
-                                  </span>
-                                ) : m.user_id !== user?.id ? (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-[#64748B]"
-                                      >
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-40">
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setMemberToEdit(m)
-                                          setEditRole(m.perfil)
-                                        }}
-                                        className="gap-2 text-xs cursor-pointer"
-                                      >
-                                        <Edit className="h-3.5 w-3.5 text-[#3B82F6]" />
-                                        <span>Editar perfil</span>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => setMemberToDelete(m)}
-                                        className="gap-2 text-xs text-red-600 focus:text-red-600 cursor-pointer"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                        <span>Remover acesso</span>
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                ) : null}
-                              </td>
-                            )}
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
+            <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="p-3 rounded-xl bg-white/80 border border-teal-100 space-y-1">
+                <div className="flex items-center gap-2 text-teal-800 font-semibold">
+                  <Cpu className="h-4 w-4 text-[#0FA3A3]" />
+                  <span>Motor de Execução</span>
+                </div>
+                <p className="text-slate-600">
+                  Agente nativo Skip Cloud (
+                  <span className="font-mono text-[11px] text-teal-700">slug: elliza</span>) com
+                  rotinas de monitoramento 24/7 em background.
+                </p>
+                <div className="pt-1 text-[11px] text-slate-500">
+                  Versão:{' '}
+                  <strong className="text-slate-700">
+                    {ellizaPerfil?.versao_motor || 'v1.4.2-skip247'}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/80 border border-teal-100 space-y-1">
+                <div className="flex items-center gap-2 text-teal-800 font-semibold">
+                  <Activity className="h-4 w-4 text-[#0FA3A3]" />
+                  <span>Escopo de Autonomia</span>
+                </div>
+                <p className="text-slate-600">
+                  Opera conforme matriz de diretivas por tenant: folha DP, apuração fiscal,
+                  pré-lançamentos, WhatsApp ativo e cobranças.
+                </p>
+                <div className="pt-1 text-[11px] text-slate-500">
+                  Modo Padrão: <strong className="text-teal-700">Autônomo com Supervisão</strong>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/80 border border-teal-100 space-y-1">
+                <div className="flex items-center gap-2 text-teal-800 font-semibold">
+                  <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+                  <span>Conformidade CFC & Isolamento</span>
+                </div>
+                <p className="text-slate-600">
+                  Transmissões oficiais e atos vinculantes sempre requerem aprovação expressa do
+                  Contador responsável técnico (NBC PP 01).
+                </p>
+                <div className="pt-1 text-[11px] text-emerald-700 font-medium">
+                  • 0 contas humanas vinculadas
+                </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* LISTA DE MEMBROS HUMANOS */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[#1A2333]">
+                  Colaboradores e Usuários Humanos
+                </h3>
+                <p className="text-xs text-[#64748B]">
+                  Pessoas físicas com credenciais de login e acesso ao painel do escritório
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {members.length} {members.length === 1 ? 'membro' : 'membros'}
+              </Badge>
+            </div>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-xs overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0] bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                        <th className="py-3.5 px-4">Nome do Usuário</th>
+                        <th className="py-3.5 px-4">E-mail</th>
+                        <th className="py-3.5 px-4">Perfil</th>
+                        <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4">Data de Entrada</th>
+                        {isAdmin && <th className="py-3.5 px-4 text-right">Ações</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-[#64748B]">
+                            Carregando equipe...
+                          </td>
+                        </tr>
+                      ) : members.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-[#94A3B8]">
+                            Nenhum usuário cadastrado.
+                          </td>
+                        </tr>
+                      ) : (
+                        members.map((m) => {
+                          const initials = (
+                            m.expand?.user_id?.name ||
+                            m.expand?.user_id?.email ||
+                            'U'
+                          )
+                            .slice(0, 2)
+                            .toUpperCase()
+
+                          return (
+                            <tr key={m.id} className="transition-colors hover:bg-slate-50/75">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback className="text-xs font-bold text-white bg-[#0B1F3A]">
+                                      {initials}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="font-semibold text-[#1A2333]">
+                                        {m.expand?.user_id?.name || 'Sem nome'}
+                                      </p>
+                                      {m.user_id === user?.id && (
+                                        <span className="text-[10px] text-[#0FA3A3] font-semibold">
+                                          (Você)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-[#64748B]">
+                                {m.expand?.user_id?.email}
+                              </td>
+                              <td className="py-3 px-4">{getRoleBadge(m.perfil)}</td>
+                              <td className="py-3 px-4">
+                                {m.status === 'ativo' ? (
+                                  <Badge className="bg-[#DCFCE7] text-[#166534]">Ativo</Badge>
+                                ) : (
+                                  <Badge className="bg-[#FEF3C7] text-[#92400E]">
+                                    Convite Pendente
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-[#64748B]">
+                                {formatDatePtBr(m.created)}
+                              </td>
+                              {isAdmin && (
+                                <td className="py-3 px-4 text-right">
+                                  {m.user_id !== user?.id ? (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-[#64748B]"
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-40">
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setMemberToEdit(m)
+                                            setEditRole(m.perfil)
+                                          }}
+                                          className="gap-2 text-xs cursor-pointer"
+                                        >
+                                          <Edit className="h-3.5 w-3.5 text-[#3B82F6]" />
+                                          <span>Editar perfil</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => setMemberToDelete(m)}
+                                          className="gap-2 text-xs text-red-600 focus:text-red-600 cursor-pointer"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                          <span>Remover acesso</span>
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  ) : null}
+                                </td>
+                              )}
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Tab 2: Perfis e Matriz RBAC */}

@@ -1,6 +1,7 @@
 import pb from '@/lib/pocketbase/client'
 import { auditService } from '@/services/audit'
 import type {
+  EllizaPerfilRecord,
   EllizaDiretivaRecord,
   EllizaAprovacaoRecord,
   EllizaAtividade,
@@ -57,6 +58,36 @@ export const ATIVIDADES_ELLIZA_CONFIG: Record<
 }
 
 export const ellizaDiretivasService = {
+  /**
+   * Buscar o perfil operacional próprio da ELLIZA no tenant
+   */
+  async getPerfilOperacional(tenantId: string): Promise<EllizaPerfilRecord | null> {
+    try {
+      return await pb
+        .collection('elliza_perfil')
+        .getFirstListItem<EllizaPerfilRecord>(`tenant_id = "${tenantId}"`)
+    } catch (_) {
+      try {
+        const records = await pb.collection('elliza_perfil').getFullList<EllizaPerfilRecord>({
+          limit: 1,
+        })
+        return records[0] || null
+      } catch {
+        return null
+      }
+    }
+  },
+
+  /**
+   * Atualizar status/configuração do perfil operacional da ELLIZA
+   */
+  async updatePerfilOperacional(
+    perfilId: string,
+    data: Partial<EllizaPerfilRecord>,
+  ): Promise<EllizaPerfilRecord> {
+    return pb.collection('elliza_perfil').update<EllizaPerfilRecord>(perfilId, data)
+  },
+
   /**
    * Listar todas as diretivas configuradas para o tenant
    */

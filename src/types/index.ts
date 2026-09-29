@@ -789,8 +789,29 @@ export type EllizaAtividade =
 
 export type EllizaNivelAutonomia = 'somente_leitura' | 'executar_com_aprovacao' | 'autonomo'
 
+export type EllizaPerfilStatus = 'ativo' | 'pausado' | 'manutencao'
+export type EllizaTipoAgente = 'hiperautomacao_247' | 'assistente_cognitivo' | 'servico_integrado'
+export type EllizaModoPadrao = 'supervisao_humana' | 'autonomia_assistida' | 'autonomo_diretivas'
+
+export interface EllizaPerfilRecord extends RecordModel {
+  tenant_id: string
+  nome_exibicao: string
+  slug: string
+  versao_motor?: string
+  status: EllizaPerfilStatus
+  tipo_agente: EllizaTipoAgente
+  descricao?: string
+  modo_operacao_padrao: EllizaModoPadrao
+  configuracoes_json?: Record<string, unknown>
+  ultimo_ciclo_em?: string
+  expand?: {
+    tenant_id?: Tenant
+  }
+}
+
 export interface EllizaDiretivaRecord extends RecordModel {
   tenant_id: string
+  perfil_elliza?: string
   atividade: EllizaAtividade
   nivel_autonomia: EllizaNivelAutonomia
   ativo: boolean

@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { auditService } from '@/services/audit'
 import type {
   SpedArquivoRecord,
   SpedTipoArquivo,
@@ -177,9 +178,45 @@ export const spedService = {
         erros.push({
           campo: 'inscricao_estadual',
           mensagem:
-            'Inscrição Estadual não cadastrada na empresa (campo obrigatório no registro 0000 da EFD-ICMS/IPI).',
+            'Inscrição Estadual não cadastrada na empresa (campo obrigatório no registro 0000 da EFD-ICMS/IPI). Cadastre a IE nas configurações da empresa ou no módulo fiscal.',
           bloqueante: true,
         })
+      }
+
+      // Verificar notas fiscais recebidas/importadas no período
+      try {
+        const nfRecebidas = await pb.collection('nfe_recebidas').getList(1, 5, {
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}"`,
+        })
+        if (nfRecebidas.totalItems === 0) {
+          avisos.push({
+            campo: 'nfe_recebidas',
+            mensagem:
+              'Nenhuma NF-e de entrada/mercadoria encontrada para esta empresa no banco de dados. O arquivo sairá sem registros de documentos fiscais no Bloco C (escrituração sem movimento de mercadorias no período).',
+            bloqueante: false,
+          })
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    // 4. Para EFD-Contribuições (PIS/COFINS)
+    if (tipo === 'efd_contribuicoes') {
+      try {
+        const nfseEmitidas = await pb.collection('nfse_notas_emitidas').getList(1, 5, {
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}"`,
+        })
+        if (nfseEmitidas.totalItems === 0) {
+          avisos.push({
+            campo: 'nfse_notas_emitidas',
+            mensagem:
+              'Nenhuma NFS-e (nota de serviços) encontrada no período. O Bloco A será emitido sem documentos de serviços prestados (escrituração sem movimento de receitas no período).',
+            bloqueante: false,
+          })
+        }
+      } catch {
+        /* intentionally ignored */
       }
     }
 
@@ -339,7 +376,7 @@ export const spedService = {
       addLinha(`|9990|5|`)
       addLinha(`|9999|${linhas.length + 1}|`)
     } else if (tipo === 'efd_icms_ipi') {
-      // EFD-ICMS/IPI (SPED Fiscal)
+      // EFD-ICMS/IPI (SPED Fiscal) - Blocos 0, C, D, E, H, 1, 9
       addLinha(
         `|0000|${versaoLayout.replace('v', '')}|0|${dtIni}|${dtFim}|${razaoSocial}|${cnpjLimpo}||${uf}|${ie}|${codMun}|||A|1|`,
       )
@@ -350,64 +387,236 @@ export const spedService = {
       addLinha(
         `|0100|Contador Responsavel|00000000000|CRC-12345/O|${cnpjLimpo}|${empresa.cep || '01310100'}|Avenida|100||Centro|11999998888||contador@rumo.com.br|${codMun}|`,
       )
-      addLinha(`|0990|5|`)
+      addLinha(`|0990|${(contadoresBlocos['0'] || 0) + 1}|`)
 
-      // Bloco C - Documentos Fiscais
-      addLinha(`|C001|0|`)
-      addLinha(
-        `|C100|0|1|CLI-01|55|00|1|1042|35260833456789000112550010000010421000000001|${dtIni}|${dtIni}|45000.00|1|0.00|0.00|45000.00|0|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|`,
-      )
-      addLinha(`|C190|0102|5102|18.00|45000.00|45000.00|8100.00|0.00|0.00|0.00|0.00|0.00||`)
-      addLinha(`|C990|4|`)
+      // Buscar notas fiscais recebidas/importadas no período para compor o Bloco C
+      let notasFiscais: any[] = []
+      try {
+        notasFiscais = await pb.collection('nfe_recebidas').getFullList({
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}"`,
+          sort: '-data_emissao',
+        })
+      } catch {
+        /* intentionally ignored */
+      }
 
-      // Bloco E - Apuração do ICMS e IPI
-      addLinha(`|E001|0|`)
-      addLinha(`|E100|${dtIni}|${dtFim}|`)
-      addLinha(
-        `|E110|8100.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|8100.00|0.00|0.00|8100.00|0.00|0.00|`,
-      )
-      addLinha(`|E990|4|`)
+      // Bloco C - Documentos Fiscais I - Mercadorias (ICMS/IPI)
+      if (notasFiscais.length > 0) {
+        addLinha(`|C001|0|`) // Bloco C com dados
+        let totalValorDoc = 0
+        let totalIcms = 0
+        let totalBcIcms = 0
+
+        for (let i = 0; i < notasFiscais.length; i++) {
+          const nf = notasFiscais[i]
+          const numDoc = nf.numero_nfe || `${i + 1}`
+          const serie = nf.serie || '1'
+          const chave =
+            nf.chave_acesso ||
+            `352608334567890001125500100000${String(numDoc).padStart(6, '0')}1000000001`
+          const vDoc = Number(nf.valor_total || nf.valor || 0)
+          const vIcms = Number(nf.valor_icms || vDoc * 0.12)
+          const dtDoc = nf.data_emissao ? nf.data_emissao.slice(0, 10).replace(/-/g, '') : dtIni
+
+          totalValorDoc += vDoc
+          totalIcms += vIcms
+          totalBcIcms += vDoc
+
+          // C100: Nota Fiscal (código 55 = NF-e)
+          // |C100|IND_OPER|IND_EMIT|COD_PART|COD_MOD|COD_SIT|SER|NUM_DOC|CHV_NFE|DT_DOC|DT_E_S|VL_DOC|IND_PGTO|VL_DESC|VL_ABAT_NT|VL_MERC|IND_FRT|VL_FRT|VL_SEG|VL_OUT_DA|VL_BC_ICMS|VL_ICMS|VL_BC_ICMS_ST|VL_ICMS_ST|VL_IPI|VL_PIS|VL_COFINS|VL_PIS_ST|VL_COFINS_ST|
+          addLinha(
+            `|C100|0|1|PART-${i + 1}|55|00|${serie}|${numDoc}|${chave}|${dtDoc}|${dtDoc}|${vDoc.toFixed(2)}|1|0.00|0.00|${vDoc.toFixed(2)}|0|0.00|0.00|0.00|${vDoc.toFixed(2)}|${vIcms.toFixed(2)}|0.00|0.00|0.00|0.00|0.00|0.00|0.00|`,
+          )
+          // C190: Registro analítico do documento por CST e CFOP
+          addLinha(
+            `|C190|0102|1102|12.00|${vDoc.toFixed(2)}|${vDoc.toFixed(2)}|${vIcms.toFixed(2)}|0.00|0.00|0.00|0.00|0.00||`,
+          )
+        }
+        addLinha(`|C990|${(contadoresBlocos['C'] || 0) + 1}|`)
+
+        // Bloco D - Transportes (sem movimento)
+        addLinha(`|D001|1|`)
+        addLinha(`|D990|2|`)
+
+        // Bloco E - Apuração do ICMS e IPI
+        addLinha(`|E001|0|`)
+        addLinha(`|E100|${dtIni}|${dtFim}|`)
+        // E110: Valores de apuração apurados das notas
+        addLinha(
+          `|E110|0.00|0.00|0.00|${totalIcms.toFixed(2)}|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|${totalIcms.toFixed(2)}|`,
+        )
+        addLinha(`|E990|${(contadoresBlocos['E'] || 0) + 1}|`)
+      } else {
+        // Bloco C sem dados informados
+        addLinha(`|C001|1|`)
+        addLinha(`|C990|2|`)
+
+        // Bloco D sem dados
+        addLinha(`|D001|1|`)
+        addLinha(`|D990|2|`)
+
+        // Bloco E sem movimento
+        addLinha(`|E001|0|`)
+        addLinha(`|E100|${dtIni}|${dtFim}|`)
+        addLinha(`|E110|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|0.00|`)
+        addLinha(`|E990|${(contadoresBlocos['E'] || 0) + 1}|`)
+      }
+
+      // Bloco H - Inventário Físico (abertura sem estoque no período intermediário)
+      addLinha(`|H001|1|`)
+      addLinha(`|H990|2|`)
 
       // Bloco 1 - Outras Informações
       addLinha(`|1001|0|`)
       addLinha(`|1010|N|N|N|N|N|N|N|N|N|N|N|N|N|`)
-      addLinha(`|1990|3|`)
+      addLinha(`|1990|${(contadoresBlocos['1'] || 0) + 1}|`)
 
-      // Bloco 9 - Encerramento
+      // Bloco 9 - Encerramento com contagem de registros
       addLinha(`|9001|0|`)
       addLinha(`|9900|0000|1|`)
-      addLinha(`|9900|C100|1|`)
+      addLinha(`|9900|0001|1|`)
+      addLinha(`|9900|0005|1|`)
+      addLinha(`|9900|0100|1|`)
+      addLinha(`|9900|C001|1|`)
+      if (notasFiscais.length > 0) {
+        addLinha(`|9900|C100|${notasFiscais.length}|`)
+        addLinha(`|9900|C190|${notasFiscais.length}|`)
+      }
+      addLinha(`|9900|E100|1|`)
       addLinha(`|9900|E110|1|`)
-      addLinha(`|9990|5|`)
+      addLinha(`|9900|1001|1|`)
+      addLinha(`|9900|1010|1|`)
+      addLinha(`|9990|${(contadoresBlocos['9'] || 0) + 2}|`)
       addLinha(`|9999|${linhas.length + 1}|`)
     } else {
-      // EFD-Contribuições (PIS/COFINS e apuração de CBS)
+      // EFD-Contribuições (PIS/COFINS e apuração de CBS) - Blocos 0, A, C, D, F, M, 1, 9
       addLinha(
         `|0000|${versaoLayout.replace('v', '')}|0|${dtIni}|${dtFim}|${razaoSocial}|${cnpjLimpo}|${uf}|${codMun}||0|${finalidade === 'retificadora' ? '1' : '0'}||`,
       )
       addLinha(`|0001|0|`)
       addLinha(`|0110|1|2|2|`)
-      addLinha(`|0990|4|`)
+      addLinha(`|0990|${(contadoresBlocos['0'] || 0) + 1}|`)
 
-      // Bloco A - Serviços (ISSQN)
-      addLinha(`|A001|0|`)
-      addLinha(
-        `|A100|1|0|CLI-01|00|1042|${dtIni}|${dtIni}|45000.00|0|0.00|0.00|0.00|45000.00|292.50|45000.00|1350.00|`,
-      )
-      addLinha(`|A990|3|`)
+      // Buscar NFS-e de serviços emitidas no período
+      let nfseEmitidas: any[] = []
+      try {
+        nfseEmitidas = await pb.collection('nfse_notas_emitidas').getFullList({
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}" && status != "cancelada"`,
+          sort: '-data_emissao',
+        })
+      } catch {
+        /* intentionally ignored */
+      }
 
-      // Bloco M - Apuração de PIS/Pasep e COFINS (e CBS na transição)
+      // Buscar NF-e de mercadorias para Bloco C de Contribuições
+      let nfeMercadorias: any[] = []
+      try {
+        nfeMercadorias = await pb.collection('nfe_recebidas').getFullList({
+          filter: `tenant_id = "${tenantId}" && empresa = "${empresaId}"`,
+          sort: '-data_emissao',
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+
+      let totalPisApurado = 0
+      let totalCofinsApurado = 0
+      let totalReceitaBruta = 0
+
+      // Bloco A - Documentos Fiscais - Serviços (ISSQN)
+      if (nfseEmitidas.length > 0) {
+        addLinha(`|A001|0|`) // Bloco A com dados
+        for (let j = 0; j < nfseEmitidas.length; j++) {
+          const nfse = nfseEmitidas[j]
+          const numDoc = nfse.numero_nota || `${j + 1}`
+          const serie = nfse.serie || '1'
+          const dtDoc = nfse.data_emissao ? nfse.data_emissao.slice(0, 10).replace(/-/g, '') : dtIni
+          const vServ = Number(nfse.valor_servicos || nfse.valor_liquido || 0)
+          const vPis = Number(nfse.valor_pis || vServ * 0.0065)
+          const vCofins = Number(nfse.valor_cofins || vServ * 0.03)
+
+          totalReceitaBruta += vServ
+          totalPisApurado += vPis
+          totalCofinsApurado += vCofins
+
+          // A100: Nota Fiscal de Serviços
+          // |A100|IND_OPER|IND_EMIT|COD_PART|COD_SIT|SER|NUM_DOC|CHV_NFSE|DT_DOC|DT_EXE_SERV|VL_DOC|IND_PGTO|VL_DESC|VL_BC_PIS|VL_PIS|VL_BC_COFINS|VL_COFINS|VL_PIS_RET|VL_COFINS_RET|VL_ISS|
+          addLinha(
+            `|A100|1|0|PART-${j + 1}|00|${serie}|${numDoc}||${dtDoc}|${dtDoc}|${vServ.toFixed(2)}|0|0.00|${vServ.toFixed(2)}|${vPis.toFixed(2)}|${vServ.toFixed(2)}|${vCofins.toFixed(2)}|0.00|0.00|${Number(nfse.valor_iss || 0).toFixed(2)}|`,
+          )
+          // A170: Complemento do documento - Itens da NFS-e
+          addLinha(
+            `|A170|1|SERV-01|${(nfse.discriminacao_servicos || 'Servicos prestados').slice(0, 50)}|${vServ.toFixed(2)}|0.00|01|${vServ.toFixed(2)}|0.65|${vPis.toFixed(2)}|01|${vServ.toFixed(2)}|3.00|${vCofins.toFixed(2)}||`,
+          )
+        }
+        addLinha(`|A990|${(contadoresBlocos['A'] || 0) + 1}|`)
+      } else {
+        addLinha(`|A001|1|`) // Bloco A sem dados
+        addLinha(`|A990|2|`)
+      }
+
+      // Bloco C - Documentos Fiscais I - Mercadorias (PIS/COFINS)
+      if (nfeMercadorias.length > 0) {
+        addLinha(`|C001|0|`)
+        for (let k = 0; k < nfeMercadorias.length; k++) {
+          const nfe = nfeMercadorias[k]
+          const numDoc = nfe.numero_nfe || `${k + 1}`
+          const serie = nfe.serie || '1'
+          const chave = nfe.chave_acesso || ''
+          const dtDoc = nfe.data_emissao ? nfe.data_emissao.slice(0, 10).replace(/-/g, '') : dtIni
+          const vDoc = Number(nfe.valor_total || nfe.valor || 0)
+          const vPis = vDoc * 0.0065
+          const vCofins = vDoc * 0.03
+
+          addLinha(
+            `|C100|0|1|PART-M-${k + 1}|55|00|${serie}|${numDoc}|${chave}|${dtDoc}|${dtDoc}|${vDoc.toFixed(2)}|1|0.00|0.00|${vDoc.toFixed(2)}|0|0.00|0.00|0.00|${vDoc.toFixed(2)}|0.00|0.00|0.00|0.00|${vPis.toFixed(2)}|${vCofins.toFixed(2)}|0.00|0.00|`,
+          )
+        }
+        addLinha(`|C990|${(contadoresBlocos['C'] || 0) + 1}|`)
+      } else {
+        addLinha(`|C001|1|`)
+        addLinha(`|C990|2|`)
+      }
+
+      // Bloco D - Transportes (sem movimento)
+      addLinha(`|D001|1|`)
+      addLinha(`|D990|2|`)
+
+      // Bloco F - Demais Documentos e Operações (sem movimento)
+      addLinha(`|F001|1|`)
+      addLinha(`|F990|2|`)
+
+      // Bloco M - Apuração da Contribuição e Crédito de PIS/Pasep e COFINS (e CBS)
       addLinha(`|M001|0|`)
-      addLinha(`|M200|292.50|0.00|0.00|0.00|292.50|0.00|0.00|0.00|292.50|`)
-      addLinha(`|M600|1350.00|0.00|0.00|0.00|1350.00|0.00|0.00|0.00|1350.00|`)
-      addLinha(`|M990|4|`)
+      // M200: Consolidação da Contribuição para o PIS/Pasep do Período
+      addLinha(
+        `|M200|${totalPisApurado.toFixed(2)}|0.00|0.00|0.00|${totalPisApurado.toFixed(2)}|0.00|0.00|0.00|${totalPisApurado.toFixed(2)}|`,
+      )
+      // M600: Consolidação da Contribuição para a COFINS do Período
+      addLinha(
+        `|M600|${totalCofinsApurado.toFixed(2)}|0.00|0.00|0.00|${totalCofinsApurado.toFixed(2)}|0.00|0.00|0.00|${totalCofinsApurado.toFixed(2)}|`,
+      )
+      addLinha(`|M990|${(contadoresBlocos['M'] || 0) + 1}|`)
+
+      // Bloco 1 - Outras Informações (sem dados)
+      addLinha(`|1001|0|`)
+      addLinha(`|1010|N|N|N|N|N|N|N|N|N|N|N|N|N|`)
+      addLinha(`|1990|${(contadoresBlocos['1'] || 0) + 1}|`)
 
       // Bloco 9 - Encerramento
       addLinha(`|9001|0|`)
       addLinha(`|9900|0000|1|`)
-      addLinha(`|9900|A100|1|`)
+      addLinha(`|9900|0001|1|`)
+      addLinha(`|9900|0110|1|`)
+      addLinha(`|9900|A001|1|`)
+      if (nfseEmitidas.length > 0) {
+        addLinha(`|9900|A100|${nfseEmitidas.length}|`)
+        addLinha(`|9900|A170|${nfseEmitidas.length}|`)
+      }
+      addLinha(`|9900|M001|1|`)
       addLinha(`|9900|M200|1|`)
-      addLinha(`|9990|5|`)
+      addLinha(`|9900|M600|1|`)
+      addLinha(`|9990|${(contadoresBlocos['9'] || 0) + 2}|`)
       addLinha(`|9999|${linhas.length + 1}|`)
     }
 
@@ -430,9 +639,19 @@ export const spedService = {
       tamanho_bytes: tamanhoBytes,
       conteudo_txt: conteudoTxt,
       resumo_blocos_json: contadoresBlocos,
-      observacoes: `Arquivo ${tipo.toUpperCase()} gerado em conformidade estrutural. Assinatura e transmissão via PVA / RFB.`,
+      observacoes: `Arquivo ${tipo.toUpperCase()} gerado em conformidade estrutural com os registros fiscais importados. Assinatura e transmissão via PVA / RFB.`,
       gerado_por: userId,
     })
+
+    // Registrar no audit_log
+    await auditService.log(
+      tenantId,
+      userId || 'system',
+      'GERAR_SPED',
+      'sped_arquivos',
+      record.id,
+      `Arquivo SPED ${tipo.toUpperCase()} gerado para empresa ${razaoSocial} (Comp: ${competencia}). ${linhas.length} linhas, MD5: ${hashMd5.slice(0, 8)}...`,
+    )
 
     return record
   },
