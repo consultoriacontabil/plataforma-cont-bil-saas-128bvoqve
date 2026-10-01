@@ -1942,7 +1942,7 @@ export interface NfseNotaEmitidaRecord extends RecordModel {
 export type RfbAmbiente = 'producao' | 'homologacao'
 export type RfbStatusConexao = 'conectado' | 'erro_credenciais' | 'modo_supervisao' | 'desconectado'
 export type RfbOrigemAcionamento = 'manual' | 'cron_diario' | 'teste_credenciais'
-export type RfbModoOperacao = 'conector_real' | 'modo_supervisao'
+export type RfbModoOperacao = 'conector_real' | 'modo_supervisao' | 'oficial_integra_contador'
 
 export interface RfbDiagnosticoItem {
   item: string
@@ -1983,8 +1983,6 @@ export interface RfbConfigRecord {
     certificado_a1?: CertificadoDigitalRecord
   }
 }
-
-export type RfbModoOperacao = 'conector_real' | 'modo_supervisao' | 'oficial_integra_contador'
 
 export interface RfbSyncLogRecord {
   id: string

@@ -158,20 +158,35 @@ routerAdd(
 
       try {
         const filterTenant = tenantId ? "tenant_id = '" + tenantId + "'" : ''
-        totalEmpresas = $app.countRecords('empresas', filterTenant)
-        totalCertificados = $app.countRecords('certificados_digitais', filterTenant)
-        totalCertificadosAtivos = $app.countRecords(
+        totalEmpresas = $app.findRecordsByFilter('empresas', filterTenant, '', 500, 0).length
+        totalCertificados = $app.findRecordsByFilter(
+          'certificados_digitais',
+          filterTenant,
+          '',
+          500,
+          0,
+        ).length
+        totalCertificadosAtivos = $app.findRecordsByFilter(
           'certificados_digitais',
           (filterTenant ? filterTenant + ' && ' : '') + "status = 'ativo'",
-        )
-        totalObrigacoesPendentes = $app.countRecords(
+          '',
+          500,
+          0,
+        ).length
+        totalObrigacoesPendentes = $app.findRecordsByFilter(
           'obrigacoes',
           (filterTenant ? filterTenant + ' && ' : '') + "status = 'pendente'",
-        )
-        totalObrigacoesAtrasadas = $app.countRecords(
+          '',
+          500,
+          0,
+        ).length
+        totalObrigacoesAtrasadas = $app.findRecordsByFilter(
           'obrigacoes',
           (filterTenant ? filterTenant + ' && ' : '') + "status = 'atrasada'",
-        )
+          '',
+          500,
+          0,
+        ).length
       } catch (errDb) {
         console.log('[ELLIZA] Erro ao consultar estatísticas:', errDb)
       }

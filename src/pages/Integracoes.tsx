@@ -1,10 +1,27 @@
 import React from 'react'
-import { Layers, Building2, Landmark, Mail, Info, Clock, Sparkles, ShieldCheck } from 'lucide-react'
+import {
+  Layers,
+  Building2,
+  Landmark,
+  Mail,
+  Info,
+  Clock,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  MessageSquare,
+  FileText,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { useAuth } from '@/contexts/AuthContext'
+import { IntegraContadorSection } from '@/components/IntegraContadorSection'
 
 export default function Integracoes() {
+  const { member } = useAuth()
+  const isPrivileged = member?.perfil === 'administrador' || member?.perfil === 'contador'
+
   const integrations = [
     {
       id: 'bb',
@@ -16,13 +33,13 @@ export default function Integracoes() {
       tag: 'Open Finance',
     },
     {
-      id: 'rfb',
-      title: 'Receita Federal do Brasil (e-CAC)',
+      id: 'rfb_dte',
+      title: 'Conector RFB / DTE Supervisionado',
       description:
         'Consulta de pendências fiscais, débitos em aberto, parcelamentos e emissão de Certidão Negativa (CND).',
       icon: ShieldCheck,
       color: 'from-blue-600 to-indigo-700',
-      tag: 'Governo Federal',
+      tag: 'Modo Supervisão',
     },
     {
       id: 'imap',
@@ -36,13 +53,89 @@ export default function Integracoes() {
   ]
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-[#1A2333]">Hub de Integrações</h2>
         <p className="text-xs text-[#64748B]">
-          Conectores externos para automação contábil, bancária e fiscal
+          Conectores externos para automação contábil, bancária, fiscal e governo
         </p>
+      </div>
+
+      {/* SEÇÃO PRINCIPAL: INTEGRA CONTADOR (SERPRO / E-CAC) */}
+      {isPrivileged && (
+        <section aria-labelledby="integra-contador-heading">
+          <IntegraContadorSection />
+        </section>
+      )}
+
+      {/* Cartões de Integrações Já Integradas: NFE.io e Evolution API */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* NFE.io Card */}
+        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs bg-white flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-500 to-blue-700 text-white shadow-xs">
+                <FileText className="h-5 w-5" />
+              </div>
+              <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px]">
+                NFS-e em Nuvem
+              </Badge>
+            </div>
+            <CardTitle className="text-sm font-bold text-[#1A2333] mt-3">
+              NFE.io (Emissão de NFS-e Nacional)
+            </CardTitle>
+            <CardDescription className="text-xs text-[#64748B]">
+              Conector REST oficial com comunicação direta para prefeituras e padrão nacional.
+              Suporte a emissão em homologação e produção com cálculo automático de retenções.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Configurado no Módulo NFS-e</span>
+            </div>
+            <a
+              href="/nfse-whatsapp"
+              className="text-xs font-semibold text-[#0FA3A3] hover:underline"
+            >
+              Acessar Painel →
+            </a>
+          </CardContent>
+        </Card>
+
+        {/* Evolution API Card */}
+        <Card className="rounded-2xl border-[#E2E8F0] shadow-xs bg-white flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-700 text-white shadow-xs">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                WhatsApp API
+              </Badge>
+            </div>
+            <CardTitle className="text-sm font-bold text-[#1A2333] mt-3">
+              Evolution API (WhatsApp Gateway)
+            </CardTitle>
+            <CardDescription className="text-xs text-[#64748B]">
+              Instância dedicada de WhatsApp com suporte a webhooks bidirecionais, recepção de
+              solicitações de notas, disparo ativo de guias e atendimento cognitivo via ELLIZA.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Conector Integrado</span>
+            </div>
+            <a
+              href="/nfse-whatsapp"
+              className="text-xs font-semibold text-[#0FA3A3] hover:underline"
+            >
+              Acessar Painel →
+            </a>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Banner Novo Módulo: Emissão Inteligente de NFS-e via WhatsApp */}
@@ -106,7 +199,8 @@ export default function Integracoes() {
           <p className="text-xs font-bold text-[#0B1F3A]">Aviso Operacional</p>
           <p className="text-xs text-[#64748B]">
             Integrações bancárias automáticas serão habilitadas em fases futuras. A extensão Chrome
-            para WhatsApp Web já se encontra totalmente operacional em modo assistivo.
+            para WhatsApp Web e o conector SERPRO Integra Contador já se encontram disponíveis na
+            plataforma.
           </p>
         </div>
       </div>

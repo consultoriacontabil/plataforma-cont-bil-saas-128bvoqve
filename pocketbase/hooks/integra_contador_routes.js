@@ -51,11 +51,18 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
     config = app.findFirstRecordByData('integra_contador_config', 'tenant_id', tenantId)
   } catch (_) {}
 
-  var consumerKey = body.consumer_key || (config ? config.getString('consumer_key') : '') || ''
+  var consumerKey =
+    body.consumer_key !== undefined
+      ? String(body.consumer_key || '').trim()
+      : (config ? config.getString('consumer_key') : '') || ''
   var consumerSecret =
-    body.consumer_secret || (config ? config.getString('consumer_secret') : '') || ''
+    body.consumer_secret !== undefined
+      ? String(body.consumer_secret || '').trim()
+      : (config ? config.getString('consumer_secret') : '') || ''
   var contratanteCnpj =
-    body.contratante_cnpj || (config ? config.getString('contratante_cnpj') : '') || ''
+    body.contratante_cnpj ||
+    (config ? config.getString('contratante_cnpj') : '') ||
+    '55.614.455/0001-99'
   var autorPedido =
     body.autor_pedido_dados_numero ||
     (config ? config.getString('autor_pedido_dados_numero') : '') ||
@@ -63,11 +70,16 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
   var ambiente = body.ambiente || (config ? config.getString('ambiente') : 'trial') || 'trial'
   var proxyMtlsUrl =
     body.proxy_mtls_url !== undefined
-      ? body.proxy_mtls_url
+      ? String(body.proxy_mtls_url || '').trim()
       : config
         ? config.getString('proxy_mtls_url')
         : ''
-  var certificadoId = body.certificado_a1 || (config ? config.getString('certificado_a1') : '')
+  var certificadoId =
+    body.certificado_a1 !== undefined
+      ? body.certificado_a1
+      : config
+        ? config.getString('certificado_a1')
+        : ''
 
   var t0 = Date.now()
   var itens = []
@@ -179,10 +191,27 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
       })
 
       if (resHttp.statusCode === 401 || resHttp.statusCode === 403) {
-        tokenErro = 'Credenciais SERPRO rejeitadas (HTTP ' + resHttp.statusCode + ').'
+        var detalheCorpo = ''
+        try {
+          detalheCorpo =
+            typeof resHttp.raw === 'string' ? resHttp.raw : JSON.stringify(resHttp.json)
+        } catch (_) {}
+        tokenErro =
+          'Credenciais SERPRO rejeitadas (HTTP ' +
+          resHttp.statusCode +
+          ')' +
+          (detalheCorpo ? ': ' + detalheCorpo.slice(0, 150) : '.')
         httpStatusRetorno = resHttp.statusCode
       } else if (resHttp.statusCode < 200 || resHttp.statusCode >= 300) {
-        tokenErro = 'Erro do gateway SERPRO (HTTP ' + resHttp.statusCode + ').'
+        var errCorpo = ''
+        try {
+          errCorpo = typeof resHttp.raw === 'string' ? resHttp.raw : JSON.stringify(resHttp.json)
+        } catch (_) {}
+        tokenErro =
+          'Erro do gateway SERPRO (HTTP ' +
+          resHttp.statusCode +
+          ')' +
+          (errCorpo ? ': ' + errCorpo.slice(0, 150) : '.')
         httpStatusRetorno = resHttp.statusCode
       } else {
         var j = resHttp.json || {}
@@ -279,13 +308,36 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
     console.log('[INTEGRA_CONTADOR] Erro ao gravar consumo do teste:', errC)
   }
 
-  // Atualizar config no banco
+  // Atualizar config no banco se o registro existir
   if (config) {
     try {
       config.set('status_conexao', statusConexaoFinal)
       config.set('ultimo_diagnostico_json', resultado)
+      if (body.consumer_key && body.consumer_key.trim().length >= 8) {
+        config.set('consumer_key', body.consumer_key.trim())
+      }
+      if (body.consumer_secret && body.consumer_secret.trim().length >= 8) {
+        config.set('consumer_secret', body.consumer_secret.trim())
+      }
+      if (body.ambiente) {
+        config.set('ambiente', body.ambiente)
+      }
+      if (body.contratante_cnpj) {
+        config.set('contratante_cnpj', body.contratante_cnpj)
+      }
+      if (body.autor_pedido_dados_numero) {
+        config.set('autor_pedido_dados_numero', body.autor_pedido_dados_numero)
+      }
+      if (body.proxy_mtls_url !== undefined) {
+        config.set('proxy_mtls_url', body.proxy_mtls_url)
+      }
+      if (body.certificado_a1 !== undefined) {
+        config.set('certificado_a1', body.certificado_a1)
+      }
       app.save(config)
-    } catch (_) {}
+    } catch (errSaveCfg) {
+      console.log('[INTEGRA_CONTADOR] Erro ao salvar config atualizada:', errSaveCfg)
+    }
   }
 
   // Auditoria
