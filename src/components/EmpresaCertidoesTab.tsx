@@ -227,6 +227,25 @@ export function EmpresaCertidoesTab({
       )
     }
 
+    const isDemonstracao =
+      cert.origem === 'automatica' ||
+      (cert.numero_controle &&
+        (cert.numero_controle.includes('DEMO') || cert.numero_controle.includes('RFB.AUTOSYNC'))) ||
+      (cert.observacoes && cert.observacoes.toLowerCase().includes('demonstração'))
+
+    if (isDemonstracao) {
+      return (
+        <Badge
+          variant="outline"
+          className="border-amber-400 bg-amber-50 text-amber-900 text-xs font-semibold flex items-center gap-1.5 py-1 px-2.5"
+          title="Consulta em modo demonstração — pendente de emissão oficial via webservice e-CAC/RFB"
+        >
+          <Clock className="h-3.5 w-3.5 text-amber-600" />
+          <span>Demonstração / Pendente de Emissão Oficial</span>
+        </Badge>
+      )
+    }
+
     return (
       <Badge
         variant="outline"
@@ -377,16 +396,26 @@ export function EmpresaCertidoesTab({
                         {formatDatePtBr(cert.data_validade)}
                       </td>
                       <td className="py-3 px-4">
-                        <Badge
-                          variant="outline"
-                          className={
-                            cert.origem === 'automatica'
-                              ? 'border-sky-200 bg-sky-50 text-sky-700 text-[10px]'
-                              : 'border-slate-200 bg-slate-50 text-slate-700 text-[10px]'
-                          }
-                        >
-                          {cert.origem === 'automatica' ? 'Consulta Auto' : 'Manual / Contador'}
-                        </Badge>
+                        <div className="flex flex-col gap-1 items-start">
+                          <Badge
+                            variant="outline"
+                            className={
+                              cert.origem === 'automatica'
+                                ? 'border-sky-200 bg-sky-50 text-sky-700 text-[10px]'
+                                : 'border-slate-200 bg-slate-50 text-slate-700 text-[10px]'
+                            }
+                          >
+                            {cert.origem === 'automatica' ? 'Consulta Auto' : 'Manual / Contador'}
+                          </Badge>
+                          {cert.origem === 'automatica' && cert.status === 'pendente_emissao' && (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-300 bg-amber-50 text-amber-800 text-[9px] font-medium"
+                            >
+                              Sem Webservice Real
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4">
                         {cert.arquivo_pdf ? (

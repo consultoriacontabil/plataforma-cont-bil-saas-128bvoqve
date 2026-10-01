@@ -413,14 +413,28 @@ export function EmpresaEcacTab({
                           </Badge>
                         )}
                         {item.origem_captura === 'automatica_conector' ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-semibold py-0 px-1.5 h-4 flex items-center gap-1"
-                            title="Importado diretamente pelo Conector RFB / DTE"
-                          >
-                            <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
-                            <span>Sincronizado RFB</span>
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge
+                              variant="outline"
+                              className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-semibold py-0 px-1.5 h-4 flex items-center gap-1"
+                              title="Importado pelo Conector RFB"
+                            >
+                              <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
+                              <span>Conector RFB</span>
+                            </Badge>
+                            {(item.assunto.includes('[DEMONSTRAÇÃO]') ||
+                              item.conteudo?.includes('[Demonstração]') ||
+                              item.identificador_rfb?.includes('-2026-09') ||
+                              item.identificador_rfb?.includes('-CRON-')) && (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-50 text-amber-900 border-amber-300 text-[10px] font-semibold py-0 px-1.5 h-4"
+                                title="Comunicação simulada em regime de demonstração"
+                              >
+                                Simulada / Demonstração
+                              </Badge>
+                            )}
+                          </div>
                         ) : (
                           <Badge
                             variant="outline"
@@ -712,9 +726,19 @@ export function EmpresaEcacTab({
               <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border text-[11px]">
                 <span className="font-semibold text-muted-foreground">Origem de Captura:</span>
                 {selecionada.origem_captura === 'automatica_conector' ? (
-                  <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
-                    <ShieldCheck className="h-3 w-3" /> Conector RFB Automático (DTE)
-                  </Badge>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
+                      <ShieldCheck className="h-3 w-3" /> Conector RFB (DTE)
+                    </Badge>
+                    {(selecionada.assunto.includes('[DEMONSTRAÇÃO]') ||
+                      selecionada.conteudo?.includes('[Demonstração]') ||
+                      selecionada.identificador_rfb?.includes('-2026-09') ||
+                      selecionada.identificador_rfb?.includes('-CRON-')) && (
+                      <Badge className="bg-amber-500 text-white text-[10px]">
+                        Simulada / Demonstração
+                      </Badge>
+                    )}
+                  </div>
                 ) : (
                   <Badge variant="outline" className="text-[10px]">
                     Registro Manual Supervisionado

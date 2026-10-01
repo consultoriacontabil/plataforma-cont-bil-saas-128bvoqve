@@ -430,13 +430,21 @@ export const DashboardMonitorCnds: React.FC<DashboardMonitorCndsProps> = ({
     const isValida = item.saude === 'valida'
     const isVencendo = item.saude === 'proximo_vencimento'
     const isVencida = item.saude === 'vencida' || item.saude === 'sem_efeito'
-    const isAusente = item.saude === 'pendente'
+    const isPendenteEmissao =
+      item.certidao?.status === 'pendente_emissao' ||
+      item.certidao?.numero_controle === 'DEMO-PENDENTE-WEBSERVICE' ||
+      item.certidao?.numero_controle?.includes('RFB.AUTOSYNC')
+    const isAusente = item.saude === 'pendente' && !isPendenteEmissao
 
     let badgeClass = 'border-slate-200 bg-slate-50 text-slate-700'
     let icon = <Clock className="h-3 w-3 text-slate-400" />
     let tooltipText = `${item.sigla}: Não cadastrada / Nunca emitida`
 
-    if (isValida) {
+    if (isPendenteEmissao) {
+      badgeClass = 'border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 font-medium'
+      icon = <Clock className="h-3 w-3 text-amber-600" />
+      tooltipText = `${item.sigla}: Pendente de emissão oficial (Modo Demonstração sem webservice RFB)`
+    } else if (isValida) {
       badgeClass = 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
       icon = <ShieldCheck className="h-3 w-3 text-emerald-600" />
       tooltipText = `${item.sigla}: Válida (${item.diasRestantes} dias restantes)`
@@ -490,13 +498,15 @@ export const DashboardMonitorCnds: React.FC<DashboardMonitorCndsProps> = ({
                   : 'Trabalhista'}
         </span>
         <span className="text-[9px] opacity-80 shrink-0">
-          {isValida
-            ? `${item.diasRestantes}d`
-            : isVencendo
-              ? `≤${item.diasRestantes}d`
-              : isVencida
-                ? 'vencida'
-                : 'ausente'}
+          {isPendenteEmissao
+            ? 'pendente'
+            : isValida
+              ? `${item.diasRestantes}d`
+              : isVencendo
+                ? `≤${item.diasRestantes}d`
+                : isVencida
+                  ? 'vencida'
+                  : 'ausente'}
         </span>
       </button>
     )

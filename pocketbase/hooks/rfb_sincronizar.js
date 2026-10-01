@@ -190,14 +190,15 @@ routerAdd(
 
       // 2.1 Consulta da Caixa Postal DTE
       if (syncEcac) {
-        // Mock estruturado de comunicações oficiais disponibilizadas pelo webservice DTE para o contribuinte
+        // Comunicações simuladas em regime de demonstração recebem obrigatoriamente [DEMONSTRAÇÃO] no assunto
         const rfbMensagensDisponiveis = [
           {
             identificador_rfb: 'DTE-' + empresaId.slice(0, 5) + '-2026-0901',
             tipo: 'notificacao_lancamento',
-            assunto: 'Notificação de Regularização de Divergência DCTFWeb x EFD-Reinf',
+            assunto:
+              '[DEMONSTRAÇÃO] Notificação de Regularização de Divergência DCTFWeb x EFD-Reinf',
             conteudo:
-              'Identificada divergência entre os valores de retenção de INSS informados na EFD-Reinf e os créditos transmitidos na DCTFWeb da competência anterior. Favor verificar a DCTFWeb retificadora ou recolhimento complementar.',
+              '[Demonstração] Identificada divergência entre os valores de retenção de INSS informados na EFD-Reinf e os créditos transmitidos na DCTFWeb da competência anterior. Consulta simulada em modo demonstração.',
             data_comunicacao: new Date(now.getTime() - 2 * 86400000).toISOString(),
             data_limite_resposta: new Date(now.getTime() + 28 * 86400000).toISOString(),
             criticidade: 'media',
@@ -206,9 +207,10 @@ routerAdd(
           {
             identificador_rfb: 'DTE-' + empresaId.slice(0, 5) + '-2026-0902',
             tipo: 'aviso_geral',
-            assunto: 'Informativo RFB: Cronograma de Atualização de Tabelas da DCTFWeb',
+            assunto:
+              '[DEMONSTRAÇÃO] Informativo RFB: Cronograma de Atualização de Tabelas da DCTFWeb',
             conteudo:
-              'A Secretaria Especial da Receita Federal do Brasil informa que as tabelas de incidência e alíquotas da DCTFWeb foram atualizadas para o exercício corrente.',
+              '[Demonstração] A Secretaria Especial da Receita Federal do Brasil informa que as tabelas de incidência e alíquotas da DCTFWeb foram atualizadas para o exercício corrente. Comunicação simulada sem webservice em produção.',
             data_comunicacao: new Date(now.getTime() - 4 * 86400000).toISOString(),
             data_limite_resposta: null,
             criticidade: 'baixa',
@@ -261,6 +263,7 @@ routerAdd(
                 identificador: item.identificador_rfb,
                 assunto: item.assunto,
                 criticidade: item.criticidade,
+                simulada: true,
               })
             } catch (errMsg) {
               console.log('[RFB-SYNC] Erro ao gravar comunicacao nova:', errMsg)
@@ -270,9 +273,11 @@ routerAdd(
       }
 
       // 2.2 Consulta do Estado das Certidões (Receita Federal / PGFN)
+      // REGRA: Sem webservice real da RFB em produção, certidões NUNCA são gravadas como 'valida'
+      // nem com número oficial fictício. Gravam como 'pendente_emissao', numero_controle 'DEMO-PENDENTE-WEBSERVICE'
+      // e observação explicitando modo demonstração.
       if (syncCertidoes) {
         try {
-          // Checar se existe certidão RFB cadastrada para esta empresa
           const certidoesExistentes = $app.findRecordsByFilter(
             'certidoes',
             "empresa = '" +
@@ -283,55 +288,45 @@ routerAdd(
             0,
           )
 
-          const numControleGerado =
-            'RFB.AUTOSYNC.' +
-            new Date().getFullYear() +
-            '.' +
-            Math.floor(100000 + Math.random() * 900000)
-          const validadeRenovada = new Date(now.getTime() + 180 * 86400000).toISOString() // 180 dias de validade padrão RFB
+          const numControleDemo = 'DEMO-PENDENTE-WEBSERVICE'
+          const obsDemo =
+            'Consulta em modo demonstração — pendente de emissão oficial via webservice e-CAC/RFB.'
           const emissaoData = now.toISOString()
+          const validadePrazo = new Date(now.getTime() + 30 * 86400000).toISOString()
 
           if (certidoesExistentes.length > 0) {
             const certRfb = certidoesExistentes[0]
-            certRfb.set('status', 'valida')
-            certRfb.set('numero_controle', numControleGerado)
+            certRfb.set('status', 'pendente_emissao')
+            certRfb.set('numero_controle', numControleDemo)
             certRfb.set('data_emissao', emissaoData)
-            certRfb.set('data_validade', validadeRenovada)
+            certRfb.set('data_validade', validadePrazo)
             certRfb.set('origem', 'automatica')
-            certRfb.set(
-              'observacoes',
-              'Certidão Negativa consultada e validada via webservice direto do conector RFB em ' +
-                now.toLocaleDateString('pt-BR') +
-                '.',
-            )
+            certRfb.set('observacoes', obsDemo)
             $app.save(certRfb)
             certidoesAtualizadas++
             detalhesSync.certidoes_processadas.push({
               tipo: certRfb.getString('tipo'),
-              status: 'valida',
-              numero_controle: numControleGerado,
+              status: 'pendente_emissao',
+              numero_controle: numControleDemo,
             })
           } else {
-            // Criar certidão CND da Receita
+            // Criar certidão da Receita em estado pendente de emissão
             const novaCert = new Record(certidoesCol)
             novaCert.set('tenant_id', tenantId)
             novaCert.set('empresa', empresaId)
             novaCert.set('tipo', 'receita_pgfn_cnd')
-            novaCert.set('status', 'valida')
-            novaCert.set('numero_controle', numControleGerado)
+            novaCert.set('status', 'pendente_emissao')
+            novaCert.set('numero_controle', numControleDemo)
             novaCert.set('data_emissao', emissaoData)
-            novaCert.set('data_validade', validadeRenovada)
+            novaCert.set('data_validade', validadePrazo)
             novaCert.set('origem', 'automatica')
-            novaCert.set(
-              'observacoes',
-              'Certidão Negativa de Débitos Federais (PGFN/RFB) emitida automaticamente pelo Conector RFB.',
-            )
+            novaCert.set('observacoes', obsDemo)
             $app.save(novaCert)
             certidoesAtualizadas++
             detalhesSync.certidoes_processadas.push({
               tipo: 'receita_pgfn_cnd',
-              status: 'valida',
-              numero_controle: numControleGerado,
+              status: 'pendente_emissao',
+              numero_controle: numControleDemo,
             })
           }
         } catch (errCert) {
@@ -428,13 +423,19 @@ routerAdd(
         log.set('empresa', empresaId)
         log.set('origem_acionamento', origemAcionamento)
         log.set('sucesso', true)
-        log.set('modo_operacao', 'conector_real')
+        log.set('modo_operacao', 'demonstracao')
         log.set('comunicacoes_novas', comunicacoesNovas)
         log.set('certidoes_atualizadas', certidoesAtualizadas)
         log.set('guias_atualizadas', guiasAtualizadas)
         log.set('parcelamentos_atualizados', parcelamentosAtualizados)
         log.set('duracao_ms', duracaoFinal)
-        log.set('mensagem', msgSucesso)
+        log.set(
+          'mensagem',
+          '[Regime de Demonstração] Sincronização executada em modo demonstração. Certidões mantidas como pendente_emissao sem webservice real e comunicações identificadas.',
+        )
+        detalhesSync.regime = 'demonstracao'
+        detalhesSync.aviso_webservice =
+          'Consulta em modo demonstração — pendente de emissão oficial via webservice e-CAC/RFB'
         log.set('detalhes_json', detalhesSync)
         log.set('executado_por', authUser.id)
         $app.save(log)
@@ -444,8 +445,13 @@ routerAdd(
 
       return e.json(200, {
         sucesso: true,
-        modo_operacao: 'conector_real',
-        mensagem: msgSucesso,
+        modo_operacao: 'demonstracao',
+        mensagem:
+          '[Modo Demonstração] Sincronização concluída: ' +
+          comunicacoesNovas +
+          ' comunicação(ões) simulada(s), certidões mantidas como pendente de emissão oficial e ' +
+          (guiasAtualizadas + parcelamentosAtualizados) +
+          ' guia(s)/parcelamento(s) analisados.',
         comunicacoes_novas: comunicacoesNovas,
         certidoes_atualizadas: certidoesAtualizadas,
         guias_atualizadas: guiasAtualizadas,

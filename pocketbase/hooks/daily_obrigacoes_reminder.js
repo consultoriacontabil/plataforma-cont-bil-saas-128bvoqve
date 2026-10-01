@@ -114,6 +114,7 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
           let novasMsgs = 0
           let certsUpd = 0
 
+          // Comunicação DTE do job diário é apenas informativa se houver e com identificador claro
           if (syncEcac) {
             const identRfb = 'DTE-' + rfbEmpresaId.slice(0, 5) + '-CRON-' + nowISO.slice(0, 10)
             const achados = $app.findRecordsByFilter(
@@ -128,10 +129,13 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
               msgCron.set('tenant_id', rfbTenantId)
               msgCron.set('empresa', rfbEmpresaId)
               msgCron.set('tipo', 'aviso_geral')
-              msgCron.set('assunto', 'Varredura Diária DTE RFB: Sem novas intimações pendentes')
+              msgCron.set(
+                'assunto',
+                '[DEMONSTRAÇÃO] Varredura Diária DTE RFB: Sem novas intimações',
+              )
               msgCron.set(
                 'conteudo',
-                'Varredura diária das 08h executada com sucesso pelo Conector RFB. Caixa postal DTE sem novas pendências gravames ou intimações.',
+                '[Demonstração] Varredura diária das 08h executada pelo Conector RFB em modo demonstração. Caixa postal DTE sem novas pendências gravames ou intimações.',
               )
               msgCron.set('data_comunicacao', nowISO)
               msgCron.set('lida', true)
@@ -144,23 +148,38 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
             }
           }
 
+          // REGRA DE OURO: Sem webservice real da RFB em produção, o cron diário NUNCA
+          // atualiza certidões para status 'valida'. Mantém o status existente ou pendente_emissao
+          // se for certidão automática em demonstração.
           if (syncCert) {
             try {
               const certsExistentes = $app.findRecordsByFilter(
                 'certidoes',
                 "empresa = '" +
                   rfbEmpresaId +
-                  "' && (tipo = 'receita_pgfn_cnd' || tipo = 'receita_pgfn_cpen')",
+                  "' && (tipo = 'receita_pgfn_cnd' || tipo = 'receita_pgfn_cpen') && origem = 'automatica'",
                 '-data_validade',
                 1,
                 0,
               )
               if (certsExistentes.length > 0) {
                 const cItem = certsExistentes[0]
-                cItem.set('status', 'valida')
-                cItem.set('origem', 'automatica')
-                $app.save(cItem)
-                certsUpd++
+                // Se era de demonstração/automática, garantir que não fica como 'valida'
+                if (
+                  cItem.getString('status') === 'valida' &&
+                  (!cItem.getString('numero_controle') ||
+                    cItem.getString('numero_controle').indexOf('DEMO') >= 0 ||
+                    cItem.getString('numero_controle').indexOf('RFB.AUTOSYNC') >= 0)
+                ) {
+                  cItem.set('status', 'pendente_emissao')
+                  cItem.set('numero_controle', 'DEMO-PENDENTE-WEBSERVICE')
+                  cItem.set(
+                    'observacoes',
+                    'Consulta em modo demonstração — pendente de emissão oficial via webservice e-CAC/RFB.',
+                  )
+                  $app.save(cItem)
+                  certsUpd++
+                }
               }
             } catch (_) {}
           }
@@ -170,19 +189,20 @@ cronAdd('daily_obrigacoes_reminder', '0 8 * * *', () => {
           logCronReal.set('empresa', rfbEmpresaId)
           logCronReal.set('origem_acionamento', 'cron_diario')
           logCronReal.set('sucesso', true)
-          logCronReal.set('modo_operacao', 'conector_real')
+          logCronReal.set('modo_operacao', 'demonstracao')
           logCronReal.set('comunicacoes_novas', novasMsgs)
           logCronReal.set('certidoes_atualizadas', certsUpd)
           logCronReal.set('duracao_ms', 420)
           logCronReal.set(
             'mensagem',
-            'Sincronização diária das 08h concluída com sucesso via Conector RFB (' +
+            '[Regime de Demonstração] Sincronização diária das 08h executada em regime de demonstração (' +
               rfbAmbiente +
-              ').',
+              '). Certidões não foram forçadas para válidas sem webservice real.',
           )
           logCronReal.set('detalhes_json', {
             anti_flood: true,
             ambiente: rfbAmbiente,
+            regime: 'demonstracao',
             comunicacoes_novas: novasMsgs,
             certidoes_atualizadas: certsUpd,
           })
