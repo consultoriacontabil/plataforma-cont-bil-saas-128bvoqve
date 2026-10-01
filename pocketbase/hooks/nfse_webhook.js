@@ -34,8 +34,217 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
     const iaHoraFim = configRec.getString('ia_horario_fim') || '18:00'
     const iaMsgForaHorario = configRec.getString('ia_mensagem_fora_horario')
 
-    // 2. Extrair payload da Evolution API ou Baileys
+    // 2. Detectar se é Webhook NFE.io
+    // NFE.io envia header X-Hook-Event: service_invoice e body { action: "issued_successfully" | "issued_failed" | "cancelled", ... }
+    const headers = e.requestInfo().headers || {}
+    const hookEvent = headers['x-hook-event'] || headers['X-Hook-Event'] || ''
     const body = e.requestInfo().body || {}
+
+    if (hookEvent === 'service_invoice' || body.action || body.serviceInvoice) {
+      // PROCESSAMENTO DE WEBHOOK NFE.IO
+      const action = body.action || (body.serviceInvoice && body.serviceInvoice.status) || ''
+      const invoice = body.serviceInvoice || body.data || body
+
+      const invoiceId = invoice.id || body.id || ''
+      const numeroNota = invoice.number || body.number || 0
+      const checkCode = invoice.checkCode || body.checkCode || ''
+      const flowStatus = invoice.flowStatus || invoice.status || ''
+      const companyId = invoice.companyId || body.companyId || ''
+      const errorMessage =
+        invoice.errorMessage ||
+        (invoice.flowMessage && invoice.flowMessage.message) ||
+        body.errorMessage ||
+        ''
+
+      console.log(
+        `[NFEIO-WEBHOOK] Ação: ${action}, Invoice: ${invoiceId}, Número: ${numeroNota}, Status: ${flowStatus}`,
+      )
+
+      // 2.1. Localizar nota fiscal emitida vinculada ou solicitação
+      let notaRec = null
+      try {
+        if (invoiceId) {
+          const notas = $app.findRecordsByFilter(
+            'nfse_notas_emitidas',
+            `tenant_id = "${tenantId}" && (chave_acesso = "${invoiceId}" || protocolo_autorizacao = "${invoiceId}")`,
+            '-created',
+            1,
+            0,
+          )
+          if (notas.length > 0) notaRec = notas[0]
+        }
+      } catch (_) {}
+
+      let solicitacaoRec = null
+      if (notaRec) {
+        const solId = notaRec.getString('solicitacao')
+        if (solId) {
+          try {
+            solicitacaoRec = $app.findCollectionByNameOrId('nfse_solicitacoes').getRecord(solId)
+          } catch (_) {}
+        }
+      }
+
+      const empresaIdNota = (notaRec && notaRec.getString('empresa')) || empresaPadraoId
+
+      // 2.2. issued_successfully: nota vira emitida, grava XML/PDF no GED (documentos), audit_log
+      if (
+        action === 'issued_successfully' ||
+        flowStatus === 'Issued' ||
+        action === 'IssuedSuccessfully'
+      ) {
+        if (notaRec) {
+          notaRec.set('status', 'emitida')
+          if (numeroNota) notaRec.set('numero_nota', Number(numeroNota))
+          if (checkCode) notaRec.set('codigo_verificacao', checkCode)
+          if (invoice.xml) notaRec.set('xml_conteudo', invoice.xml)
+          if (invoice.uri) notaRec.set('url_consulta_nfse', invoice.uri)
+
+          // Inserir ou atualizar documento no GED da empresa
+          try {
+            const docsCol = $app.findCollectionByNameOrId('documentos')
+            const docGed = new Record(docsCol)
+            docGed.set('tenant_id', tenantId)
+            if (empresaIdNota) docGed.set('empresa_id', empresaIdNota)
+            docGed.set(
+              'nome_arquivo',
+              `NFS-e_${numeroNota || notaRec.getInt('numero_nota')}_NFEIO.xml`,
+            )
+            docGed.set('tipo', 'nota_fiscal')
+            docGed.set('status', 'processado')
+            docGed.set('origem_documento', 'sistema')
+            docGed.set(
+              'observacoes',
+              `NFS-e autorizada via NFE.io. Cód. Verificação: ${checkCode || notaRec.getString('codigo_verificacao')}. Ref ID: ${invoiceId}`,
+            )
+            $app.save(docGed)
+
+            notaRec.set('ged_documento_id', docGed.id)
+          } catch (errGed) {
+            console.log('[NFEIO-WEBHOOK] Erro ao gravar GED:', errGed)
+          }
+
+          $app.save(notaRec)
+        }
+
+        if (solicitacaoRec) {
+          solicitacaoRec.set('status', 'emitida')
+          $app.save(solicitacaoRec)
+        }
+
+        // Registrar no audit_log
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_log')
+          const audit = new Record(auditCol)
+          audit.set('tenant_id', tenantId)
+          audit.set('acao', 'NFSE_EMITIDA_NFEIO_WEBHOOK')
+          audit.set('entidade_tipo', 'nfse_notas_emitidas')
+          audit.set('entidade_id', notaRec ? notaRec.id : invoiceId)
+          audit.set(
+            'detalhes',
+            JSON.stringify({
+              action,
+              numero_nota: numeroNota,
+              codigo_verificacao: checkCode,
+              empresa_id: empresaIdNota,
+              invoice_id: invoiceId,
+            }),
+          )
+          $app.save(audit)
+        } catch (_) {}
+
+        return e.json(200, {
+          status: 'processado',
+          action: 'issued_successfully',
+          nota_id: notaRec ? notaRec.id : null,
+        })
+      }
+
+      // 2.3. issued_failed: vira erro_emissao com mensagem
+      if (action === 'issued_failed' || flowStatus === 'Failed' || action === 'IssuedFailed') {
+        if (notaRec) {
+          notaRec.set('status', 'erro_emissao')
+          $app.save(notaRec)
+        }
+
+        if (solicitacaoRec) {
+          solicitacaoRec.set('status', 'erro_emissao')
+          solicitacaoRec.set(
+            'ultimo_erro_emissao',
+            errorMessage || 'Rejeição informada pela NFE.io',
+          )
+          $app.save(solicitacaoRec)
+        }
+
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_log')
+          const audit = new Record(auditCol)
+          audit.set('tenant_id', tenantId)
+          audit.set('acao', 'NFSE_ERRO_EMISSAO_NFEIO_WEBHOOK')
+          audit.set('entidade_tipo', 'nfse_notas_emitidas')
+          audit.set('entidade_id', notaRec ? notaRec.id : invoiceId)
+          audit.set(
+            'detalhes',
+            JSON.stringify({
+              action,
+              erro: errorMessage,
+              empresa_id: empresaIdNota,
+              invoice_id: invoiceId,
+            }),
+          )
+          $app.save(audit)
+        } catch (_) {}
+
+        return e.json(200, {
+          status: 'processado',
+          action: 'issued_failed',
+          mensagem: errorMessage,
+        })
+      }
+
+      // 2.4. cancelled: cancelada
+      if (action === 'cancelled' || flowStatus === 'Cancelled' || action === 'Cancelled') {
+        if (notaRec) {
+          notaRec.set('status', 'cancelada')
+          notaRec.set('data_cancelamento', new Date().toISOString())
+          notaRec.set(
+            'motivo_cancelamento',
+            errorMessage || 'Cancelamento processado via NFE.io Webhook',
+          )
+          $app.save(notaRec)
+        }
+
+        try {
+          const auditCol = $app.findCollectionByNameOrId('audit_log')
+          const audit = new Record(auditCol)
+          audit.set('tenant_id', tenantId)
+          audit.set('acao', 'NFSE_CANCELADA_NFEIO_WEBHOOK')
+          audit.set('entidade_tipo', 'nfse_notas_emitidas')
+          audit.set('entidade_id', notaRec ? notaRec.id : invoiceId)
+          audit.set(
+            'detalhes',
+            JSON.stringify({
+              action,
+              invoice_id: invoiceId,
+            }),
+          )
+          $app.save(audit)
+        } catch (_) {}
+
+        return e.json(200, {
+          status: 'processado',
+          action: 'cancelled',
+          nota_id: notaRec ? notaRec.id : null,
+        })
+      }
+
+      return e.json(200, {
+        status: 'ignorado',
+        motivo: `Ação ${action} não mapeada para alteração de estado`,
+      })
+    }
+
+    // 2. Extrair payload da Evolution API ou Baileys
 
     let textoMensagem = ''
     let remoteJid = ''

@@ -246,6 +246,8 @@ export const nfseWhatsappService = {
     let usuario = empConfig?.usuario
     let senhaToken = empConfig?.senhaToken
     let senha = empConfig?.senha
+    const nfeioApiKey = empConfig?.nfeioApiKey || config?.nfeio_api_key
+    const nfeioCompanyId = empConfig?.nfeioCompanyId || config?.nfeio_company_id
 
     if (adapter.id === 'governacional') {
       apiUrl = apiUrl || config?.govbr_api_url || 'https://nfse.receita.fazenda.gov.br/portalnfse'
@@ -283,6 +285,8 @@ export const nfseWhatsappService = {
         usuario,
         senhaToken,
         senha,
+        nfeioApiKey,
+        nfeioCompanyId,
       },
     })
 
@@ -601,6 +605,8 @@ export const nfseWhatsappService = {
     let usuario = empConfig?.usuario
     let senhaToken = empConfig?.senhaToken
     let senha = empConfig?.senha
+    const nfeioApiKey = empConfig?.nfeioApiKey || config?.nfeio_api_key
+    const nfeioCompanyId = empConfig?.nfeioCompanyId || config?.nfeio_company_id
 
     if (adapter.id === 'governacional') {
       apiUrl = apiUrl || config?.govbr_api_url || 'https://nfse.receita.fazenda.gov.br/portalnfse'
@@ -667,6 +673,8 @@ export const nfseWhatsappService = {
         usuario,
         senhaToken,
         senha,
+        nfeioApiKey,
+        nfeioCompanyId,
       },
     }
 
@@ -807,7 +815,9 @@ export const nfseWhatsappService = {
       modo_emissao:
         resultadoEmissao.modo === 'governacional_real'
           ? 'nacional_gov'
-          : resultadoEmissao.modo === 'betha_real' || resultadoEmissao.modo === 'ginfes_real'
+          : resultadoEmissao.modo === 'betha_real' ||
+              resultadoEmissao.modo === 'ginfes_real' ||
+              resultadoEmissao.modo === 'nfeio_real'
             ? 'prefeitura_ws'
             : 'simulacao',
       provedor_usado: adapter.id,
@@ -1023,8 +1033,11 @@ export const nfseWhatsappService = {
     usuario?: string
     senhaToken?: string
     senha?: string
+    apiKey?: string
+    companyId?: string
     municipioIbge?: string
     empresaId?: string
+    ambiente?: 'producao' | 'homologacao'
   }): Promise<{ sucesso: boolean; mensagem: string; statusCode?: number; detalhe?: string }> {
     const adapter = FiscalAdapterFactory.getAdapter(params.provedor)
     return adapter.testarConexao({
@@ -1034,9 +1047,12 @@ export const nfseWhatsappService = {
       usuario: params.usuario,
       senhaToken: params.senhaToken,
       senha: params.senha,
+      apiKey: params.apiKey,
+      companyId: params.companyId,
       municipioIbge: params.municipioIbge,
       empresaId: params.empresaId,
       tenantId: params.tenantId,
+      ambiente: params.ambiente,
     })
   },
 }

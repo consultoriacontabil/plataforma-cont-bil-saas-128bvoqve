@@ -1,10 +1,12 @@
 import type { NfseFiscalAdapter } from './types'
 import { GovBrFiscalAdapter } from './govbrAdapter'
 import { BethaFiscalAdapter, GinfesFiscalAdapter } from './extensionAdapters'
+import { NfeIoFiscalAdapter } from './nfeioAdapter'
 
 export * from './types'
 export * from './govbrAdapter'
 export * from './extensionAdapters'
+export * from './nfeioAdapter'
 
 /**
  * Fábrica e catálogo de Provedores Fiscais de NFS-e (Adapter Pattern)
@@ -14,6 +16,7 @@ export class FiscalAdapterFactory {
     ['governacional', new GovBrFiscalAdapter()],
     ['betha', new BethaFiscalAdapter()],
     ['ginfes', new GinfesFiscalAdapter()],
+    ['nfeio', new NfeIoFiscalAdapter()],
   ])
 
   public static getAdapter(id?: string): NfseFiscalAdapter {

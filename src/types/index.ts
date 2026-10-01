@@ -169,6 +169,38 @@ export interface Documento extends RecordModel {
   }
 }
 
+export type StatusPedidoDocumento = 'pendente' | 'parcialmente_atendido' | 'atendido' | 'cancelado'
+
+export type StatusItemPedidoDocumento = 'solicitado' | 'recebido' | 'nao_enviado'
+
+export interface ItemStatusPedidoDocumento {
+  id: string
+  tipo: 'extratos' | 'cartoes' | 'maquininhas' | 'credito'
+  detalhe: string
+  status: StatusItemPedidoDocumento
+  documento_ged_id?: string
+  recebido_em?: string
+  banco_conta_id?: string
+  plataforma?: string
+}
+
+export interface PedidoDocumentoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  competencia: string // MM/AAAA
+  token_publico: string
+  status: StatusPedidoDocumento
+  tipos_solicitados: string[]
+  itens_status: ItemStatusPedidoDocumento[]
+  link_expira_em?: string
+  ultimo_envio_whatsapp_em?: string
+  criado_por?: string
+  expand?: {
+    empresa?: Empresa
+    criado_por?: User
+  }
+}
+
 export type WorkflowTipo =
   | 'abertura_empresa'
   | 'alteracao_contratual'
@@ -1649,7 +1681,7 @@ export type ModoOperacaoNfse = 'simulacao' | 'producao'
 export type ModoEmissaoNfse = 'simulacao' | 'nacional_gov' | 'prefeitura_ws'
 export type StatusNfseNota = 'emitida' | 'cancelada' | 'substituida'
 
-export type ProvedorFiscalTipo = 'governacional' | 'betha' | 'ginfes'
+export type ProvedorFiscalTipo = 'governacional' | 'betha' | 'ginfes' | 'nfeio'
 export type ProvedorAmbiente = 'producao' | 'homologacao'
 
 export interface ProvedorEmpresaConfig {
@@ -1662,6 +1694,8 @@ export interface ProvedorEmpresaConfig {
   usuario?: string
   senhaToken?: string
   senha?: string
+  nfeioApiKey?: string
+  nfeioCompanyId?: string
 }
 
 export interface NfseConfigRecord extends RecordModel {
@@ -1689,6 +1723,9 @@ export interface NfseConfigRecord extends RecordModel {
   ginfes_usuario?: string
   ginfes_senha?: string
   ginfes_api_url?: string
+  // NFE.io
+  nfeio_api_key?: string
+  nfeio_company_id?: string
   // Configurações por Empresa
   provedores_empresas_json?: Record<string, ProvedorEmpresaConfig>
   ultimo_teste_provedor?: {

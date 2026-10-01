@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T23:52:39.648Z",
+  "generatedAt": "2026-10-01T17:53:22.774Z",
   "collections": [
     {
       "name": "users",
@@ -4521,7 +4521,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["governacional", "betha", "ginfes"]
+          "selectValues": ["governacional", "betha", "ginfes", "nfeio"]
         },
         {
           "name": "provedor_ambiente",
@@ -4659,6 +4659,18 @@
         },
         {
           "name": "beneficiario_padrao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nfeio_api_key",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nfeio_company_id",
           "type": "text",
           "required": false,
           "system": false
@@ -11041,6 +11053,105 @@
         "CREATE INDEX idx_bkp_exec_data ON backups_execucoes (data_execucao DESC)",
         "CREATE INDEX idx_bkp_exec_tipo ON backups_execucoes (tipo)",
         "CREATE INDEX idx_bkp_exec_status ON backups_execucoes (status)"
+      ]
+    },
+    {
+      "name": "pedidos_documentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || token_publico != ''",
+        "view": "@request.auth.id != '' || token_publico != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' || token_publico != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "token_publico",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "parcialmente_atendido", "atendido", "cancelado"]
+        },
+        {
+          "name": "tipos_solicitados",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "itens_status",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_expira_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_envio_whatsapp_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pedidos_doc_tenant ON pedidos_documentos (tenant_id)",
+        "CREATE INDEX idx_pedidos_doc_empresa ON pedidos_documentos (empresa)",
+        "CREATE INDEX idx_pedidos_doc_comp ON pedidos_documentos (competencia)",
+        "CREATE UNIQUE INDEX idx_pedidos_doc_token ON pedidos_documentos (token_publico)",
+        "CREATE INDEX idx_pedidos_doc_status ON pedidos_documentos (status)",
+        "CREATE INDEX idx_pedidos_doc_created ON pedidos_documentos (created DESC)"
       ]
     }
   ]

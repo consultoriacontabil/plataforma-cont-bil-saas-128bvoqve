@@ -4,7 +4,7 @@ import { Bot, ShieldAlert, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
-export type TipoIntegracaoAutonomia = 'certificado_a1' | 'evolution_api' | 'geral'
+export type TipoIntegracaoAutonomia = 'certificado_a1' | 'evolution_api' | 'nfeio' | 'geral'
 
 export interface BadgeTransmissaoAutonomiaProps {
   /**
@@ -64,7 +64,9 @@ export function BadgeTransmissaoAutonomia({
       ? 'e-CNPJ A1'
       : tipo === 'evolution_api'
         ? 'Evolution API'
-        : 'Credencial'
+        : tipo === 'nfeio'
+          ? 'NFE.io'
+          : 'Credencial'
 
   const tooltipTextoPadrao = isCredenciado
     ? `Credencial ${rotuloTipo} válida e vinculada. Transmissões e rotinas operam com autonomia total.`

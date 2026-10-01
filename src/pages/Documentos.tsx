@@ -22,6 +22,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { documentosService } from '@/services/documentos'
 import { empresasService } from '@/services/empresas'
+import { pedidosDocumentosService } from '@/services/pedidosDocumentosService'
 import { useRealtime } from '@/hooks/use-realtime'
 import { formatDatePtBr } from '@/lib/formatters'
 import type { Documento, Empresa, DocumentoTipo, DocumentoStatus } from '@/types'

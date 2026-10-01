@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { BadgeTransmissaoAutonomia } from '@/components/BadgeTransmissaoAutonomia'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -243,31 +244,25 @@ export default function NfseWhatsappPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Badge de Transmissão e Autonomia Coerente */}
+          <BadgeTransmissaoAutonomia
+            tipo={config?.provedor_fiscal === 'nfeio' ? 'nfeio' : 'certificado_a1'}
+            isCredenciado={
+              config?.provedor_fiscal === 'nfeio'
+                ? !!(config?.nfeio_api_key?.trim() && config?.nfeio_company_id?.trim())
+                : config?.modo_operacao === 'producao' &&
+                  !!(config?.govbr_client_id && config?.govbr_client_secret)
+            }
+            configUrl="/nfse-whatsapp"
+            size="md"
+          />
+
           <Badge
             variant="outline"
-            className={`text-xs py-1 px-2.5 font-medium flex items-center gap-1.5 shadow-xs ${
-              config?.modo_operacao === 'producao' &&
-              config?.govbr_client_id &&
-              config?.govbr_client_secret
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}
-            title={
-              config?.modo_operacao === 'producao'
-                ? 'Emissão conectada aos Provedores Fiscais Ativos (Gov.br / Betha / Ginfes).'
-                : 'A plataforma opera em Modo Simulação Controlada, com validação ABRASF local, gerando XMLs válidos e DANFSE com número sequencial.'
-            }
+            className="text-xs py-1 px-2.5 font-medium flex items-center gap-1.5 shadow-xs bg-slate-50 text-slate-800 border-slate-300"
           >
-            <Radio
-              className={`h-3 w-3 ${
-                config?.modo_operacao === 'producao'
-                  ? 'text-emerald-600 animate-pulse'
-                  : 'text-amber-500 animate-pulse'
-              }`}
-            />
-            {config?.modo_operacao === 'producao'
-              ? `PRODUÇÃO — ${(config?.provedor_fiscal || 'govbr').toUpperCase()}`
-              : 'Modo Simulação Controlada'}
+            <Radio className="h-3 w-3 text-[#0FA3A3] animate-pulse" />
+            <span>Provedor: {(config?.provedor_fiscal || 'governacional').toUpperCase()}</span>
           </Badge>
 
           <Button

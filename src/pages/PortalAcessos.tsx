@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Users, UserPlus, Trash2, Search, MessageSquare, CreditCard } from 'lucide-react'
+import {
+  Users,
+  UserPlus,
+  Trash2,
+  Search,
+  MessageSquare,
+  CreditCard,
+  FolderInput,
+} from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { portalService } from '@/services/portal'
 import { empresasService } from '@/services/empresas'
@@ -11,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WhatsAppEnvioAtivoPanel } from '@/components/WhatsAppEnvioAtivoPanel'
 import { CobrancasTab } from '@/components/CobrancasTab'
+import { PedidosDocumentosTab } from '@/components/PedidosDocumentosTab'
 import {
   Select,
   SelectContent,
@@ -190,6 +199,16 @@ export default function PortalAcessosPage() {
             <span>Acessos & Logins ({acessos.length})</span>
           </TabsTrigger>
           <TabsTrigger
+            value="pedidos-documentos"
+            className="rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-2xs gap-2 px-4"
+          >
+            <FolderInput className="h-4 w-4" />
+            <span>Pedidos de Documentos</span>
+            <Badge className="bg-[#0FA3A3]/20 text-[#0FA3A3] text-[10px] ml-1 font-bold">
+              NOVO
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger
             value="whatsapp-ativo"
             className="rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-2xs gap-2 px-4"
           >
@@ -202,9 +221,6 @@ export default function PortalAcessosPage() {
           >
             <CreditCard className="h-4 w-4" />
             <span>Cobrança Boleto/PIX</span>
-            <Badge className="bg-[#0FA3A3]/20 text-[#0FA3A3] text-[10px] ml-1 font-bold">
-              NOVO
-            </Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -304,7 +320,16 @@ export default function PortalAcessosPage() {
           </div>
         </TabsContent>
 
-        {/* ABA 2: ENVIO ATIVO POR WHATSAPP */}
+        {/* ABA 2: PEDIDOS DE DOCUMENTOS */}
+        <TabsContent value="pedidos-documentos">
+          <PedidosDocumentosTab
+            tenantId={tenant?.id || ''}
+            empresas={empresas}
+            canEdit={canManage}
+          />
+        </TabsContent>
+
+        {/* ABA 3: ENVIO ATIVO POR WHATSAPP */}
         <TabsContent value="whatsapp-ativo">
           <WhatsAppEnvioAtivoPanel
             tenantId={tenant?.id || ''}

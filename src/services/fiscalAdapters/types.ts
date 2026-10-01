@@ -54,6 +54,9 @@ export interface NfseEmissaoPayload {
     senhaToken?: string
     // Credenciais Ginfes
     senha?: string
+    // Credenciais NFE.io
+    nfeioApiKey?: string
+    nfeioCompanyId?: string
   }
 }
 
@@ -62,7 +65,13 @@ export interface NfseEmissaoPayload {
  */
 export interface NfseEmissaoResult {
   sucesso: boolean
-  modo: 'governacional_real' | 'simulacao' | 'betha_real' | 'ginfes_real'
+  modo:
+    | 'governacional_real'
+    | 'simulacao'
+    | 'betha_real'
+    | 'ginfes_real'
+    | 'nfeio_real'
+    | 'aguardando_credenciais'
   numeroNota: number
   codigoVerificacao: string
   chaveAcesso?: string
@@ -152,6 +161,8 @@ export interface NfseCancelamentoPayload {
     usuario?: string
     senhaToken?: string
     senha?: string
+    nfeioApiKey?: string
+    nfeioCompanyId?: string
   }
 }
 
@@ -160,7 +171,13 @@ export interface NfseCancelamentoPayload {
  */
 export interface NfseCancelamentoResult {
   sucesso: boolean
-  modo: 'governacional_real' | 'simulacao' | 'betha_real' | 'ginfes_real'
+  modo:
+    | 'governacional_real'
+    | 'simulacao'
+    | 'betha_real'
+    | 'ginfes_real'
+    | 'nfeio_real'
+    | 'aguardando_credenciais'
   numeroNota: number
   codigoVerificacao: string
   protocoloCancelamento?: string
@@ -179,7 +196,7 @@ export interface NfseCancelamentoResult {
  * Interface do Adapter Fiscal para conformidade com provedores municipais e nacionais
  */
 export interface NfseFiscalAdapter {
-  id: 'governacional' | 'betha' | 'ginfes'
+  id: 'governacional' | 'betha' | 'ginfes' | 'nfeio'
   nome: string
   statusDisponibilidade: 'ativo' | 'em_breve'
   descricao: string
@@ -194,6 +211,8 @@ export interface NfseFiscalAdapter {
     usuario?: string
     senhaToken?: string
     senha?: string
+    apiKey?: string
+    companyId?: string
     municipioIbge?: string
     empresaId?: string
     tenantId?: string

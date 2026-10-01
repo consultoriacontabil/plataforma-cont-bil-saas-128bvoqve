@@ -29,6 +29,9 @@ routerAdd(
         return e.badRequestError('tenant_id é obrigatório')
       }
 
+      const apiKey = body.api_key || body.apiKey || ''
+      const companyId = body.company_id || body.companyId || ''
+
       // 1. Verificar se a empresa tem certificado A1 ativo
       let certInfo = null
       if (empresaId) {
@@ -47,7 +50,99 @@ routerAdd(
         } catch (_) {}
       }
 
-      // 2. Executar teste conforme o provedor
+      // 2. Provedor NFE.io: GET https://api.nfe.io/v1/companies com Authorization: <chave>
+      if (provedor === 'nfeio') {
+        if (!apiKey) {
+          return e.json(200, {
+            sucesso: false,
+            provedor: 'nfeio',
+            mensagem: 'Chave incorreta: informe a chave de API da NFE.io para testar a conexão.',
+            detalhe:
+              'A chave privada pode ser obtida no painel NFE.io em Conta > Chaves de Acesso.',
+            certificado: certInfo,
+          })
+        }
+
+        try {
+          const nfeioEndpoint = 'https://api.nfe.io/v1/companies'
+          const resp = $http.send({
+            url: nfeioEndpoint,
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              Authorization: apiKey,
+            },
+            timeout: 10,
+          })
+
+          if (resp.statusCode === 200) {
+            let empresasEncontradas = []
+            try {
+              const resJson = resp.json
+              if (resJson && Array.isArray(resJson.companies)) {
+                empresasEncontradas = resJson.companies.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  federalTaxNumber: c.federalTaxNumber,
+                  status: c.status,
+                }))
+              } else if (Array.isArray(resJson)) {
+                empresasEncontradas = resJson.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  federalTaxNumber: c.federalTaxNumber,
+                  status: c.status,
+                }))
+              }
+            } catch (_) {}
+
+            const qtd = empresasEncontradas.length
+            return e.json(200, {
+              sucesso: true,
+              provedor: 'nfeio',
+              status_code: 200,
+              mensagem:
+                'Conectada: Conexão real estabelecida com a NFE.io! ' +
+                (qtd > 0
+                  ? `${qtd} empresa(s) identificada(s) na conta.`
+                  : 'Conta validada com sucesso.'),
+              detalhe: JSON.stringify(empresasEncontradas),
+              empresas_encontradas: empresasEncontradas,
+              certificado: certInfo,
+            })
+          } else if (resp.statusCode === 401) {
+            return e.json(200, {
+              sucesso: false,
+              provedor: 'nfeio',
+              status_code: 401,
+              mensagem: 'Chave incorreta: a NFE.io rejeitou a chave de API informada (HTTP 401).',
+              detalhe: 'Verifique se a chave de acesso possui permissão de leitura.',
+              certificado: certInfo,
+            })
+          } else {
+            return e.json(200, {
+              sucesso: false,
+              provedor: 'nfeio',
+              status_code: resp.statusCode,
+              mensagem: `A API da NFE.io respondeu com status HTTP ${resp.statusCode}.`,
+              detalhe: (resp.rawText || '').slice(0, 500),
+              certificado: certInfo,
+            })
+          }
+        } catch (errHttp) {
+          const errMsg = errHttp.message || String(errHttp)
+          return e.json(200, {
+            sucesso: false,
+            provedor: 'nfeio',
+            mensagem:
+              'URL inalcançável: Falha de rede/DNS ou timeout ao conectar com a API da NFE.io.',
+            detalhe: errMsg,
+            certificado: certInfo,
+          })
+        }
+      }
+
+      // 3. Executar teste conforme o provedor
       if (provedor === 'governacional') {
         const govApiUrl = apiUrl || 'https://nfse.receita.fazenda.gov.br/portalnfse'
         if (!clientId || !clientSecret) {

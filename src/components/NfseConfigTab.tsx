@@ -114,6 +114,10 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
     config?.ginfes_api_url || 'https://homologacao.ginfes.com.br/ServiceGinfesImpl',
   )
 
+  // Credenciais NFE.io Gerais
+  const [nfeioApiKey, setNfeioApiKey] = useState<string>(config?.nfeio_api_key || '')
+  const [nfeioCompanyId, setNfeioCompanyId] = useState<string>(config?.nfeio_company_id || '')
+
   // Configuração por Empresa (Override Individual)
   const [empresaSelecionadaConfig, setEmpresaSelecionadaConfig] = useState<string>(
     empresas.length > 0 ? empresas[0].id : '',
@@ -262,6 +266,8 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           ginfes_usuario: ginfesUsuario.trim(),
           ginfes_senha: ginfesSenha.trim(),
           ginfes_api_url: ginfesApiUrl.trim(),
+          nfeio_api_key: nfeioApiKey.trim(),
+          nfeio_company_id: nfeioCompanyId.trim(),
           provedores_empresas_json: provedoresEmpresas,
           msg_saudacao: msgSaudacao.trim(),
           msg_recebimento: msgRecebimento.trim(),
@@ -418,6 +424,9 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
     let senha = confEmp?.senha
     const codIbge = confEmp?.municipioIbge || municipioIbge
 
+    const apiKey = confEmp?.nfeioApiKey || nfeioApiKey
+    const companyId = confEmp?.nfeioCompanyId || nfeioCompanyId
+
     if (prov === 'governacional') {
       apiUrl = apiUrl || govbrApiUrl
     } else if (prov === 'betha') {
@@ -440,8 +449,11 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
         usuario,
         senhaToken,
         senha,
+        apiKey,
+        companyId,
         municipioIbge: codIbge,
         empresaId: empId,
+        ambiente: provedorAmbiente,
       })
 
       setResultadoTesteProvedor(res)
@@ -754,6 +766,49 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
                   </div>
                 </div>
               )}
+
+              {empAtualConfig.provedor === 'nfeio' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#1A2333]">
+                      <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+                      Credenciais NFE.io da Empresa (API REST v1)
+                    </div>
+                    <span className="text-[10px] text-[#64748B]">
+                      Acesse app.nfe.io &gt; Chaves de Acesso
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-[#1A2333]">
+                        Chave de API NFE.io (Empresa)
+                      </Label>
+                      <Input
+                        type="password"
+                        value={empAtualConfig.nfeioApiKey || ''}
+                        onChange={(e) => handleUpdateEmpresaConfig('nfeioApiKey', e.target.value)}
+                        placeholder="••••••••••••••••••••"
+                        className="h-8 text-xs bg-white font-mono"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-medium text-[#1A2333]">
+                        Company ID (NFE.io)
+                      </Label>
+                      <Input
+                        value={empAtualConfig.nfeioCompanyId || ''}
+                        onChange={(e) =>
+                          handleUpdateEmpresaConfig('nfeioCompanyId', e.target.value)
+                        }
+                        placeholder="Ex: 507f1f77bcf86cd799439011"
+                        className="h-8 text-xs bg-white font-mono"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Ação rápida de testar conexão para a empresa selecionada */}
@@ -1020,6 +1075,54 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
                     />
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Credenciais Globais NFE.io */}
+            {provedorFiscal === 'nfeio' && (
+              <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                    Credenciais Globais NFE.io (Plataforma Fiscal em Nuvem)
+                  </span>
+                  <span className="text-[10px] text-teal-800 font-medium">
+                    API REST v1 com Webhooks Assíncronos
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-medium text-[#1A2333]">
+                      Chave de API Privada (NFE.io)
+                    </Label>
+                    <Input
+                      type="password"
+                      value={nfeioApiKey}
+                      onChange={(e) => setNfeioApiKey(e.target.value)}
+                      placeholder="Ex: nfeio_live_key_..."
+                      className="h-8 text-xs bg-white font-mono"
+                      disabled={!canEdit}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-medium text-[#1A2333]">
+                      Company ID Padrão (Opcional)
+                    </Label>
+                    <Input
+                      value={nfeioCompanyId}
+                      onChange={(e) => setNfeioCompanyId(e.target.value)}
+                      placeholder="Ex: 507f1f77bcf86cd799439011"
+                      className="h-8 text-xs bg-white font-mono"
+                      disabled={!canEdit}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#64748B]">
+                  A Chave de API permite validar contas e emitir em mais de 1.500 municípios. O
+                  retorno das notas autorizadas será recebido via webhook.
+                </p>
               </div>
             )}
           </div>
