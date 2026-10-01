@@ -148,19 +148,63 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
   })
 
   var proxyConfigurado = Boolean(proxyMtlsUrl && proxyMtlsUrl.trim().length >= 8)
-  if (!proxyConfigurado) {
+  var proxyHealthOk = false
+  var proxyHealthErro = ''
+  var proxyMtlsAtivoNoServidor = false
+
+  // Se proxyMtlsUrl estiver preenchido, validar saúde do proxy via chamada real a /health
+  if (proxyConfigurado) {
+    try {
+      var healthUrl = proxyMtlsUrl.trim().replace(/\/$/, '') + '/health'
+      var resHealth = $http.send({
+        url: healthUrl,
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        timeout: 10,
+      })
+      if (resHealth.statusCode >= 200 && resHealth.statusCode < 300) {
+        proxyHealthOk = true
+        var hJson = resHealth.json || {}
+        if (hJson.mtls_a1_configurado) {
+          proxyMtlsAtivoNoServidor = true
+        }
+        itens.push({
+          item: 'Túnel / Proxy mTLS',
+          status: 'ok',
+          detalhe:
+            'Proxy mTLS acessível e operacional (' +
+            proxyMtlsUrl.trim().slice(0, 35) +
+            (proxyMtlsAtivoNoServidor
+              ? ' — Certificado A1 cliente ativo)'
+              : ' — Aviso: cert cliente não detectado no proxy)'),
+        })
+      } else {
+        proxyHealthErro = 'Proxy retornou HTTP ' + resHealth.statusCode
+        itens.push({
+          item: 'Túnel / Proxy mTLS',
+          status: 'erro',
+          detalhe:
+            'Proxy mTLS configurado mas inalcançável (' +
+            proxyHealthErro +
+            '): ' +
+            proxyMtlsUrl.trim(),
+        })
+      }
+    } catch (errH) {
+      proxyHealthErro = String(errH)
+      itens.push({
+        item: 'Túnel / Proxy mTLS',
+        status: 'erro',
+        detalhe: 'Falha de comunicação com o proxy mTLS: ' + proxyHealthErro,
+      })
+    }
+  } else {
     modoSupervisao = true
     itens.push({
       item: 'Túnel / Proxy mTLS',
       status: 'alerta',
       detalhe:
         'Proxy mTLS não configurado. O PocketBase não anexa certificado cliente nativo no handshake TLS; opera em Modo Supervisão declarada.',
-    })
-  } else {
-    itens.push({
-      item: 'Túnel / Proxy mTLS',
-      status: 'ok',
-      detalhe: 'Proxy mTLS configurado: ' + proxyMtlsUrl.trim().slice(0, 30) + '...',
     })
   }
 
@@ -174,8 +218,9 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
       var basicCredentials = $security.base64Encode(
         consumerKey.trim() + ':' + consumerSecret.trim(),
       )
+      // Se proxy configurado e respondendo, canalizamos a obtenção de token através do proxy
       var targetTokenUrl = 'https://gateway.apiserpro.serpro.gov.br/token'
-      if (proxyConfigurado) {
+      if (proxyConfigurado && proxyHealthOk) {
         targetTokenUrl = proxyMtlsUrl.trim().replace(/\/$/, '') + '/token'
       }
 
@@ -263,13 +308,20 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
     statusConexaoFinal = 'modo_supervisao'
     mensagemFinal =
       'Credenciais SERPRO autenticadas com sucesso! Sem o proxy mTLS para certificado A1, consultas que exigem certificado cliente operam em Modo Supervisão honesta.'
+  } else if (!proxyHealthOk) {
+    diagnosticoTipo = 'proxy_mtls_erro'
+    statusConexaoFinal = 'erro_credenciais'
+    mensagemFinal =
+      'Proxy mTLS configurado, mas inalcançável (' +
+      proxyHealthErro +
+      '). Verifique a VPS ou mantenha o campo vazio para operar em Modo Supervisão.'
   } else {
     diagnosticoTipo = 'credenciado'
     statusConexaoFinal = 'conectado'
     mensagemFinal =
       'Integra Contador SERPRO credenciado e operacional no ambiente de ' +
       (ambiente === 'producao' ? 'Produção' : 'Trial') +
-      '.'
+      ' através do proxy mTLS.'
   }
 
   var resultado = {

@@ -1,0 +1,25 @@
+{
+  "name": "serpro-mtls-proxy",
+  "version": "1.0.0",
+  "description": "Proxy HTTPS reverso mTLS para o SERPRO Integra Contador com certificado cliente A1",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "serpro",
+    "mtls",
+    "e-cac",
+    "integra-contador",
+    "proxy",
+    "a1",
+    "pfx"
+  ],
+  "author": "Rumo Consultoria Contábil",
+  "license": "UNLICENSED",
+  "private": true
+}

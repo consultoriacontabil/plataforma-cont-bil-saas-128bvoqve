@@ -1,0 +1,9 @@
+# Arquivos e pastas a ignorar no Git para serpro-mtls-proxy
+node_modules/
+certs/*.pfx
+certs/*.p12
+certs/*.pem
+certs/*.crt
+certs/*.key
+*.env
+*.log

@@ -1,0 +1,19 @@
+# Exemplo de configuração de variáveis de ambiente para a VPS
+# Copie este conteúdo para um arquivo `.env` local na sua VPS dentro de /opt/serpro-mtls/
+# NUNCA commite arquivos .env ou senhas no Git!
+
+PORT=8443
+HOST=0.0.0.0
+SERPRO_UPSTREAM=https://gateway.apiserpro.serpro.gov.br
+
+# OPÇÃO A: Certificado e-CNPJ A1 direto em PFX (recomendado)
+TLS_PFX_PATH=/certs/certificado_a1.pfx
+TLS_PFX_PASSPHRASE=coloque_a_senha_do_seu_a1_aqui
+
+# OPÇÃO B: Certificados PEM convertidos (caso prefira cert.pem + key.pem)
+# TLS_CERT_PATH=/certs/cert.pem
+# TLS_KEY_PATH=/certs/key.pem
+
+# Opcional: restrição de IPs permitidos (separados por vírgula)
+# NOTA: O backend do Skip Cloud pode alternar IPs de saída. Deixe vazio ou restrinja no Caddy/Firewall.
+# ALLOWED_IPS=

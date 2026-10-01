@@ -1,0 +1,29 @@
+services:
+  serpro-mtls-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: serpro-mtls-proxy
+    restart: unless-stopped
+    ports:
+      - '8443:8443'
+    environment:
+      - PORT=8443
+      - HOST=0.0.0.0
+      - SERPRO_UPSTREAM=https://gateway.apiserpro.serpro.gov.br
+      # Opção A: Usando PFX diretamente (recomendado para A1)
+      - TLS_PFX_PATH=/certs/certificado_a1.pfx
+      - TLS_PFX_PASSPHRASE=${TLS_PFX_PASSPHRASE:-}
+      # Opção B: Alternativa com PEM separados (se convertidos previamente)
+      # - TLS_CERT_PATH=/certs/cert.pem
+      # - TLS_KEY_PATH=/certs/key.pem
+      # Opcional: allowlist de IPs (deixar vazio para aceitar conexões do Skip Cloud / público protegido por Caddy)
+      # - ALLOWED_IPS=
+    volumes:
+      # Monta a pasta de certificados da VPS em /certs no container em modo somente leitura (ro)
+      - ./certs:/certs:ro
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
