@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T21:50:48.389Z",
+  "generatedAt": "2026-10-01T21:56:07.796Z",
   "collections": [
     {
       "name": "users",
@@ -5424,7 +5424,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["manual_supervisionado", "automatica_conector"]
+          "selectValues": [
+            "manual_supervisionado",
+            "automatica_conector",
+            "oficial_integra_contador"
+          ]
         },
         {
           "name": "created",
@@ -7978,7 +7982,14 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["manual", "dctfweb", "fiscal", "conector_rfb", "perdcomp"]
+          "selectValues": [
+            "manual",
+            "dctfweb",
+            "fiscal",
+            "conector_rfb",
+            "perdcomp",
+            "integra_contador"
+          ]
         },
         {
           "name": "titulo_financeiro",

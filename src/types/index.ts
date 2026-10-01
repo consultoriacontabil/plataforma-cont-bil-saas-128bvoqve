@@ -78,6 +78,9 @@ export interface Empresa extends RecordModel {
   observacoes?: string
   status: EmpresaStatus
   excluida_em?: string
+  autorizacao_acesso_ecac?: 'ativa' | 'em_analise' | 'vencida' | 'nao_solicitada'
+  autorizacao_acesso_atualizada_em?: string
+  autorizacao_acesso_observacao?: string
 }
 
 export type ExclusaoBackupStatus = 'retido' | 'purgado' | 'restaurado'
@@ -1981,6 +1984,8 @@ export interface RfbConfigRecord {
   }
 }
 
+export type RfbModoOperacao = 'conector_real' | 'modo_supervisao' | 'oficial_integra_contador'
+
 export interface RfbSyncLogRecord {
   id: string
   created: string
@@ -2011,6 +2016,135 @@ export interface RfbSincronizarResult {
   certidoes_atualizadas: number
   erros?: string[]
   detalhes?: Record<string, unknown>
+}
+
+// === SERPRO Integra Contador Types ===
+export type IntegraContadorAmbiente = 'trial' | 'producao'
+export type IntegraContadorStatusConexao =
+  | 'conectado'
+  | 'erro_credenciais'
+  | 'modo_supervisao'
+  | 'desconectado'
+export type IntegraContadorServico =
+  | 'SITFIS'
+  | 'CAIXAPOSTAL'
+  | 'DCTFWEB'
+  | 'PGDASD'
+  | 'PNRCONTADOR'
+  | 'TESTE_CONEXAO'
+  | 'OUTRO'
+export type IntegraContadorConsumoStatus =
+  | 'sucesso'
+  | 'erro_permissao'
+  | 'erro_credenciais'
+  | 'erro_comunicacao'
+  | 'simulada'
+export type IntegraContadorModoOperacao =
+  | 'oficial_integra_contador'
+  | 'demonstracao'
+  | 'modo_supervisao'
+
+export interface IntegraContadorDiagnosticoItem {
+  item: string
+  status: 'ok' | 'alerta' | 'erro'
+  detalhe: string
+}
+
+export interface IntegraContadorDiagnosticoResult {
+  sucesso: boolean
+  credenciado: boolean
+  modo_supervisao: boolean
+  status_conexao: IntegraContadorStatusConexao
+  diagnostico_tipo:
+    | 'credenciado'
+    | 'credenciais_invalidas'
+    | 'credenciais_ausentes'
+    | 'proxy_mtls_ausente'
+    | 'url_inalcancavel'
+  ambiente: IntegraContadorAmbiente
+  duracao_ms: number
+  mensagem: string
+  itens: IntegraContadorDiagnosticoItem[]
+  verificado_em: string
+}
+
+export interface IntegraContadorConfigRecord extends RecordModel {
+  tenant_id: string
+  ativo: boolean
+  ambiente: IntegraContadorAmbiente
+  consumer_key?: string
+  consumer_secret?: string
+  contratante_cnpj?: string
+  autor_pedido_dados_numero?: string
+  certificado_a1?: string
+  senha_certificado?: string
+  proxy_mtls_url?: string
+  sincronizacao_automatica: boolean
+  sincronizar_situacao_fiscal: boolean
+  sincronizar_caixa_postal: boolean
+  sincronizar_dctfweb: boolean
+  sincronizar_pgdas: boolean
+  status_conexao: IntegraContadorStatusConexao
+  ultimo_diagnostico_json?: IntegraContadorDiagnosticoResult
+  ultima_sincronizacao_em?: string
+  expand?: {
+    certificado_a1?: CertificadoDigitalRecord
+  }
+}
+
+export interface IntegraContadorConsumoRecord extends RecordModel {
+  tenant_id: string
+  empresa?: string
+  servico: IntegraContadorServico
+  operacao: string
+  status: IntegraContadorConsumoStatus
+  modo_operacao: IntegraContadorModoOperacao
+  custo_estimado: number
+  duracao_ms: number
+  http_status: number
+  mensagem?: string
+  detalhes_json?: Record<string, unknown>
+  executado_por?: string
+  expand?: {
+    empresa?: Empresa
+    executado_por?: User
+  }
+}
+
+export interface IntegraContadorResumoConsumo {
+  mes_referencia: string
+  total_chamadas: number
+  total_custo_estimado: number
+  chamadas_oficiais: number
+  chamadas_supervisao: number
+  servicos: Record<
+    IntegraContadorServico,
+    {
+      qtd: number
+      custo: number
+      sucessos: number
+      erros: number
+    }
+  >
+}
+
+export interface IntegraContadorSincronizarLoteResult {
+  tenant_id: string
+  origem: string
+  data_inicio: string
+  empresas_analisadas: number
+  empresas_sincronizadas: number
+  empresas_com_erro_autorizacao: number
+  comunicacoes_novas: number
+  certidoes_atualizadas: number
+  duracao_total_ms: number
+  detalhes: Array<{
+    empresa_id: string
+    razao_social: string
+    cnpj: string
+    status: string
+    motivo?: string
+  }>
 }
 
 // === EFD-Reinf & DCTFWeb Types ===
