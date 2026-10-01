@@ -36,7 +36,7 @@ cronAdd('elliza_rotinas_247_monitor', '0 * * * *', () => {
 
     // Buscar obrigações não entregues com vencimento entre hoje e 3 dias à frente
     const filterObrigacoes = `status != 'entregue' && status != 'cancelada' && vencimento >= '${hojeStr}' && vencimento <= '${limiteStr}'`
-    const pendentes = app.findRecordsByFilter('obrigacoes', filterObrigacoes, 'vencimento ASC', 200)
+    const pendentes = app.findRecordsByFilter('obrigacoes', filterObrigacoes, 'vencimento', 200)
 
     console.log(`[ELLIZA-24/7] Obrigações próximas do vencimento encontradas: ${pendentes.length}`)
 
@@ -278,7 +278,7 @@ routerAdd('POST', '/backend/v1/elliza/rotinas-247/executar', (e) => {
     const limiteStr = limite3Dias.toISOString().split('T')[0]
 
     const filterObrigacoes = `status != 'entregue' && status != 'cancelada' && vencimento >= '${hojeStr}' && vencimento <= '${limiteStr}'`
-    const pendentes = app.findRecordsByFilter('obrigacoes', filterObrigacoes, 'vencimento ASC', 200)
+    const pendentes = app.findRecordsByFilter('obrigacoes', filterObrigacoes, 'vencimento', 200)
 
     for (let i = 0; i < pendentes.length; i++) {
       const ob = pendentes[i]

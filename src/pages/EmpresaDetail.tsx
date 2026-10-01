@@ -34,6 +34,7 @@ import { ModalExclusaoEmpresa } from '@/components/ModalExclusaoEmpresa'
 import { ProcessoMigracaoDetalheCard } from '@/components/ProcessoMigracaoDetalheCard'
 import { ModalNovoProcessoMigracao } from '@/components/ModalNovoProcessoMigracao'
 import { ModalSalvarCertificado } from '@/components/ModalSalvarCertificado'
+import { ModalUploadDocumentoEmpresa } from '@/components/ModalUploadDocumentoEmpresa'
 import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
 import type { EmpresaMigracaoOnboardingRecord, MigracaoTipo, ObrigacaoRecord } from '@/types'
 import {
@@ -105,6 +106,7 @@ export default function EmpresaDetail() {
     useState<EmpresaMigracaoOnboardingRecord | null>(null)
   const [modalNovoMigracaoOpen, setModalNovoMigracaoOpen] = useState(false)
   const [tipoNovoMigracao, setTipoNovoMigracao] = useState<MigracaoTipo>('entrada')
+  const [modalUploadDocOpen, setModalUploadDocOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   // Confirmation modal to Encerrar
@@ -693,61 +695,133 @@ export default function EmpresaDetail() {
           )}
         </TabsContent>
 
-        {/* Tab 3: Documentos */}
-        <TabsContent value="documentos">
+        {/* Tab 3: Documentos & GED */}
+        <TabsContent value="documentos" className="space-y-4">
           <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+            <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between flex-wrap gap-2">
+              <div>
+                <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-[#0FA3A3]" />
+                  <span>GED & Documentos Digitais ({documentos.length})</span>
+                </CardTitle>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Arquivo digital indexado, societário, fiscal e financeiro desta empresa
+                </p>
+              </div>
+              <Button
+                onClick={() => setModalUploadDocOpen(true)}
+                className="gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-9 shadow-xs"
+              >
+                <Download className="h-3.5 w-3.5 rotate-180" />
+                <span>+ Enviar Documento</span>
+              </Button>
+            </CardHeader>
             <CardContent className="p-4">
               {documentos.length === 0 ? (
-                <div className="py-12 text-center text-xs text-[#94A3B8]">
-                  Nenhum documento arquivado para esta empresa.
+                <div className="py-12 text-center text-xs text-[#94A3B8] space-y-3">
+                  <div className="mx-auto h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-700">
+                      Nenhum documento arquivado para esta empresa.
+                    </p>
+                    <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                      Clique em &quot;+ Enviar Documento&quot; para fazer o upload com vínculo
+                      automático ao GED.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setModalUploadDocOpen(true)}
+                    variant="outline"
+                    className="text-xs rounded-xl border-[#0FA3A3] text-[#0FA3A3] hover:bg-teal-50"
+                  >
+                    <span>Fazer primeiro upload</span>
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {documentos.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-[#0FA3A3]" />
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-xs font-semibold text-[#1A2333]">
-                              {doc.nome_arquivo}
+                  {documentos.map((doc) => {
+                    const fileUrl = doc.arquivo
+                      ? documentosService.getFileUrl(doc, doc.arquivo)
+                      : null
+
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors gap-3"
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <FileText className="h-5 w-5 text-[#0FA3A3] shrink-0" />
+                          <div className="space-y-0.5 overflow-hidden">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p
+                                className="text-xs font-semibold text-[#1A2333] truncate"
+                                title={doc.nome_arquivo}
+                              >
+                                {doc.nome_arquivo}
+                              </p>
+                              {doc.origem_documento === 'busca_sefaz' && (
+                                <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-[10px] font-semibold py-0 h-5">
+                                  Busca SEFAZ
+                                </Badge>
+                              )}
+                              {doc.origem_documento === 'upload_manual' && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-slate-600 border-slate-200 py-0 h-5"
+                                >
+                                  Upload Manual
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#64748B] capitalize">
+                              Tipo: {doc.tipo.replace('_', ' ')} • Enviado em{' '}
+                              {formatDatePtBr(doc.created)}
                             </p>
-                            {doc.origem_documento === 'busca_sefaz' && (
-                              <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-[10px] font-semibold py-0 h-5">
-                                Busca SEFAZ
-                              </Badge>
+                            {doc.chave_acesso_nfe && (
+                              <p className="text-[10px] font-mono text-slate-400 truncate max-w-md">
+                                Chave: {doc.chave_acesso_nfe}
+                              </p>
+                            )}
+                            {doc.observacoes && (
+                              <p className="text-[10px] text-slate-600 line-clamp-1 italic">
+                                &quot;{doc.observacoes}&quot;
+                              </p>
                             )}
                           </div>
-                          <p className="text-[11px] text-[#64748B] capitalize">
-                            Tipo: {doc.tipo.replace('_', ' ')} • Enviado em{' '}
-                            {formatDatePtBr(doc.created)}
-                          </p>
-                          {doc.chave_acesso_nfe && (
-                            <p className="text-[10px] font-mono text-slate-400 truncate max-w-md">
-                              Chave: {doc.chave_acesso_nfe}
-                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {fileUrl && (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download={doc.nome_arquivo}
+                              className="inline-flex items-center gap-1 text-xs text-[#0FA3A3] hover:underline font-semibold px-2 py-1 rounded-lg hover:bg-teal-50"
+                              title="Baixar ou visualizar arquivo"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Baixar</span>
+                            </a>
                           )}
-                          {doc.observacoes && doc.origem_documento === 'busca_sefaz' && (
-                            <p className="text-[10px] text-teal-800 line-clamp-1 italic">
-                              {doc.observacoes}
-                            </p>
-                          )}
+
+                          <Badge
+                            className={
+                              doc.status === 'processado'
+                                ? 'bg-[#DCFCE7] text-[#166534]'
+                                : doc.status === 'rejeitado'
+                                  ? 'bg-[#FEE2E2] text-[#991B1B]'
+                                  : 'bg-[#FEF3C7] text-[#92400E]'
+                            }
+                          >
+                            {doc.status}
+                          </Badge>
                         </div>
                       </div>
-                      <Badge
-                        className={
-                          doc.status === 'processado'
-                            ? 'bg-[#DCFCE7] text-[#166534]'
-                            : 'bg-[#FEF3C7] text-[#92400E]'
-                        }
-                      >
-                        {doc.status}
-                      </Badge>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1210,6 +1284,23 @@ export default function EmpresaDetail() {
           }
           onSuccess={(salvo) => {
             setCertificado(salvo)
+          }}
+        />
+      )}
+
+      {/* Modal de Upload Dedicado de Documentos da Empresa (Pré-vinculado) */}
+      {tenant?.id && empresa && (
+        <ModalUploadDocumentoEmpresa
+          open={modalUploadDocOpen}
+          onOpenChange={setModalUploadDocOpen}
+          tenantId={tenant.id}
+          empresaId={empresa.id}
+          empresaNome={empresa.nome_fantasia || empresa.razao_social}
+          usuarioUploadId={user?.id}
+          usuarioNome={user?.nome || user?.email || 'Usuário do Sistema'}
+          onUploadSuccess={(docsCriados) => {
+            setDocumentos((prev) => [...docsCriados, ...prev])
+            loadData()
           }}
         />
       )}

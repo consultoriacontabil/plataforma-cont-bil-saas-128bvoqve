@@ -84,7 +84,7 @@ cronAdd('elliza_cobranca_recorrente_diaria', '0 5 * * *', () => {
     const recorrentes = app.findRecordsByFilter(
       'cobrancas_recorrentes',
       'ativo = true',
-      'dia_do_mes ASC',
+      'dia_do_mes',
       300,
     )
 
@@ -307,7 +307,7 @@ cronAdd('elliza_cobranca_recorrente_diaria', '0 5 * * *', () => {
     const cobVencidas = app.findRecordsByFilter(
       'cobrancas',
       "status = 'pendente' || status = 'vencido'",
-      'vencimento ASC',
+      'vencimento',
       200,
     )
 
@@ -493,7 +493,7 @@ routerAdd('POST', '/backend/v1/cobrancas/processar-recorrentes', (e) => {
     const recorrentes = app.findRecordsByFilter(
       'cobrancas_recorrentes',
       'ativo = true',
-      'dia_do_mes ASC',
+      'dia_do_mes',
       300,
     )
 
