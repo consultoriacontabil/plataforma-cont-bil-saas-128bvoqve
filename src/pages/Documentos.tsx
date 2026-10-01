@@ -300,6 +300,10 @@ export default function Documentos() {
             <SelectContent>
               <SelectItem value="todos">Todos os tipos</SelectItem>
               <SelectItem value="busca_sefaz">🔍 Busca SEFAZ (DFe)</SelectItem>
+              <SelectItem value="extrato_bancario">Extratos Bancários (PDF/OFX)</SelectItem>
+              <SelectItem value="fatura_cartao">Fatura de Cartão de Crédito</SelectItem>
+              <SelectItem value="maquininha">Maquininhas e Apps</SelectItem>
+              <SelectItem value="credito">Contratos de Crédito</SelectItem>
               <SelectItem value="nota_fiscal">Nota Fiscal</SelectItem>
               <SelectItem value="contrato_social">Contrato Social</SelectItem>
               <SelectItem value="alteracao_contratual">Alteração Contratual</SelectItem>
@@ -479,6 +483,10 @@ export default function Documentos() {
                   <SelectValue placeholder="Classificação do documento" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="extrato_bancario">Extrato Bancário (PDF/OFX)</SelectItem>
+                  <SelectItem value="fatura_cartao">Fatura de Cartão de Crédito</SelectItem>
+                  <SelectItem value="maquininha">Maquininhas e Apps</SelectItem>
+                  <SelectItem value="credito">Contrato de Crédito / Financiamento</SelectItem>
                   <SelectItem value="contrato_social">Contrato Social</SelectItem>
                   <SelectItem value="alteracao_contratual">Alteração Contratual</SelectItem>
                   <SelectItem value="fatura">Fatura</SelectItem>

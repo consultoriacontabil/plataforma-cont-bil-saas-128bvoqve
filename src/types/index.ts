@@ -146,10 +146,19 @@ export type DocumentoTipo =
   | 'nota_fiscal'
   | 'procuracoes'
   | 'relatorios'
+  | 'extrato_bancario'
+  | 'fatura_cartao'
+  | 'maquininha'
+  | 'credito'
   | 'outros'
 export type DocumentoStatus = 'pendente' | 'processado' | 'rejeitado'
 
-export type OrigemDocumentoGed = 'upload_manual' | 'busca_sefaz' | 'integracao_rfb' | 'sistema'
+export type OrigemDocumentoGed =
+  | 'upload_manual'
+  | 'busca_sefaz'
+  | 'integracao_rfb'
+  | 'sistema'
+  | 'link_publico'
 
 export interface Documento extends RecordModel {
   tenant_id: string
@@ -180,6 +189,7 @@ export interface ItemStatusPedidoDocumento {
   status: StatusItemPedidoDocumento
   documento_ged_id?: string
   recebido_em?: string
+  nome_arquivo?: string
   banco_conta_id?: string
   plataforma?: string
 }
@@ -194,6 +204,7 @@ export interface PedidoDocumentoRecord extends RecordModel {
   itens_status: ItemStatusPedidoDocumento[]
   link_expira_em?: string
   ultimo_envio_whatsapp_em?: string
+  observacoes?: string
   criado_por?: string
   expand?: {
     empresa?: Empresa

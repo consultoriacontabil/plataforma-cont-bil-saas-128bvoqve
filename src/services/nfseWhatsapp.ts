@@ -34,6 +34,8 @@ export interface SalvarConfigInput {
   ginfes_usuario?: string
   ginfes_senha?: string
   ginfes_api_url?: string
+  nfeio_api_key?: string
+  nfeio_company_id?: string
   provedores_empresas_json?: Record<string, any>
   msg_saudacao?: string
   msg_recebimento?: string

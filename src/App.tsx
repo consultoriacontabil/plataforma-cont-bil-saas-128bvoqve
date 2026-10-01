@@ -40,6 +40,7 @@ import FinanceiroPage from '@/pages/Financeiro'
 import FluxoCaixaPage from '@/pages/FluxoCaixa'
 import VerificarAssinaturaPage from '@/pages/VerificarAssinatura'
 import AberturaClientePublicoPage from '@/pages/AberturaClientePublico'
+import PedidosClientePublicoPage from '@/pages/PedidosClientePublico'
 import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
 import SimuladorReformaPage from '@/pages/SimuladorReforma'
 import NfseWhatsappPage from '@/pages/NfseWhatsapp'
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verificar-assinatura" element={<VerificarAssinaturaPage />} />
           <Route path="/abertura/:token" element={<AberturaClientePublicoPage />} />
+          <Route path="/pedidos-documentos/:token" element={<PedidosClientePublicoPage />} />
 
           {/* Protected Application Routes wrapped by Layout */}
           <Route

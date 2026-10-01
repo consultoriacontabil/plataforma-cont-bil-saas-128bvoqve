@@ -145,6 +145,11 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
       if (tipo === 'demonstrativo' && !autoriz.getBool('permitir_demonstrativos')) {
         return e.json(403, { erro: 'Demonstrativos não autorizados para esta empresa.' })
       }
+      if (tipo === 'documento' && !autoriz.getBool('permitir_documentos')) {
+        return e.json(403, {
+          erro: 'Solicitações e envios de documentos não autorizados para esta empresa.',
+        })
+      }
       if (tipo === 'cobranca' && !autoriz.getBool('permitir_cobrancas')) {
         return e.json(403, { erro: 'Envio de cobranças não autorizado para esta empresa.' })
       }

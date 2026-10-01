@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T17:53:22.774Z",
+  "generatedAt": "2026-10-01T18:09:24.850Z",
   "collections": [
     {
       "name": "users",
@@ -417,7 +417,11 @@
             "nota_fiscal",
             "procuracoes",
             "relatorios",
-            "outros"
+            "outros",
+            "extrato_bancario",
+            "fatura_cartao",
+            "maquininha",
+            "credito"
           ]
         },
         {
@@ -775,7 +779,7 @@
       "apiRules": {
         "list": "@request.auth.id != ''",
         "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
+        "create": "",
         "update": null,
         "delete": "@request.auth.id != ''"
       },
@@ -1097,7 +1101,7 @@
       "apiRules": {
         "list": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
         "view": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
-        "create": "@request.auth.id != ''",
+        "create": "",
         "update": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
         "delete": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')"
       },

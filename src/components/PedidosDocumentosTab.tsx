@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   FileText,
   Plus,
@@ -16,6 +16,14 @@ import {
   ExternalLink,
   Loader2,
   Share2,
+  Trash2,
+  XCircle,
+  Landmark,
+  CreditCard,
+  Smartphone,
+  BadgePercent,
+  Search,
+  AlertTriangle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +31,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -66,9 +75,12 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
 
   const [pedidos, setPedidos] = useState<PedidoDocumentoRecord[]>([])
   const [loading, setLoading] = useState(false)
+
+  // Filtros
   const [filtroEmpresa, setFiltroEmpresa] = useState<string>('todas')
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [filtroCompetencia, setFiltroCompetencia] = useState<string>('todas')
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos')
 
   // Modal Novo Pedido
   const [modalNovoAberto, setModalNovoAberto] = useState(false)
@@ -76,14 +88,15 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
   const [empresaNovo, setEmpresaNovo] = useState<string>('')
   const [competenciaNovo, setCompetenciaNovo] = useState<string>('')
   const [diasExpiraNovo, setDiasExpiraNovo] = useState<number>(15)
+  const [observacoesNovo, setObservacoesNovo] = useState<string>('')
 
-  // 4 Tipos fixos
+  // 4 Tipos fixos de documento
   const [tipoExtratos, setTipoExtratos] = useState(true)
   const [tipoCartoes, setTipoCartoes] = useState(true)
   const [tipoMaquininhas, setTipoMaquininhas] = useState(false)
   const [tipoCredito, setTipoCredito] = useState(false)
 
-  // Dinâmicos
+  // Seletores dinâmicos de contas/maquininhas
   const [contasBancariasEmpresa, setContasBancariasEmpresa] = useState<any[]>([])
   const [contasSelecionadas, setContasSelecionadas] = useState<Record<string, boolean>>({})
   const [plataformaLivre, setPlataformaLivre] = useState<string>('')
@@ -104,7 +117,13 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
     useState<ItemStatusPedidoDocumento | null>(null)
   const [docsGedDisponiveis, setDocsGedDisponiveis] = useState<Documento[]>([])
   const [docGedSelecionadoId, setDocGedSelecionadoId] = useState<string>('')
+  const [nomeArquivoManual, setNomeArquivoManual] = useState<string>('')
   const [baixandoItem, setBaixandoItem] = useState(false)
+
+  // Modal Cancelar / Excluir Pedido
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false)
+  const [pedidoParaExcluir, setPedidoParaExcluir] = useState<PedidoDocumentoRecord | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
 
   // Competência padrão (MM/AAAA do mês anterior)
   useEffect(() => {
@@ -124,6 +143,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
         empresaId: filtroEmpresa,
         status: filtroStatus,
         competencia: filtroCompetencia,
+        tipo: filtroTipo,
       })
       setPedidos(records)
     } finally {
@@ -133,9 +153,9 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
 
   useEffect(() => {
     carregarPedidos()
-  }, [tenantId, filtroEmpresa, filtroStatus, filtroCompetencia])
+  }, [tenantId, filtroEmpresa, filtroStatus, filtroCompetencia, filtroTipo])
 
-  // Carregar contas bancárias quando seleciona empresa no form de novo pedido
+  // Contas bancárias para a empresa selecionada no form de novo pedido
   useEffect(() => {
     if (!empresaNovo || !tenantId) {
       setContasBancariasEmpresa([])
@@ -153,6 +173,15 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
     }
     loadContas()
   }, [empresaNovo, tenantId])
+
+  // Lista única de competências presentes para o seletor de filtro
+  const competenciasDisponiveis = useMemo(() => {
+    const set = new Set<string>()
+    pedidos.forEach((p) => {
+      if (p.competencia) set.add(p.competencia)
+    })
+    return Array.from(set).sort().reverse()
+  }, [pedidos])
 
   const handleCriarPedido = async () => {
     if (!empresaNovo) {
@@ -246,6 +275,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
           tipos_solicitados: tipos,
           itens,
           dias_expiracao: diasExpiraNovo,
+          observacoes: observacoesNovo.trim() || undefined,
         },
         user?.id || '',
       )
@@ -272,14 +302,14 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
   }
 
   const handleCopiarLink = (token: string) => {
-    const url = `${window.location.origin}/portal-acessos?token=${token}`
+    const url = `${window.location.origin}/pedidos-documentos/${token}`
     navigator.clipboard.writeText(url)
     setLinkCopiado(true)
     setTimeout(() => setLinkCopiado(false), 2000)
     toast({
       title: 'Link copiado!',
       description:
-        'O link seguro para upload de documentos foi copiado para sua área de transferência.',
+        'O link público seguro para upload de documentos foi copiado para sua área de transferência.',
     })
   }
 
@@ -305,14 +335,14 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
 
       if (resp.statusEnvio === 'enviado') {
         toast({
-          title: isCobranca ? 'Cobrança enviada com sucesso!' : 'Solicitação enviada!',
+          title: isCobranca ? 'Lembrete enviado com sucesso!' : 'Solicitação enviada!',
           description: 'A notificação foi entregue ao WhatsApp do cliente.',
         })
       } else if (resp.statusEnvio === 'aguardando_credenciais') {
         toast({
           title: 'Modo Supervisão (Sem credencial WhatsApp)',
           description:
-            'A mensagem foi registrada na fila com status "aguardando_credenciais". Configure a Evolution API para disparo real.',
+            'A mensagem foi registrada na fila com status "aguardando_credenciais". Configure a Evolution API para envio real.',
         })
       } else {
         toast({
@@ -341,6 +371,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
     setPedidoSelecionadoBaixa(pedido)
     setItemSelecionadoBaixa(item)
     setDocGedSelecionadoId('')
+    setNomeArquivoManual('')
     setModalBaixaAberto(true)
 
     const docs = await pedidosDocumentosService.listarDocumentosGed(tenantId, pedido.empresa)
@@ -355,13 +386,14 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
         pedido_id: pedidoSelecionadoBaixa.id,
         item_id: itemSelecionadoBaixa.id,
         documento_ged_id: docGedSelecionadoId || undefined,
+        nome_arquivo: nomeArquivoManual.trim() || undefined,
         tenant_id: tenantId,
         userId: user?.id || '',
       })
 
       toast({
         title: 'Item marcado como recebido!',
-        description: 'Status atualizado com sucesso e vinculado à trilha contábil.',
+        description: 'Status atualizado com sucesso e vinculado à trilha contábil do GED.',
       })
 
       setModalBaixaAberto(false)
@@ -378,12 +410,68 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
     }
   }
 
-  // Estatísticas
+  const handleConfirmarExclusaoOuCancelamento = async (modo: 'cancelar' | 'excluir') => {
+    if (!pedidoParaExcluir) return
+    setExcluindo(true)
+    try {
+      if (modo === 'cancelar') {
+        await pedidosDocumentosService.cancelarPedido(
+          pedidoParaExcluir.id,
+          tenantId,
+          user?.id || '',
+        )
+        toast({
+          title: 'Pedido cancelado',
+          description: 'A solicitação foi marcada como cancelada.',
+        })
+      } else {
+        await pedidosDocumentosService.excluirPedido(pedidoParaExcluir.id, tenantId, user?.id || '')
+        toast({
+          title: 'Pedido excluído',
+          description: 'A solicitação foi removida permanentemente.',
+        })
+      }
+      setModalExcluirAberto(false)
+      setPedidoParaExcluir(null)
+      carregarPedidos()
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      toast({
+        title: 'Erro ao processar',
+        description: errMsg,
+        variant: 'destructive',
+      })
+    } finally {
+      setExcluindo(false)
+    }
+  }
+
+  // Métricas do painel resumo
+  const agoraMs = Date.now()
   const totalPedidos = pedidos.length
-  const atendidos = pedidos.filter((p) => p.status === 'atendido').length
-  const pendentes = pedidos.filter(
+
+  // Abertos: status pendente ou parcialmente_atendido
+  const pedidosAbertos = pedidos.filter(
     (p) => p.status === 'pendente' || p.status === 'parcialmente_atendido',
-  ).length
+  )
+  const totalAbertos = pedidosAbertos.length
+
+  // Recebidos no prazo: atendidos com link_expira_em >= updated ou sem expiração
+  const recebidosNoPrazo = pedidos.filter((p) => {
+    if (p.status !== 'atendido') return false
+    if (!p.link_expira_em) return true
+    const expMs = new Date(p.link_expira_em).getTime()
+    const updMs = new Date(p.updated).getTime()
+    return updMs <= expMs
+  }).length
+
+  // Atrasados: abertos e link_expira_em < agora
+  const pedidosAtrasados = pedidos.filter((p) => {
+    if (p.status === 'atendido' || p.status === 'cancelado') return false
+    if (!p.link_expira_em) return false
+    return new Date(p.link_expira_em).getTime() < agoraMs
+  })
+  const totalAtrasados = pedidosAtrasados.length
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -394,11 +482,11 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
             <h2 className="text-base font-bold text-[#1A2333]">
               Pedidos de Documentos Mensais (Clientes)
             </h2>
-            <Badge className="bg-teal-600 text-white text-[10px]">Motor Contábil & GED</Badge>
+            <Badge className="bg-[#0FA3A3] text-white text-[10px]">Motor Contábil & GED</Badge>
           </div>
           <p className="text-xs text-[#64748B] mt-0.5">
-            Solicite extratos, faturas, maquininhas e contratos de crédito aos clientes via links
-            seguros e WhatsApp com baixa automática no GED.
+            Solicite extratos, faturas de cartão, maquininhas e contratos de crédito aos clientes
+            via link público seguro e WhatsApp com baixa automática no GED da empresa.
           </p>
         </div>
 
@@ -426,8 +514,9 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
         </div>
       </div>
 
-      {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Painel Resumo: 4 Cards de Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total */}
         <Card className="rounded-2xl border-slate-200 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
@@ -443,44 +532,63 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
           </CardContent>
         </Card>
 
+        {/* Abertos / Pendentes */}
         <Card className="rounded-2xl border-slate-200 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
-              Pendentes / Em Aberto
+              Pedidos Abertos
             </CardTitle>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
               <Clock className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{pendentes}</div>
+            <div className="text-2xl font-bold text-amber-600">{totalAbertos}</div>
             <p className="text-[11px] text-[#94A3B8] mt-0.5">Aguardando envio pelo cliente</p>
           </CardContent>
         </Card>
 
+        {/* Recebidos no Prazo */}
         <Card className="rounded-2xl border-slate-200 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
-              100% Atendidos
+              Recebidos no Prazo
             </CardTitle>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{atendidos}</div>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5">Prontos para fechamento contábil</p>
+            <div className="text-2xl font-bold text-emerald-600">{recebidosNoPrazo}</div>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5">Concluídos dentro do vencimento</p>
+          </CardContent>
+        </Card>
+
+        {/* Atrasados */}
+        <Card className="rounded-2xl border-slate-200 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+              Pedidos Atrasados
+            </CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-rose-600">{totalAtrasados}</div>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5">Prazo expirado com pendência</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filtros da Tabela */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+      {/* Filtros da Listagem (Empresa, Tipo, Status, Competência) */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex flex-wrap items-center gap-3">
+          {/* Filtro Empresa */}
           <div className="space-y-1">
             <span className="text-[11px] font-medium text-[#64748B]">Empresa:</span>
             <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
-              <SelectTrigger className="w-56 h-8 text-xs bg-slate-50">
+              <SelectTrigger className="w-52 h-8 text-xs bg-slate-50">
                 <SelectValue placeholder="Todas as empresas" />
               </SelectTrigger>
               <SelectContent>
@@ -496,6 +604,34 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
             </Select>
           </div>
 
+          {/* Filtro Tipo de Documento */}
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-[#64748B]">Tipo Solicitado:</span>
+            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <SelectTrigger className="w-48 h-8 text-xs bg-slate-50">
+                <SelectValue placeholder="Todos os tipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos" className="text-xs">
+                  Todos os Tipos
+                </SelectItem>
+                <SelectItem value="extratos" className="text-xs">
+                  Extratos Bancários
+                </SelectItem>
+                <SelectItem value="cartoes" className="text-xs">
+                  Cartões de Crédito
+                </SelectItem>
+                <SelectItem value="maquininhas" className="text-xs">
+                  Maquininhas e Apps
+                </SelectItem>
+                <SelectItem value="credito" className="text-xs">
+                  Crédito / Financiamento
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtro Status */}
           <div className="space-y-1">
             <span className="text-[11px] font-medium text-[#64748B]">Status:</span>
             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
@@ -513,19 +649,42 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                   Parcialmente Atendido
                 </SelectItem>
                 <SelectItem value="atendido" className="text-xs">
-                  Atendido
+                  Atendido (100%)
                 </SelectItem>
+                <SelectItem value="cancelado" className="text-xs">
+                  Cancelado
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtro Competência */}
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-[#64748B]">Competência:</span>
+            <Select value={filtroCompetencia} onValueChange={setFiltroCompetencia}>
+              <SelectTrigger className="w-36 h-8 text-xs bg-slate-50 font-mono">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas" className="text-xs font-mono">
+                  Todas
+                </SelectItem>
+                {competenciasDisponiveis.map((comp) => (
+                  <SelectItem key={comp} value={comp} className="text-xs font-mono">
+                    {comp}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <div className="text-xs text-[#64748B] self-end sm:self-center">
+        <div className="text-xs text-[#64748B] self-end md:self-center">
           Mostrando <strong>{pedidos.length}</strong> pedido(s)
         </div>
       </div>
 
-      {/* Painel de Pendências por Empresa/Competência */}
+      {/* Tabela de Pedidos com Ações Completas */}
       <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50">
@@ -538,9 +697,9 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
               </TableHead>
               <TableHead className="text-xs font-bold text-[#1A2333] w-36">Status</TableHead>
               <TableHead className="text-xs font-bold text-[#1A2333] w-40">
-                Último WhatsApp
+                Prazo & WhatsApp
               </TableHead>
-              <TableHead className="text-xs font-bold text-[#1A2333] text-right w-64">
+              <TableHead className="text-xs font-bold text-[#1A2333] text-right w-72">
                 Ações
               </TableHead>
             </TableRow>
@@ -551,7 +710,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                 <TableCell colSpan={5} className="py-12 text-center text-xs text-[#94A3B8]">
                   {loading
                     ? 'Carregando pedidos de documentos...'
-                    : 'Nenhum pedido de documentos gerado ainda. Clique em "Novo Pedido de Documentos" para iniciar.'}
+                    : 'Nenhum pedido de documentos encontrado com os filtros selecionados.'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -566,8 +725,16 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                 const perc = totalItens > 0 ? Math.round((itensRecebidos / totalItens) * 100) : 0
                 const empNome = ped.expand?.empresa?.razao_social || 'Empresa'
 
+                // Status de atraso
+                const isAtrasado =
+                  ped.status !== 'atendido' &&
+                  ped.status !== 'cancelado' &&
+                  ped.link_expira_em &&
+                  new Date(ped.link_expira_em).getTime() < agoraMs
+
                 return (
                   <TableRow key={ped.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Empresa / Competência */}
                     <TableCell className="align-top py-3.5">
                       <div className="font-semibold text-xs text-[#1A2333] flex items-center gap-1.5">
                         <Building className="h-3.5 w-3.5 text-[#0FA3A3]" />
@@ -580,8 +747,14 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                         <Calendar className="h-3 w-3" />
                         Criado em: {new Date(ped.created).toLocaleDateString('pt-BR')}
                       </div>
+                      {ped.observacoes && (
+                        <div className="text-[10px] text-slate-500 italic mt-1 truncate max-w-xs">
+                          Obs: {ped.observacoes}
+                        </div>
+                      )}
                     </TableCell>
 
+                    {/* Progresso & Itens */}
                     <TableCell className="align-top py-3.5">
                       <div className="space-y-2">
                         {/* Barra de progresso */}
@@ -622,6 +795,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                                       ? 'text-slate-500 line-through'
                                       : 'text-[#1A2333] font-medium'
                                   }`}
+                                  title={it.detalhe}
                                 >
                                   {it.detalhe}
                                 </span>
@@ -630,7 +804,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {it.status === 'recebido' ? (
                                   <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
-                                    Recebido
+                                    Recebido {it.nome_arquivo ? `(${it.nome_arquivo})` : ''}
                                   </Badge>
                                 ) : (
                                   <Button
@@ -651,46 +825,68 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                       </div>
                     </TableCell>
 
+                    {/* Status do Pedido com Badges */}
                     <TableCell className="align-top py-3.5">
-                      <Badge
-                        variant="outline"
-                        className={
-                          ped.status === 'atendido'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold text-[11px]'
-                            : ped.status === 'parcialmente_atendido'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200 font-semibold text-[11px]'
-                              : 'bg-amber-50 text-amber-700 border-amber-200 font-semibold text-[11px]'
-                        }
-                      >
-                        {ped.status === 'atendido'
-                          ? 'Atendido'
-                          : ped.status === 'parcialmente_atendido'
-                            ? 'Parcial'
-                            : 'Pendente'}
-                      </Badge>
+                      <div className="space-y-1">
+                        {ped.status === 'atendido' ? (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold text-[11px]">
+                            Recebido (100%)
+                          </Badge>
+                        ) : ped.status === 'cancelado' ? (
+                          <Badge className="bg-slate-100 text-slate-700 border-slate-200 font-semibold text-[11px]">
+                            Cancelado
+                          </Badge>
+                        ) : ped.status === 'parcialmente_atendido' ? (
+                          <Badge className="bg-blue-50 text-blue-700 border-blue-200 font-semibold text-[11px]">
+                            Parcial
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-semibold text-[11px]">
+                            Aguardando
+                          </Badge>
+                        )}
+
+                        {isAtrasado && (
+                          <div>
+                            <Badge className="bg-rose-50 text-rose-700 border-rose-200 font-bold text-[10px]">
+                              Atrasado / Vencido
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
 
+                    {/* Prazo & WhatsApp */}
                     <TableCell className="align-top py-3.5 text-xs text-[#64748B]">
-                      {ped.ultimo_envio_whatsapp_em ? (
-                        <div className="space-y-0.5">
-                          <div className="font-medium text-[#1A2333]">
-                            {new Date(ped.ultimo_envio_whatsapp_em).toLocaleDateString('pt-BR')}
+                      <div className="space-y-1">
+                        {ped.link_expira_em && (
+                          <div
+                            className={`text-[11px] font-medium flex items-center gap-1 ${
+                              isAtrasado ? 'text-rose-600 font-bold' : 'text-slate-700'
+                            }`}
+                          >
+                            <Clock className="h-3 w-3 shrink-0" />
+                            Prazo: {new Date(ped.link_expira_em).toLocaleDateString('pt-BR')}
                           </div>
-                          <div className="text-[10px] text-[#94A3B8]">
-                            {new Date(ped.ultimo_envio_whatsapp_em).toLocaleTimeString('pt-BR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </div>
+                        )}
+
+                        <div className="text-[10px] text-[#94A3B8]">
+                          {ped.ultimo_envio_whatsapp_em ? (
+                            <span>
+                              Disparado em:{' '}
+                              {new Date(ped.ultimo_envio_whatsapp_em).toLocaleDateString('pt-BR')}
+                            </span>
+                          ) : (
+                            <span className="italic">WhatsApp não disparado</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-[11px] text-[#94A3B8] italic">Não enviado</span>
-                      )}
+                      </div>
                     </TableCell>
 
+                    {/* Ações por Pedido */}
                     <TableCell className="align-top py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                        {/* Botão Copiar Link */}
+                        {/* Copiar Link */}
                         <Button
                           variant="outline"
                           size="sm"
@@ -699,30 +895,64 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                           title="Copiar Link Seguro para o Cliente"
                         >
                           <Copy className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Copiar Link</span>
+                          <span className="hidden lg:inline">Link</span>
                         </Button>
 
-                        {/* Botão Enviar / Cobrar WhatsApp */}
-                        {itensPendentes > 0 ? (
+                        {/* Abrir Link Público do Cliente (Preview) */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            window.open(`/pedidos-documentos/${ped.token_publico}`, '_blank')
+                          }
+                          className="h-8 w-8 p-0 text-[#64748B] hover:text-[#0FA3A3]"
+                          title="Abrir página pública de upload"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+
+                        {/* Enviar / Lembrete WhatsApp */}
+                        {ped.status !== 'cancelado' && (
                           <Button
                             size="sm"
                             onClick={() =>
                               handleEnviarOuCobrarWhatsApp(ped, !!ped.ultimo_envio_whatsapp_em)
                             }
                             disabled={disparandoWaId === ped.id || !canEdit}
-                            className="h-8 text-xs gap-1.5 bg-[#0FA3A3] hover:bg-[#0d8c8c] text-white"
+                            className={`h-8 text-xs gap-1.5 text-white ${
+                              ped.ultimo_envio_whatsapp_em
+                                ? 'bg-amber-600 hover:bg-amber-700'
+                                : 'bg-[#0FA3A3] hover:bg-[#0d8c8c]'
+                            }`}
+                            title={
+                              ped.ultimo_envio_whatsapp_em
+                                ? 'Enviar Lembrete de Cobrança por WhatsApp'
+                                : 'Disparar Pedido por WhatsApp'
+                            }
                           >
                             {disparandoWaId === ped.id ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <Send className="h-3.5 w-3.5" />
                             )}
-                            {ped.ultimo_envio_whatsapp_em ? 'Cobrar Pendentes' : 'Enviar WhatsApp'}
+                            {ped.ultimo_envio_whatsapp_em ? 'Lembrete' : 'WhatsApp'}
                           </Button>
-                        ) : (
-                          <Badge className="bg-emerald-100 text-emerald-800 text-xs py-1 px-2.5">
-                            Concluído
-                          </Badge>
+                        )}
+
+                        {/* Cancelar / Excluir */}
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setPedidoParaExcluir(ped)
+                              setModalExcluirAberto(true)
+                            }}
+                            className="h-8 w-8 p-0 text-[#94A3B8] hover:text-rose-600"
+                            title="Cancelar ou excluir pedido"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
@@ -784,7 +1014,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
               </div>
             </div>
 
-            {/* Os 4 Tipos Fixos com Textos Literais */}
+            {/* Os 4 Tipos Fixos com Textos Literais do Enunciado */}
             <div className="space-y-3 border-t border-slate-200 pt-3">
               <Label className="text-xs font-bold text-[#1A2333] uppercase tracking-wider">
                 Documentos Solicitados para o Fechamento
@@ -804,10 +1034,10 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                       htmlFor="tipo-extratos"
                       className="text-xs font-bold text-[#1A2333] cursor-pointer"
                     >
-                      Extratos Bancários: (em PDF e OFX)
+                      Excerpto / Extratos Bancários: (em PDF e OFX)
                     </label>
                     <p className="text-[11px] text-[#64748B]">
-                      Exige extratos de conta corrente, poupança e aplicações financeiras.
+                      Extratos completos das contas correntes e aplicações da empresa no período.
                     </p>
                   </div>
                 </div>
@@ -846,7 +1076,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                 )}
               </div>
 
-              {/* TIPO 2: Cartões de Crédito */}
+              {/* TIPO 2: Faturas de Cartão de Crédito */}
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50/60">
                 <div className="flex items-start gap-2.5">
                   <Checkbox
@@ -860,10 +1090,10 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                       htmlFor="tipo-cartoes"
                       className="text-xs font-bold text-[#1A2333] cursor-pointer"
                     >
-                      Cartões de Crédito: Faturas completas do cartão da empresa
+                      Faturas de Cartão de Crédito: (faturas completas do cartão da empresa)
                     </label>
                     <p className="text-[11px] text-[#64748B]">
-                      Fatura fechada com abertura das despesas corporativas para conciliação.
+                      Fatura fechada com o detalhamento das despesas corporativas para conciliação.
                     </p>
                   </div>
                 </div>
@@ -883,7 +1113,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                       htmlFor="tipo-maquininhas"
                       className="text-xs font-bold text-[#1A2333] cursor-pointer"
                     >
-                      Maquininhas e Apps: Relatórios de vendas e extratos de plataformas (ex:
+                      Maquininhas e Apps: (relatórios de vendas e extratos de plataformas ex.:
                       Mercado Pago)
                     </label>
                     <p className="text-[11px] text-[#64748B]">
@@ -907,7 +1137,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                 )}
               </div>
 
-              {/* TIPO 4: Crédito e Financiamentos */}
+              {/* TIPO 4: Crédito */}
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50/60">
                 <div className="flex items-start gap-2.5">
                   <Checkbox
@@ -921,7 +1151,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                       htmlFor="tipo-credito"
                       className="text-xs font-bold text-[#1A2333] cursor-pointer"
                     >
-                      Crédito: Contratos de novos empréstimos ou financiamentos
+                      Crédito: (contratos de novos empréstimos ou financiamentos)
                     </label>
                     <p className="text-[11px] text-[#64748B]">
                       Contratos de mútuo, empréstimos bancários e financiamentos tomados no mês.
@@ -931,19 +1161,33 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
               </div>
             </div>
 
-            {/* Expiração do link */}
-            <div className="space-y-1 border-t border-slate-200 pt-3">
-              <Label className="text-xs font-medium text-[#1A2333]">
-                Validade do Link Seguro (dias)
-              </Label>
-              <Input
-                type="number"
-                min="1"
-                max="90"
-                value={diasExpiraNovo}
-                onChange={(e) => setDiasExpiraNovo(parseInt(e.target.value) || 15)}
-                className="h-8 w-32 text-xs bg-white font-mono"
-              />
+            {/* Prazo de entrega e Observações */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-slate-200 pt-3">
+              <div className="space-y-1 sm:col-span-1">
+                <Label className="text-xs font-medium text-[#1A2333]">
+                  Prazo de entrega (dias)
+                </Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={diasExpiraNovo}
+                  onChange={(e) => setDiasExpiraNovo(parseInt(e.target.value) || 15)}
+                  className="h-8 text-xs bg-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs font-medium text-[#1A2333]">
+                  Observações / Instruções para o cliente (opcional)
+                </Label>
+                <Input
+                  value={observacoesNovo}
+                  onChange={(e) => setObservacoesNovo(e.target.value)}
+                  placeholder="Ex: Favor exportar faturas em formato PDF analítico..."
+                  className="h-8 text-xs bg-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -971,7 +1215,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
               ) : (
                 <>
                   <Plus className="h-3.5 w-3.5" />
-                  Gerar Pedido & Link
+                  Gerar Pedido & Link Público
                 </>
               )}
             </Button>
@@ -990,7 +1234,7 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-[#64748B]">
-              O cliente pode enviar os arquivos diretamente através do link seguro abaixo sem
+              O cliente pode enviar os arquivos diretamente através do link público seguro sem
               necessidade de login prévio.
             </DialogDescription>
           </DialogHeader>
@@ -999,12 +1243,12 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
             <div className="space-y-3 py-2">
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-[#1A2333]">
-                  Link Seguro para Upload:
+                  Link Público Seguro para Upload:
                 </Label>
                 <div className="flex gap-2">
                   <Input
                     readOnly
-                    value={`${window.location.origin}/portal-acessos?token=${ultimoPedidoCriado.token_publico}`}
+                    value={`${window.location.origin}/pedidos-documentos/${ultimoPedidoCriado.token_publico}`}
                     className="text-xs font-mono bg-slate-50 select-all"
                   />
                   <Button
@@ -1030,7 +1274,8 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                 </div>
                 <p className="text-[11px] leading-relaxed text-teal-800">
                   Você também pode disparar este link diretamente para o WhatsApp do cliente
-                  clicando no botão abaixo ou na lista de pedidos.
+                  clicando no botão abaixo ou na lista de pedidos. O motor de WhatsApp respeita as
+                  autorizações e o Modo Supervisão da empresa.
                 </p>
               </div>
             </div>
@@ -1102,9 +1347,21 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-[#1A2333]">
+                  Nome do arquivo ou anotação (Opcional):
+                </Label>
+                <Input
+                  value={nomeArquivoManual}
+                  onChange={(e) => setNomeArquivoManual(e.target.value)}
+                  placeholder="Ex: extrato_abril_itau.pdf"
+                  className="h-9 text-xs bg-white"
+                />
                 <p className="text-[11px] text-[#94A3B8]">
-                  Se o cliente enviou por outro canal (e-mail/físico), você pode apenas confirmar o
-                  recebimento.
+                  Se o cliente enviou por outro canal (e-mail ou impresso), você pode confirmar a
+                  baixa diretamente.
                 </p>
               </div>
             </div>
@@ -1137,6 +1394,72 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                   Confirmar Baixa
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 4: CANCELAR OU EXCLUIR PEDIDO */}
+      <Dialog open={modalExcluirAberto} onOpenChange={setModalExcluirAberto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle className="text-base font-bold text-[#1A2333]">
+                Gerenciar Pedido de Documentos
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-[#64748B]">
+              Escolha se deseja apenas cancelar a solicitação (mantendo histórico) ou excluí-la
+              permanentemente da plataforma.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pedidoParaExcluir && (
+            <div className="py-2 text-xs text-slate-700 space-y-2">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <strong>Empresa:</strong>{' '}
+                  {pedidoParaExcluir.expand?.empresa?.razao_social || 'Empresa'}
+                </div>
+                <div>
+                  <strong>Competência:</strong> {pedidoParaExcluir.competencia}
+                </div>
+                <div>
+                  <strong>Status atual:</strong> {pedidoParaExcluir.status}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 gap-2 flex flex-col sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setModalExcluirAberto(false)}
+              disabled={excluindo}
+              className="text-xs"
+            >
+              Fechar
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleConfirmarExclusaoOuCancelamento('cancelar')}
+              disabled={excluindo}
+              className="text-xs"
+            >
+              Cancelar Pedido
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleConfirmarExclusaoOuCancelamento('excluir')}
+              disabled={excluindo}
+              className="text-xs gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Excluir Definitivamente
             </Button>
           </DialogFooter>
         </DialogContent>
