@@ -266,8 +266,8 @@ export default function PopTreinamentoPage() {
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Badge className="bg-[#0FA3A3] text-white">POP-ELLIZA-2026.2</Badge>
-            <Badge variant="outline" className="text-slate-600">
-              Versão 0.0.102 • NBC PP 01 & NBC PG 01
+            <Badge variant="outline" className="text-slate-600 font-medium">
+              Versão 0.0.106 • NBC PP 01 & NBC PG 01
             </Badge>
             <Badge className="bg-emerald-600 text-white">
               Modo Supervisionado & Autonomia Real
@@ -339,15 +339,15 @@ export default function PopTreinamentoPage() {
         </div>
       </div>
 
-      {/* Nota de Revisão do Documento (0.0.83 -> 0.0.102) */}
+      {/* Nota de Revisão do Documento (0.0.83 -> 0.0.106) */}
       <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-xs text-sky-950 space-y-2">
         <div className="flex items-center gap-2 font-bold text-sky-900">
           <History className="h-4 w-4 text-sky-700" />
-          <span>Nota de Revisão — Atualização POP-ELLIZA-2026.2 (Plataforma v0.0.102)</span>
+          <span>Nota de Revisão — Atualização POP-ELLIZA-2026.2 (Plataforma v0.0.106)</span>
         </div>
         <p className="leading-relaxed">
           Esta revisão incorpora integralmente todas as atualizações tecnológicas e regulatórias
-          entregues desde a versão 0.0.83:
+          entregues desde a versão 0.0.83 até a v0.0.106:
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-sky-900/90 pt-1">
           <div>
@@ -357,11 +357,20 @@ export default function PopTreinamentoPage() {
             Contribuições com hash MD5.
           </div>
           <div>
-            • <b>Ajustes Estruturais:</b> ELLIZA como perfil operacional próprio (
-            <code className="bg-sky-100 px-1 rounded">elliza_perfil</code>); Painel Status de
-            Autonomia em <code className="bg-sky-100 px-1 rounded">/elliza</code>; Conector RFB
-            honesto em demonstração; Upload com drag & drop no GED; Correções de upload
-            (usuario_upload_id) e rotina 24/7.
+            • <b>Ajustes Estruturais e Governança:</b> ELLIZA com perfil operacional próprio
+            (coleção <code className="bg-sky-100 px-1 rounded">elliza_perfil</code>, migration 0097
+            e card em{' '}
+            <Link to="/usuarios" className="underline font-semibold">
+              /usuarios
+            </Link>
+            ); Painel Status de Autonomia em{' '}
+            <Link to="/elliza" className="underline font-semibold">
+              /elliza
+            </Link>
+            ; Conector RFB honesto em demonstração (status{' '}
+            <code className="bg-sky-100 px-1 rounded">pendente_emissao</code> e prefixo{' '}
+            <code className="bg-sky-100 px-1 rounded">[DEMONSTRAÇÃO]</code>); Badges dinâmicos de
+            autonomia (credenciado vs supervisão); Upload GED com drag & drop e auditoria.
           </div>
         </div>
       </div>
@@ -502,25 +511,27 @@ export default function PopTreinamentoPage() {
               </CardHeader>
               <CardContent className="text-xs text-slate-600 space-y-2">
                 <p>
-                  A ELLIZA possui identidade própria na coleção{' '}
-                  <code className="bg-slate-100 px-1 py-0.5 rounded">elliza_perfil</code> (não é
-                  tratada como usuário humano).
+                  A ELLIZA possui identidade própria registrada na coleção{' '}
+                  <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">elliza_perfil</code>{' '}
+                  (instituída na migration 0097) —{' '}
+                  <b>não é um usuário humano nem concorre com licenças</b>.
                 </p>
                 <p>
-                  Visível com destaque no card fixo no topo de{' '}
+                  Sua configuração operacional é exibida com destaque em card fixo no topo de{' '}
                   <Link to="/usuarios" className="font-semibold text-[#0FA3A3] underline">
                     /usuarios
                   </Link>
-                  , com diretivas e níveis de autonomia governados em{' '}
+                  , enquanto suas diretivas, motor 24/7 e Painel de Status de Autonomia são
+                  governados em{' '}
                   <Link to="/elliza" className="font-semibold text-[#0FA3A3] underline">
                     /elliza
                   </Link>
-                  . Antigas contas de usuário foram neutralizadas.
+                  . Antigas contas fictícias foram migradas e neutralizadas.
                 </p>
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                   <span className="font-semibold text-slate-800">Modo de Operação:</span>
                   <Badge variant="secondary" className="bg-teal-50 text-[#0FA3A3] font-bold">
-                    Supervisionado / Autonomia Real
+                    Supervisionado / Autonomia Baseada em Credenciais
                   </Badge>
                 </div>
               </CardContent>
@@ -616,13 +627,14 @@ export default function PopTreinamentoPage() {
                       e-CNPJ A1 + SERPRO + Túnel mTLS
                     </span>
                     <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
-                      Integra Contador / e-CAC
+                      Integra Contador / e-CAC Oficial
                     </Badge>
                   </div>
                   <p className="text-slate-600 text-[11px]">
-                    Destrava consultas oficiais da Receita Federal: SITFIS, Caixa Postal DTE,
-                    DCTFWeb e emissão de DAS PGDAS-D. Sem o proxy mTLS configurado, o sistema opera
-                    em Modo Supervisão honesto com aviso explícito.
+                    Destrava consultas oficiais máquina-a-máquina na Receita Federal: SITFIS, Caixa
+                    Postal DTE, DCTFWeb e emissão de DAS PGDAS-D. Sem o proxy mTLS configurado, o
+                    sistema opera em Modo Supervisão honesto com aviso explícito e certidões em
+                    pendência.
                   </p>
                 </div>
 
@@ -1955,7 +1967,7 @@ export default function PopTreinamentoPage() {
                     governança da ELLIZA.
                   </CardDescription>
                 </div>
-                <Badge className="bg-slate-800 text-white">Plataforma Contábil SaaS v0.0.102</Badge>
+                <Badge className="bg-slate-800 text-white">Plataforma Contábil SaaS v0.0.106</Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 text-xs text-slate-700">
@@ -1987,12 +1999,32 @@ export default function PopTreinamentoPage() {
                   </p>
                   <p className="text-slate-600 leading-relaxed">
                     Acompanhamento em tempo real das credenciais Evolution API e certificados A1 com
-                    radar de vencimentos (&lt;30 e &lt;15 dias) e botão para{' '}
-                    <i>"Despachar Fila Agora"</i> das mensagens retidas.
+                    radar de vencimentos (&lt;30 e &lt;15 dias), matriz de impacto e botão para{' '}
+                    <i>"Despachar Fila Agora"</i> das mensagens retidas em{' '}
+                    <code className="bg-slate-100 px-1 rounded">aguardando_credenciais</code>.
                   </p>
                 </div>
 
-                {/* 3. Monitor de CNDs no Dashboard */}
+                {/* 3. Badges Dinâmicos de Transmissão */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <ShieldAlert className="h-4 w-4 text-[#0FA3A3]" />
+                    <span>Badges Dinâmicos de Autonomia na UI</span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed">
+                    <b>Onde:</b> Telas de e-Social, EFD-Reinf/DCTFWeb, Escrituração SPED e NFS-e.
+                  </p>
+                  <p className="text-slate-600 leading-relaxed">
+                    Componente{' '}
+                    <code className="bg-slate-100 px-1 rounded">BadgeTransmissaoAutonomia</code>:
+                    exibe <b className="text-emerald-700">"Automático (credenciado)"</b> quando o
+                    e-CNPJ A1 ou API Key estão válidos e vinculados, ou{' '}
+                    <b className="text-amber-700">"Modo Supervisão"</b> quando ausentes ou vencidos,
+                    guiando o contador para o link de configuração correspondente.
+                  </p>
+                </div>
+
+                {/* 4. Monitor de CNDs no Dashboard */}
                 <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-slate-900">
                     <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
@@ -2005,11 +2037,29 @@ export default function PopTreinamentoPage() {
                   <p className="text-slate-600 leading-relaxed">
                     Régua de saúde das certidões essenciais (Federal/PGFN, CNDT, CRF/FGTS, Estadual
                     e Municipal). Certidões sem webservice oficial entram em amarelo como "Pendente
-                    de Emissão Oficial" sem declarar falso sucesso.
+                    de Emissão Oficial" com número DEMO-PENDENTE-WEBSERVICE sem declarar falso
+                    sucesso.
                   </p>
                 </div>
 
-                {/* 4. Manual de Ativação Complementar */}
+                {/* 5. Identidade Operacional da ELLIZA */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-slate-900">
+                    <UserCheck className="h-4 w-4 text-[#0FA3A3]" />
+                    <span>Identidade Operacional (elliza_perfil & migration 0097)</span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed">
+                    <b>Onde:</b> Gestão de Usuários (
+                    <code className="bg-white px-1 rounded">/usuarios</code>).
+                  </p>
+                  <p className="text-slate-600 leading-relaxed">
+                    A ELLIZA não ocupa vaga de usuário nem recebe convites de login. Seu registro
+                    vive na coleção <code className="bg-slate-100 px-1 rounded">elliza_perfil</code>{' '}
+                    e seus logs de rotinas 24/7 são auditados isoladamente por tenant.
+                  </p>
+                </div>
+
+                {/* 6. Manual de Ativação Complementar */}
                 <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-teal-950">
                     <BookOpen className="h-4 w-4 text-[#0FA3A3]" />
@@ -2049,7 +2099,7 @@ export default function PopTreinamentoPage() {
                   </CardTitle>
                   <CardDescription className="text-xs text-teal-800">
                     Documento comprobatório de capacitação técnica da equipe e certificação do motor
-                    de automação (Synapse Robotics) — Versão 0.0.102.
+                    de automação (Synapse Robotics) — Versão 0.0.106.
                   </CardDescription>
                 </div>
                 <Badge className="bg-[#0FA3A3] text-white">Validade: 12 Meses</Badge>
