@@ -20,12 +20,17 @@ import {
   RefreshCw,
   ExternalLink,
   ShieldCheck,
+  ShieldAlert,
   Smartphone,
   Lock,
   AlertCircle,
   Clock,
   UserCheck,
+  Building2,
+  FileBadge,
+  Ban,
 } from 'lucide-react'
+import pb from '@/lib/pocketbase/client'
 import { portalEmpregadoService } from '@/services/portalEmpregado'
 import { whatsappAtivoService } from '@/services/whatsappAtivo'
 import { maskCpf, maskPhone } from '@/lib/formatters'
@@ -61,6 +66,7 @@ export function ModalPortalEmpregado({
   const [tokenGerado, setTokenGerado] = useState('')
   const [codigoGerado, setCodigoGerado] = useState('')
   const [linkAcesso, setLinkAcesso] = useState('')
+  const [nomeEmpresaResolvido, setNomeEmpresaResolvido] = useState('')
   const [evolutionStatus, setEvolutionStatus] = useState<{
     configurado: boolean
   }>({ configurado: false })
@@ -78,6 +84,26 @@ export function ModalPortalEmpregado({
     const carregar = async () => {
       setLoading(true)
       try {
+        // Resolver nome da empresa de forma robusta
+        const nomeExpand =
+          funcionario.expand?.empresa?.nome_fantasia || funcionario.expand?.empresa?.razao_social
+        if (nomeExpand) {
+          setNomeEmpresaResolvido(nomeExpand)
+        } else if (funcionario.empresa) {
+          try {
+            const empRec = await pb
+              .collection('empresas')
+              .getOne<{ nome_fantasia?: string; razao_social?: string }>(funcionario.empresa)
+            setNomeEmpresaResolvido(
+              empRec.nome_fantasia || empRec.razao_social || 'Empresa Vinculada',
+            )
+          } catch {
+            setNomeEmpresaResolvido('Empresa Vinculada')
+          }
+        } else {
+          setNomeEmpresaResolvido('Empresa Não Vinculada')
+        }
+
         const evo = await whatsappAtivoService.getStatusEvolutionTenant(tenantId)
         setEvolutionStatus({ configurado: evo.configurado })
 
@@ -85,13 +111,17 @@ export function ModalPortalEmpregado({
         if (existente) {
           setAcesso(existente)
           setTelefone(existente.telefone_whatsapp || '')
-          setTokenGerado(existente.token_acesso)
+          setTokenGerado(existente.token_acesso || '')
           setCodigoGerado(existente.codigo_temporario || '')
           const origin = typeof window !== 'undefined' ? window.location.origin : ''
           const cpfLimpo = funcionario.cpf.replace(/\D/g, '')
-          setLinkAcesso(
-            `${origin}/portal-empregado?token=${existente.token_acesso}&cpf=${cpfLimpo}`,
-          )
+          if (existente.token_acesso) {
+            setLinkAcesso(
+              `${origin}/portal-empregado?token=${existente.token_acesso}&cpf=${cpfLimpo}`,
+            )
+          } else {
+            setLinkAcesso('')
+          }
         } else {
           setAcesso(null)
           setTelefone('')
@@ -296,37 +326,101 @@ export function ModalPortalEmpregado({
         ) : (
           <div className="space-y-4 pt-2">
             {/* Card com dados do Colaborador */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#1A2333] flex items-center gap-1.5">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-[#1A2333] flex items-center gap-1.5">
                   <UserCheck className="h-4 w-4 text-[#0FA3A3]" />
-                  {funcionario.nome_completo}
+                  <span>{acesso?.nome_colaborador || funcionario.nome_completo}</span>
                 </p>
-                <p className="text-[11px] text-[#64748B] mt-0.5 font-mono">
-                  CPF: {maskCpf(funcionario.cpf)} • Cargo: {funcionario.cargo}
-                </p>
-                <p className="text-[11px] text-[#64748B]">
-                  Empresa:{' '}
-                  {funcionario.expand?.empresa?.nome_fantasia ||
-                    funcionario.expand?.empresa?.razao_social ||
-                    'Empresa'}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#64748B]">
+                  <span className="font-mono">CPF: {maskCpf(funcionario.cpf)}</span>
+                  <span>•</span>
+                  <span>
+                    Cargo:{' '}
+                    <strong className="text-[#1A2333] font-medium">
+                      {funcionario.cargo || 'Não especificado'}
+                    </strong>
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <FileBadge className="h-3 w-3 text-slate-400" />
+                    Matrícula e-Social:{' '}
+                    <strong className="text-[#1A2333] font-mono font-medium">
+                      {funcionario.matricula_esocial || 'Sem matrícula'}
+                    </strong>
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#64748B] flex items-center gap-1.5 pt-0.5">
+                  <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                  <span>
+                    Empresa:{' '}
+                    <strong className="text-[#1A2333] font-medium">{nomeEmpresaResolvido}</strong>
+                  </span>
                 </p>
               </div>
 
-              {acesso?.ativo ? (
-                <div className="text-right">
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-semibold gap-1">
-                    <ShieldCheck className="h-3 w-3" /> Acesso Ativo
-                  </Badge>
-                  {acesso.primeiro_acesso_realizado && (
-                    <p className="text-[10px] text-emerald-700 mt-1">Primeiro acesso efetuado</p>
-                  )}
-                </div>
-              ) : (
-                <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-[11px] font-medium">
-                  Não habilitado
-                </Badge>
-              )}
+              {/* Status Badge e Validade */}
+              <div className="sm:text-right shrink-0">
+                {(() => {
+                  const expirado = acesso?.expira_em
+                    ? new Date(acesso.expira_em).getTime() < Date.now()
+                    : false
+                  if (!acesso && !funcionario.token_acesso_publico) {
+                    return (
+                      <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-[11px] font-medium">
+                        Sem Código Emitido
+                      </Badge>
+                    )
+                  }
+                  if (acesso?.ativo === false) {
+                    return (
+                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[11px] font-semibold gap-1">
+                        <Ban className="h-3 w-3" /> Acesso Revogado
+                      </Badge>
+                    )
+                  }
+                  if (expirado) {
+                    return (
+                      <div className="sm:text-right">
+                        <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[11px] font-semibold gap-1">
+                          <ShieldAlert className="h-3 w-3 text-amber-600" /> Código Expirado
+                        </Badge>
+                        {acesso?.expira_em && (
+                          <p className="text-[10px] text-amber-700 mt-0.5">
+                            Expirou em {new Date(acesso.expira_em).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  }
+                  if (acesso?.primeiro_acesso_realizado || funcionario.primeiro_acesso_realizado) {
+                    return (
+                      <div className="sm:text-right">
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-semibold gap-1">
+                          <ShieldCheck className="h-3 w-3" /> 1º Acesso Concluído
+                        </Badge>
+                        {acesso?.ultimo_acesso && (
+                          <p className="text-[10px] text-emerald-700 mt-0.5">
+                            Último: {new Date(acesso.ultimo_acesso).toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="sm:text-right">
+                      <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-[11px] font-semibold gap-1">
+                        <ShieldCheck className="h-3 w-3" /> Portal Ativo
+                      </Badge>
+                      {acesso?.expira_em && (
+                        <p className="text-[10px] text-teal-700 mt-0.5">
+                          Expira em {new Date(acesso.expira_em).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
 
             {/* Campo de Telefone para WhatsApp */}
@@ -370,7 +464,11 @@ export function ModalPortalEmpregado({
                   </span>
                   <div className="flex items-center gap-1 text-[11px] text-[#64748B]">
                     <Clock className="h-3 w-3" />
-                    <span>Válido por 30 dias</span>
+                    <span>
+                      {acesso?.expira_em
+                        ? `Válido até ${new Date(acesso.expira_em).toLocaleDateString('pt-BR')}`
+                        : 'Válido por 30 dias'}
+                    </span>
                   </div>
                 </div>
 

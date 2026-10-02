@@ -33,7 +33,17 @@ import { PainelReinfDctfweb } from '@/components/PainelReinfDctfweb'
 import { PainelFeriasDecimo } from '@/components/PainelFeriasDecimo'
 import { FichaColaboradorModal } from '@/components/FichaColaboradorModal'
 import { PainelRescisoes } from '@/components/PainelRescisoes'
-import { Palmtree, UserMinus, Bus, Scale, UploadCloud } from 'lucide-react'
+import {
+  Palmtree,
+  UserMinus,
+  Bus,
+  Scale,
+  UploadCloud,
+  Smartphone,
+  ExternalLink,
+  Ban,
+  RefreshCw,
+} from 'lucide-react'
 import { PainelBeneficios } from '@/components/PainelBeneficios'
 import { PainelConvencoes } from '@/components/PainelConvencoes'
 import { ModalImportacaoColaboradoresEsocial } from '@/components/ModalImportacaoColaboradoresEsocial'
@@ -42,6 +52,7 @@ import { KeyRound } from 'lucide-react'
 import { useRealtime } from '@/hooks/use-realtime'
 import { beneficiosService } from '@/services/beneficios'
 import { convencoesService } from '@/services/convencoes'
+import { portalEmpregadoService } from '@/services/portalEmpregado'
 import type {
   Funcionario,
   FolhaPagamento,
@@ -56,6 +67,7 @@ import type {
   BeneficioConcedidoRecord,
   ConvencaoColetivaRecord,
   HistoricoSalarialRecord,
+  PortalEmpregadoAcessoRecord,
 } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -98,6 +110,7 @@ export default function DepartamentoPessoal() {
     | 'eventuais'
     | 'esocial'
     | 'reinf_dctfweb'
+    | 'acessos_portal'
   >('funcionarios')
   const [expandedFolhaId, setExpandedFolhaId] = useState<string | null>(null)
   const [empresas, setEmpresas] = useState<Empresa[]>([])
@@ -106,8 +119,12 @@ export default function DepartamentoPessoal() {
   // Filtros Globais
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>('todas')
 
-  // === Aba 1: Funcionários ===
+  // === Aba 1: Funcionários & Acessos ao Portal ===
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
+  const [mapaAcessos, setMapaAcessos] = useState<Record<string, PortalEmpregadoAcessoRecord>>({})
+  const [listaAcessosPortal, setListaAcessosPortal] = useState<PortalEmpregadoAcessoRecord[]>([])
+  const [buscaAcessosPortal, setBuscaAcessosPortal] = useState('')
+  const [filtroStatusPortal, setFiltroStatusPortal] = useState<string>('todos')
   const [buscaFuncionario, setBuscaFuncionario] = useState('')
   const [filtroStatusFunc, setFiltroStatusFunc] = useState<string>('todos')
   const [modalFuncOpen, setModalFuncOpen] = useState(false)
@@ -171,7 +188,7 @@ export default function DepartamentoPessoal() {
     if (!tenant?.id) return
     setLoading(true)
     try {
-      const [emps, funcs, folha, evts, bens, convs, hists] = await Promise.all([
+      const [emps, funcs, folha, evts, bens, convs, hists, acessosLote] = await Promise.all([
         empresasService.list(tenant.id),
         dpService.listFuncionarios(tenant.id, {
           empresaId: selectedEmpresaId,
@@ -194,6 +211,9 @@ export default function DepartamentoPessoal() {
         convencoesService.listHistoricoSalarial(tenant.id, {
           empresaId: selectedEmpresaId,
         }),
+        portalEmpregadoService.listAcessos(tenant.id, {
+          empresaId: selectedEmpresaId,
+        }),
       ])
       setEmpresas(emps)
       setFuncionarios(funcs)
@@ -202,6 +222,16 @@ export default function DepartamentoPessoal() {
       setBeneficios(bens)
       setConvencoes(convs)
       setHistoricosSalariais(hists)
+
+      // Montar mapa indexado por funcionario_id para acesso O(1) na tabela
+      const mapaAcc: Record<string, PortalEmpregadoAcessoRecord> = {}
+      for (const a of acessosLote) {
+        if (a.funcionario_id && !mapaAcc[a.funcionario_id]) {
+          mapaAcc[a.funcionario_id] = a
+        }
+      }
+      setMapaAcessos(mapaAcc)
+      setListaAcessosPortal(acessosLote)
     } catch (err) {
       console.error('Erro ao carregar DP:', err)
       toast({
@@ -229,6 +259,7 @@ export default function DepartamentoPessoal() {
   // Assinatura em tempo real para sincronização instantânea
   useRealtime('funcionarios', () => loadData())
   useRealtime('eventos_dp', () => loadData())
+  useRealtime('portal_empregado_acessos', () => loadData())
 
   // Abrir Modal de Funcionário
   const handleOpenFuncModal = (func?: Funcionario) => {
@@ -652,6 +683,10 @@ export default function DepartamentoPessoal() {
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
             <span>EFD-Reinf & DCTFWeb</span>
           </TabsTrigger>
+          <TabsTrigger value="acessos_portal" className="gap-2 text-xs font-semibold rounded-lg">
+            <KeyRound className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Acessos ao Portal ({listaAcessosPortal.length})</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* === TAB 1: FUNCIONÁRIOS === */}
@@ -714,6 +749,7 @@ export default function DepartamentoPessoal() {
                     <th className="py-3 px-4">Nome Completo / CPF</th>
                     <th className="py-3 px-4">Empresa</th>
                     <th className="py-3 px-4">Cargo / Tipo</th>
+                    <th className="py-3 px-4">Acesso Portal</th>
                     <th className="py-3 px-4">Conformidade e-Social</th>
                     <th className="py-3 px-4">Admissão</th>
                     <th className="py-3 px-4">Salário Base</th>
@@ -724,148 +760,193 @@ export default function DepartamentoPessoal() {
                 <tbody className="divide-y divide-slate-100 text-[#1A2333]">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-[#94A3B8]">
+                      <td colSpan={9} className="py-8 text-center text-[#94A3B8]">
                         Carregando quadro de colaboradores...
                       </td>
                     </tr>
                   ) : funcionarios.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-[#94A3B8]">
+                      <td colSpan={9} className="py-8 text-center text-[#94A3B8]">
                         Nenhum funcionário encontrado para os filtros selecionados.
                       </td>
                     </tr>
                   ) : (
-                    funcionarios.map((f) => (
-                      <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFichaColaboradorId(f.id)
-                              setFichaColaboradorOpen(true)
-                            }}
-                            className="font-bold text-[#1A2333] hover:text-[#0FA3A3] hover:underline cursor-pointer text-left block"
-                          >
-                            {f.nome_completo}
-                          </button>
-                          <p className="text-[11px] text-[#64748B]">CPF: {maskCpf(f.cpf)}</p>
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-[#475569]">
-                          {f.expand?.empresa?.nome_fantasia ||
-                            f.expand?.empresa?.razao_social ||
-                            '—'}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <p className="font-semibold text-[#1A2333]">{f.cargo}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#64748B]">
-                              {f.tipo}
-                            </span>
-                            {f.cbo && (
-                              <span className="inline-block rounded-md bg-sky-50 text-sky-700 px-1.5 py-0.5 text-[10px] font-mono">
-                                CBO: {f.cbo}
+                    funcionarios.map((f) => {
+                      const acc = mapaAcessos[f.id]
+                      const temToken = Boolean(f.token_acesso_publico || acc?.token_acesso)
+                      const isRevogado = acc?.ativo === false
+                      const isExpirado = acc?.expira_em
+                        ? new Date(acc.expira_em).getTime() < Date.now()
+                        : false
+                      const isConcluido = Boolean(
+                        acc?.primeiro_acesso_realizado || f.primeiro_acesso_realizado,
+                      )
+
+                      return (
+                        <tr key={f.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFichaColaboradorId(f.id)
+                                setFichaColaboradorOpen(true)
+                              }}
+                              className="font-bold text-[#1A2333] hover:text-[#0FA3A3] hover:underline cursor-pointer text-left block"
+                            >
+                              {f.nome_completo}
+                            </button>
+                            <p className="text-[11px] text-[#64748B]">CPF: {maskCpf(f.cpf)}</p>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-[#475569]">
+                            {f.expand?.empresa?.nome_fantasia ||
+                              f.expand?.empresa?.razao_social ||
+                              '—'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-semibold text-[#1A2333]">{f.cargo}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="inline-block rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#64748B]">
+                                {f.tipo}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {(() => {
-                            const conf = esocialService.validarConformidadeFuncionario(f)
-                            if (conf.statusConformidade === 'conforme') {
-                              return (
-                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-semibold gap-1">
-                                  <ShieldCheck className="h-3 w-3" />
-                                  <span>100% Conforme</span>
-                                </Badge>
-                              )
-                            }
-                            if (conf.statusConformidade === 'pendencias') {
-                              return (
-                                <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[11px] font-semibold gap-1">
-                                  <AlertTriangle className="h-3 w-3 text-amber-600" />
-                                  <span>
-                                    {conf.percentual}% ({conf.pendencias.length} alertas)
-                                  </span>
-                                </Badge>
-                              )
-                            }
-                            return (
-                              <Badge className="bg-rose-50 text-rose-800 border-rose-200 text-[11px] font-semibold gap-1">
-                                <AlertTriangle className="h-3 w-3 text-rose-600" />
-                                <span>{conf.percentual}% (Crítico)</span>
-                              </Badge>
-                            )
-                          })()}
-                        </td>
-                        <td className="py-3.5 px-4 text-[#64748B]">
-                          {formatDatePtBr(f.data_admissao)}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-[#1A2333]">
-                          R${' '}
-                          {f.salario.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {f.status === 'ativo' && (
-                            <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
-                              Ativo
-                            </Badge>
-                          )}
-                          {f.status === 'ferias' && (
-                            <Badge className="bg-[#FEF3C7] text-[#D97706] border-amber-200">
-                              Férias
-                            </Badge>
-                          )}
-                          {f.status === 'afastado' && (
-                            <Badge className="bg-[#F3E8FF] text-[#9333EA] border-purple-200">
-                              Afastado
-                            </Badge>
-                          )}
-                          {f.status === 'demitido' && (
-                            <Badge className="bg-[#FEE2E2] text-[#DC2626] border-rose-200">
-                              Demitido
-                            </Badge>
-                          )}
-                        </td>
-                        {canManage && (
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setPortalEmpregadoTarget(f)
-                                  setModalPortalEmpregadoOpen(true)
-                                }}
-                                className="h-7 px-2 text-[11px] gap-1 text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585] rounded-lg font-medium"
-                                title="Gerar código de acesso e link para o Portal do Empregado"
-                              >
-                                <KeyRound className="h-3.5 w-3.5" />
-                                <span className="hidden md:inline">Portal</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenFuncModal(f)}
-                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0FA3A3]"
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteFuncionario(f.id, f.nome_completo)}
-                                className="h-7 w-7 p-0 text-[#64748B] hover:text-[#EF4444]"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {f.cbo && (
+                                <span className="inline-block rounded-md bg-sky-50 text-sky-700 px-1.5 py-0.5 text-[10px] font-mono">
+                                  CBO: {f.cbo}
+                                </span>
+                              )}
                             </div>
                           </td>
-                        )}
-                      </tr>
-                    ))
+                          {/* Coluna Acesso Portal com Badge Visual */}
+                          <td className="py-3.5 px-4">
+                            {!temToken ? (
+                              <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] font-medium">
+                                Sem Código
+                              </Badge>
+                            ) : isRevogado ? (
+                              <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-semibold gap-1">
+                                <Ban className="h-2.5 w-2.5" />
+                                Revogado
+                              </Badge>
+                            ) : isExpirado ? (
+                              <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] font-semibold gap-1">
+                                <Clock className="h-2.5 w-2.5" />
+                                Expirado
+                              </Badge>
+                            ) : isConcluido ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold gap-1">
+                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                1º Acesso Concluído
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-teal-50 text-[#0FA3A3] border-teal-200 text-[10px] font-semibold gap-1">
+                                <ShieldCheck className="h-2.5 w-2.5" />
+                                Portal Ativo
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {(() => {
+                              const conf = esocialService.validarConformidadeFuncionario(f)
+                              if (conf.statusConformidade === 'conforme') {
+                                return (
+                                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-semibold gap-1">
+                                    <ShieldCheck className="h-3 w-3" />
+                                    <span>100% Conforme</span>
+                                  </Badge>
+                                )
+                              }
+                              if (conf.statusConformidade === 'pendencias') {
+                                return (
+                                  <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[11px] font-semibold gap-1">
+                                    <AlertTriangle className="h-3 w-3 text-amber-600" />
+                                    <span>
+                                      {conf.percentual}% ({conf.pendencias.length} alertas)
+                                    </span>
+                                  </Badge>
+                                )
+                              }
+                              return (
+                                <Badge className="bg-rose-50 text-rose-800 border-rose-200 text-[11px] font-semibold gap-1">
+                                  <AlertTriangle className="h-3 w-3 text-rose-600" />
+                                  <span>{conf.percentual}% (Crítico)</span>
+                                </Badge>
+                              )
+                            })()}
+                          </td>
+                          <td className="py-3.5 px-4 text-[#64748B]">
+                            {formatDatePtBr(f.data_admissao)}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-[#1A2333]">
+                            R${' '}
+                            {f.salario.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {f.status === 'ativo' && (
+                              <Badge className="bg-[#DCFCE7] text-[#16A34A] border-emerald-200">
+                                Ativo
+                              </Badge>
+                            )}
+                            {f.status === 'ferias' && (
+                              <Badge className="bg-[#FEF3C7] text-[#D97706] border-amber-200">
+                                Férias
+                              </Badge>
+                            )}
+                            {f.status === 'afastado' && (
+                              <Badge className="bg-[#F3E8FF] text-[#9333EA] border-purple-200">
+                                Afastado
+                              </Badge>
+                            )}
+                            {f.status === 'demitido' && (
+                              <Badge className="bg-[#FEE2E2] text-[#DC2626] border-rose-200">
+                                Demitido
+                              </Badge>
+                            )}
+                          </td>
+                          {canManage && (
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setPortalEmpregadoTarget(f)
+                                    setModalPortalEmpregadoOpen(true)
+                                  }}
+                                  className={cn(
+                                    'h-7 px-2 text-[11px] gap-1 rounded-lg font-medium',
+                                    temToken && !isRevogado && !isExpirado
+                                      ? 'text-teal-700 bg-teal-50/70 hover:bg-teal-100'
+                                      : 'text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585]',
+                                  )}
+                                  title="Gerenciar credenciais e link do Portal do Empregado"
+                                >
+                                  <KeyRound className="h-3.5 w-3.5" />
+                                  <span className="hidden md:inline">Portal</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenFuncModal(f)}
+                                  className="h-7 w-7 p-0 text-[#64748B] hover:text-[#0FA3A3]"
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteFuncionario(f.id, f.nome_completo)}
+                                  className="h-7 w-7 p-0 text-[#64748B] hover:text-[#EF4444]"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -1475,6 +1556,357 @@ export default function DepartamentoPessoal() {
             canEdit={member?.perfil === 'administrador' || member?.perfil === 'contador'}
             onNavigateToEsocial={() => setActiveTab('esocial')}
           />
+        </TabsContent>
+
+        {/* === TAB 6: ACESSOS AO PORTAL DO EMPREGADO (VISÃO CENTRALIZADA) === */}
+        <TabsContent value="acessos_portal" className="space-y-4 mt-4">
+          {/* Barra de Filtros e Busca */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+            <div className="flex flex-1 flex-wrap items-center gap-3">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
+                <Input
+                  value={buscaAcessosPortal}
+                  onChange={(e) => setBuscaAcessosPortal(e.target.value)}
+                  placeholder="Buscar colaborador, CPF ou código..."
+                  className="pl-9 h-9 text-xs rounded-xl border-[#E2E8F0]"
+                />
+              </div>
+
+              <Select value={filtroStatusPortal} onValueChange={setFiltroStatusPortal}>
+                <SelectTrigger className="w-44 h-9 text-xs rounded-xl border-[#E2E8F0]">
+                  <SelectValue placeholder="Status do Acesso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Status</SelectItem>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="concluido">1º Acesso Concluído</SelectItem>
+                  <SelectItem value="expirado">Expirado</SelectItem>
+                  <SelectItem value="revogado">Revogado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadData()}
+                className="gap-2 rounded-xl text-xs font-semibold h-9 border-[#E2E8F0]"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                <span>Atualizar</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Cards Resumo de Acessos do Portal */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    Acessos Emitidos
+                  </p>
+                  <p className="text-xl font-bold text-[#1A2333] mt-1">
+                    {listaAcessosPortal.length}
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">Credenciais cadastradas</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-[#0FA3A3]">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    Acessos Ativos
+                  </p>
+                  <p className="text-xl font-bold text-teal-700 mt-1">
+                    {
+                      listaAcessosPortal.filter(
+                        (a) =>
+                          a.ativo !== false &&
+                          (!a.expira_em || new Date(a.expira_em).getTime() >= Date.now()),
+                      ).length
+                    }
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">Válidos para login</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    1º Acesso Concluído
+                  </p>
+                  <p className="text-xl font-bold text-emerald-700 mt-1">
+                    {listaAcessosPortal.filter((a) => a.primeiro_acesso_realizado).length}
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">Já entraram no portal</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
+                    Expirados / Revogados
+                  </p>
+                  <p className="text-xl font-bold text-amber-700 mt-1">
+                    {
+                      listaAcessosPortal.filter(
+                        (a) =>
+                          a.ativo === false ||
+                          (a.expira_em && new Date(a.expira_em).getTime() < Date.now()),
+                      ).length
+                    }
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">Necessitam renovação</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabela de Acessos Emitidos */}
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold border-b border-[#E2E8F0]">
+                  <tr>
+                    <th className="py-3 px-4">Colaborador / CPF</th>
+                    <th className="py-3 px-4">Empresa</th>
+                    <th className="py-3 px-4">Código / WhatsApp</th>
+                    <th className="py-3 px-4">Validade</th>
+                    <th className="py-3 px-4">Último Acesso</th>
+                    <th className="py-3 px-4">Status</th>
+                    {canManage && <th className="py-3 px-4 text-right">Ações</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[#1A2333]">
+                  {(() => {
+                    const filtrados = listaAcessosPortal.filter((a) => {
+                      const q = buscaAcessosPortal.trim().toLowerCase()
+                      if (q) {
+                        const matchNome = (a.nome_colaborador || '').toLowerCase().includes(q)
+                        const matchCpf = (a.cpf || '').includes(q.replace(/\D/g, ''))
+                        const matchCod = (a.codigo_temporario || '').toLowerCase().includes(q)
+                        const matchEmp = (
+                          a.expand?.empresa?.nome_fantasia ||
+                          a.expand?.empresa?.razao_social ||
+                          ''
+                        )
+                          .toLowerCase()
+                          .includes(q)
+                        if (!matchNome && !matchCpf && !matchCod && !matchEmp) return false
+                      }
+
+                      const expirado = a.expira_em
+                        ? new Date(a.expira_em).getTime() < Date.now()
+                        : false
+                      if (filtroStatusPortal === 'ativo') {
+                        return a.ativo !== false && !expirado
+                      }
+                      if (filtroStatusPortal === 'concluido') {
+                        return a.primeiro_acesso_realizado && a.ativo !== false
+                      }
+                      if (filtroStatusPortal === 'expirado') {
+                        return expirado && a.ativo !== false
+                      }
+                      if (filtroStatusPortal === 'revogado') {
+                        return a.ativo === false
+                      }
+                      return true
+                    })
+
+                    if (loading) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-[#94A3B8]">
+                            Carregando registros de acesso...
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    if (filtrados.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-[#94A3B8]">
+                            Nenhum acesso emitido encontrado. Para gerar, acesse a aba
+                            &quot;Colaboradores&quot; e clique no botão &quot;Portal&quot;.
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    return filtrados.map((a) => {
+                      const expirado = a.expira_em
+                        ? new Date(a.expira_em).getTime() < Date.now()
+                        : false
+                      const funcCorrespondente =
+                        a.expand?.funcionario_id ||
+                        funcionarios.find((f) => f.id === a.funcionario_id)
+                      const empresaNome =
+                        a.expand?.empresa?.nome_fantasia ||
+                        a.expand?.empresa?.razao_social ||
+                        funcCorrespondente?.expand?.empresa?.nome_fantasia ||
+                        funcCorrespondente?.expand?.empresa?.razao_social ||
+                        '—'
+
+                      return (
+                        <tr key={a.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-[#1A2333] block">
+                              {a.nome_colaborador ||
+                                funcCorrespondente?.nome_completo ||
+                                'Colaborador'}
+                            </span>
+                            <p className="text-[11px] text-[#64748B] font-mono">
+                              CPF: {maskCpf(a.cpf)}
+                              {funcCorrespondente?.cargo && ` • ${funcCorrespondente.cargo}`}
+                            </p>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-[#475569]">{empresaNome}</td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-[#1A2333]">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
+                                {a.codigo_temporario || '••••••'}
+                              </span>
+                            </div>
+                            {a.telefone_whatsapp && (
+                              <p className="text-[11px] text-[#64748B] flex items-center gap-1 mt-0.5">
+                                <Smartphone className="h-3 w-3 text-emerald-600" />
+                                {a.telefone_whatsapp}
+                              </p>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-[#64748B]">
+                            {a.expira_em ? (
+                              <span className={expirado ? 'text-amber-700 font-medium' : ''}>
+                                {new Date(a.expira_em).toLocaleDateString('pt-BR')}
+                              </span>
+                            ) : (
+                              'Sem validade'
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-[#64748B]">
+                            {a.ultimo_acesso ? (
+                              <span>{new Date(a.ultimo_acesso).toLocaleDateString('pt-BR')}</span>
+                            ) : (
+                              <span className="text-slate-400 italic">Nunca acessou</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {a.ativo === false ? (
+                              <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-semibold gap-1">
+                                <Ban className="h-2.5 w-2.5" />
+                                Revogado
+                              </Badge>
+                            ) : expirado ? (
+                              <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] font-semibold gap-1">
+                                <Clock className="h-2.5 w-2.5" />
+                                Expirado
+                              </Badge>
+                            ) : a.primeiro_acesso_realizado ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold gap-1">
+                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                1º Acesso Realizado
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-teal-50 text-[#0FA3A3] border-teal-200 text-[10px] font-semibold gap-1">
+                                <ShieldCheck className="h-2.5 w-2.5" />
+                                Ativo
+                              </Badge>
+                            )}
+                          </td>
+                          {canManage && (
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (funcCorrespondente) {
+                                      setPortalEmpregadoTarget(funcCorrespondente)
+                                      setModalPortalEmpregadoOpen(true)
+                                    } else {
+                                      toast({
+                                        title: 'Colaborador não localizado',
+                                        description:
+                                          'O funcionário deste acesso foi excluído ou não está cadastrado.',
+                                      })
+                                    }
+                                  }}
+                                  className="h-7 px-2 text-[11px] gap-1 text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585] rounded-lg font-medium"
+                                  title="Gerenciar / Renovar / Revogar"
+                                >
+                                  <KeyRound className="h-3.5 w-3.5" />
+                                  <span>Gerenciar</span>
+                                </Button>
+
+                                {a.ativo !== false && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      if (
+                                        !window.confirm(
+                                          `Deseja realmente revogar o acesso de ${a.nome_colaborador}?`,
+                                        )
+                                      ) {
+                                        return
+                                      }
+                                      try {
+                                        await portalEmpregadoService.revogarAcesso(
+                                          tenant?.id || '',
+                                          a.funcionario_id,
+                                          member?.user_id || '',
+                                        )
+                                        toast({
+                                          title: 'Acesso revogado',
+                                          description: `O colaborador ${a.nome_colaborador} não conseguirá mais entrar no portal.`,
+                                        })
+                                        loadData()
+                                      } catch {
+                                        toast({
+                                          variant: 'destructive',
+                                          title: 'Erro ao revogar',
+                                        })
+                                      }
+                                    }}
+                                    className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600"
+                                    title="Revogar credencial imediatamente"
+                                  >
+                                    <Ban className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

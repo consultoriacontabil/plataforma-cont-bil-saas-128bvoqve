@@ -241,11 +241,55 @@ export const portalEmpregadoService = {
         .getFullList<PortalEmpregadoAcessoRecord>({
           filter: `funcionario_id = "${funcionarioId}"`,
           sort: '-created',
+          expand: 'empresa,funcionario_id',
         })
       return recs[0] || null
     } catch (_) {
       return null
     }
+  },
+
+  /**
+   * Lista todos os acessos do portal do empregado de um tenant em lote
+   * Opcionalmente filtrando por empresa
+   */
+  async listAcessos(
+    tenantId: string,
+    filters?: { empresaId?: string },
+  ): Promise<PortalEmpregadoAcessoRecord[]> {
+    try {
+      const parts = [`tenant_id = "${tenantId}"`]
+      if (filters?.empresaId && filters.empresaId !== 'todas') {
+        parts.push(`empresa = "${filters.empresaId}"`)
+      }
+      return await pb
+        .collection('portal_empregado_acessos')
+        .getFullList<PortalEmpregadoAcessoRecord>({
+          filter: parts.join(' && '),
+          sort: '-created',
+          expand: 'empresa,funcionario_id',
+        })
+    } catch (err) {
+      console.warn('Erro ao listar portal_empregado_acessos:', err)
+      return []
+    }
+  },
+
+  /**
+   * Retorna um mapa de funcionario_id -> PortalEmpregadoAcessoRecord para carregar em lote
+   */
+  async getMapaAcessosPorTenant(
+    tenantId: string,
+    empresaId?: string,
+  ): Promise<Record<string, PortalEmpregadoAcessoRecord>> {
+    const lista = await this.listAcessos(tenantId, { empresaId })
+    const mapa: Record<string, PortalEmpregadoAcessoRecord> = {}
+    for (const item of lista) {
+      if (item.funcionario_id && !mapa[item.funcionario_id]) {
+        mapa[item.funcionario_id] = item
+      }
+    }
+    return mapa
   },
 
   /**
