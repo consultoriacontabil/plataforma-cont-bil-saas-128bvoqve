@@ -147,7 +147,37 @@ routerAdd(
       const userId = e.auth?.id
       if (!userId) return e.unauthorizedError('Autenticação necessária')
 
-      const tenantId = e.requestInfo().query?.tenant_id || ''
+      // Obter tenant_id de forma robusta e segura (string)
+      let rawTenantId = ''
+      try {
+        if (e.request && e.request.url && e.request.url.query) {
+          rawTenantId = e.request.url.query().get('tenant_id') || ''
+        }
+      } catch (_) {}
+
+      if (!rawTenantId) {
+        try {
+          const q = e.requestInfo().query
+          if (q && typeof q.tenant_id === 'string') {
+            rawTenantId = q.tenant_id
+          } else if (q && typeof q.get === 'function') {
+            rawTenantId = q.get('tenant_id') || ''
+          }
+        } catch (_) {}
+      }
+
+      // Se ainda não obtido, busca tenant ativo do usuário logado
+      if (!rawTenantId && userId) {
+        try {
+          const mem = $app.findFirstRecordByFilter(
+            'tenant_members',
+            `user_id = '${userId}' && status = 'ativo'`,
+          )
+          rawTenantId = mem.getString('tenant_id') || ''
+        } catch (_) {}
+      }
+
+      const tenantId = String(rawTenantId || '').trim()
 
       // Verificar status de rotinas e credenciais
       let totalEmpresas = 0
@@ -157,7 +187,7 @@ routerAdd(
       let totalObrigacoesAtrasadas = 0
 
       try {
-        const filterTenant = tenantId ? "tenant_id = '" + tenantId + "'" : ''
+        const filterTenant = tenantId ? `tenant_id = '${tenantId}'` : ''
         totalEmpresas = $app.findRecordsByFilter('empresas', filterTenant, '', 500, 0).length
         totalCertificados = $app.findRecordsByFilter(
           'certificados_digitais',
