@@ -182,6 +182,12 @@ export default function PopTreinamentoPage() {
       checked: true,
     },
     {
+      id: 'pop18_portal_empregado',
+      label:
+        '18. Portal do Empregado (/portal-empregado): Autenticação pública CPF + Token, Holerites, Extrato de Férias, TRCT, WhatsApp ativo e máscara LGPD',
+      checked: true,
+    },
+    {
       id: 'autonomia_identidade',
       label:
         'Governança ELLIZA: Perfil operacional nativo (elliza_perfil), Painel de Autonomia e Matriz de Credenciais',
@@ -216,6 +222,8 @@ export default function PopTreinamentoPage() {
     if (match('pedidos documentos extratos maquininhas cartao credito link publico')) hits++
     if (match('backup snapshots download lgpd ged zip manifesto json github retencao')) hits++
     if (match('sped efd icms ipi contribuicoes bloco c bloco a pva md5 sem movimento')) hits++
+    if (match('portal empregado holerite trct ferias clt whatsapp primeiro acesso codigo lgpd'))
+      hits++
     if (match('autonomia supervisao credenciais evolution serpro perfil operacional elliza')) hits++
     if (match('upload documento ged arrastar soltar 25mb')) hits++
     return hits
@@ -265,9 +273,9 @@ export default function PopTreinamentoPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:border-b-2 print:border-slate-800">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Badge className="bg-[#0FA3A3] text-white">POP-ELLIZA-2026.2</Badge>
+            <Badge className="bg-[#0FA3A3] text-white">POP-ELLIZA-2026.3</Badge>
             <Badge variant="outline" className="text-slate-600 font-medium">
-              Versão 0.0.106 • NBC PP 01 & NBC PG 01
+              Versão 0.0.114 • NBC PP 01 & NBC PG 01
             </Badge>
             <Badge className="bg-emerald-600 text-white">
               Modo Supervisionado & Autonomia Real
@@ -276,7 +284,7 @@ export default function PopTreinamentoPage() {
               variant="secondary"
               className="bg-teal-50 text-[#0FA3A3] font-semibold border-teal-200"
             >
-              17 Procedimentos Operacionais + Governança & Complementos
+              18 Procedimentos Operacionais + Governança & Complementos
             </Badge>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
@@ -339,38 +347,29 @@ export default function PopTreinamentoPage() {
         </div>
       </div>
 
-      {/* Nota de Revisão do Documento (0.0.83 -> 0.0.106) */}
+      {/* Nota de Revisão do Documento (2026.2 -> 2026.3) */}
       <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-xs text-sky-950 space-y-2">
         <div className="flex items-center gap-2 font-bold text-sky-900">
           <History className="h-4 w-4 text-sky-700" />
-          <span>Nota de Revisão — Atualização POP-ELLIZA-2026.2 (Plataforma v0.0.106)</span>
+          <span>Nota de Revisão — Atualização POP-ELLIZA-2026.3 (Plataforma v0.0.114)</span>
         </div>
         <p className="leading-relaxed">
           Esta revisão incorpora integralmente todas as atualizações tecnológicas e regulatórias
-          entregues desde a versão 0.0.83 até a v0.0.106:
+          entregues desde a versão 0.0.106 até a v0.0.114:
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-sky-900/90 pt-1">
           <div>
-            • <b>Novos Procedimentos 13 a 17:</b> Integra Contador SERPRO/e-CAC com túnel mTLS;
-            Provedor fiscal NFE.io; Pedidos de Documentos com link público; Backup independente
-            (/backup) com retenção de 7 snapshots e GED zipado; Gerador próprio de SPED Fiscal e
-            Contribuições com hash MD5.
+            • <b>Novo Procedimento 18 (Portal do Empregado):</b> Acesso público desvinculado
+            (/portal-empregado) com autenticação segura via CPF + Token/Código temporário de 6
+            dígitos; consulta e impressão oficial de holerites mensais, extrato e recibos de férias,
+            espelho do TRCT (Portaria MTE nº 1.057) e ficha cadastral com máscara protetiva da LGPD.
           </div>
           <div>
-            • <b>Ajustes Estruturais e Governança:</b> ELLIZA com perfil operacional próprio
-            (coleção <code className="bg-sky-100 px-1 rounded">elliza_perfil</code>, migration 0097
-            e card em{' '}
-            <Link to="/usuarios" className="underline font-semibold">
-              /usuarios
-            </Link>
-            ); Painel Status de Autonomia em{' '}
-            <Link to="/elliza" className="underline font-semibold">
-              /elliza
-            </Link>
-            ; Conector RFB honesto em demonstração (status{' '}
-            <code className="bg-sky-100 px-1 rounded">pendente_emissao</code> e prefixo{' '}
-            <code className="bg-sky-100 px-1 rounded">[DEMONSTRAÇÃO]</code>); Badges dinâmicos de
-            autonomia (credenciado vs supervisão); Upload GED com drag & drop e auditoria.
+            • <b>Disparo Ativo por WhatsApp & Auditoria:</b> Emissão e revogação de acessos pelo
+            contador na listagem do Departamento Pessoal, envio automatizado via Evolution API (com
+            fila honesta <code className="bg-sky-100 px-1 rounded">aguardando_credenciais</code>{' '}
+            caso pendente) e rastreamento completo em{' '}
+            <code className="bg-sky-100 px-1 rounded">audit_log</code>.
           </div>
         </div>
       </div>
@@ -485,6 +484,12 @@ export default function PopTreinamentoPage() {
             className="text-xs font-medium bg-teal-50 text-teal-900 border border-teal-200 font-semibold"
           >
             17. SPED EFD & Hash MD5
+          </TabsTrigger>
+          <TabsTrigger
+            value="portal_empregado"
+            className="text-xs font-medium bg-teal-50 text-teal-900 border border-teal-200 font-semibold"
+          >
+            18. Portal do Empregado
           </TabsTrigger>
           <TabsTrigger value="complementos" className="text-xs font-medium text-slate-700">
             Complementos & Manual
@@ -1945,6 +1950,117 @@ export default function PopTreinamentoPage() {
                     arquivamento no GED.
                   </li>
                 </ol>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* =========================================================================
+            ABA 18: PORTAL DO EMPREGADO - NOVO POP 18
+           ========================================================================= */}
+        <TabsContent value="portal_empregado" className="space-y-6">
+          <Card className="border-slate-200 shadow-xs">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-[#0FA3A3]" />
+                    Procedimento 18: Portal do Empregado & Autoatendimento CLT
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Emissão de credenciais de primeiro acesso, consulta pública isolada de
+                    holerites, férias, TRCT, envio ativo por WhatsApp e conformidade estrita com a
+                    LGPD.
+                  </CardDescription>
+                </div>
+                <Badge className="bg-slate-800 text-white">Rota Pública: /portal-empregado</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs text-slate-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div>
+                  <span className="font-semibold text-slate-900 block mb-1">🎯 Objetivo:</span>
+                  Proporcionar um canal digital seguro e direto para que o trabalhador consulte seus
+                  recibos de vencimento (holerites), programação e saldo de férias e espelho
+                  rescisório (TRCT), desonerando o atendimento do RH e do escritório contábil.
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-900 block mb-1">
+                    🔑 Permissão e Autonomia:
+                  </span>
+                  Geração/Revogação de token pelo <b>Contador/Administrador</b> em{' '}
+                  <Link
+                    to="/departamento-pessoal"
+                    className="underline text-[#0FA3A3] font-semibold"
+                  >
+                    /departamento-pessoal
+                  </Link>
+                  . Acesso público ao colaborador por CPF + Código de 6 dígitos ou link direto.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Fluxo Operacional Padronizado em 5 Etapas:
+                </h3>
+                <ol className="list-decimal pl-4 space-y-2 text-slate-600">
+                  <li>
+                    <b>Geração de Credencial pelo Contador:</b> Na aba <i>Colaboradores</i> do
+                    Departamento Pessoal, o operador clica no botão <b>Portal</b> de cada
+                    funcionário. O sistema cria um token criptografado e um código temporário de 6
+                    dígitos com validade de 30 dias na coleção dedicada{' '}
+                    <code className="bg-slate-100 px-1 rounded">portal_empregado_acessos</code>.
+                  </li>
+                  <li>
+                    <b>Envio Ativo via WhatsApp:</b> O contador informa o WhatsApp do empregado e
+                    clica em <i>"Disparar WhatsApp"</i>. O motor{' '}
+                    <code className="bg-slate-100 px-1 rounded">whatsappAtivoService</code> realiza
+                    o envio imediato se a Evolution API estiver parametrizada; caso contrário,
+                    enfileira transparentemente em{' '}
+                    <code className="bg-slate-100 px-1 rounded">aguardando_credenciais</code>.
+                  </li>
+                  <li>
+                    <b>Autenticação Segura do Empregado:</b> Na rota{' '}
+                    <code className="bg-slate-100 px-1 rounded">/portal-empregado</code>, o
+                    colaborador informa seu CPF e o código recebido (ou clica no link direto do
+                    WhatsApp). O login registra automaticamente o primeiro acesso na base.
+                  </li>
+                  <li>
+                    <b>Consulta e Impressão de Demonstrativos:</b> O empregado acessa suas 4 abas
+                    exclusivas:
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      <li>
+                        <b>Holerites:</b> Histórico mensal por competência, demonstrando proventos,
+                        descontos de INSS e IRRF, FGTS depositado e líquido, com botão de impressão
+                        em PDF.
+                      </li>
+                      <li>
+                        <b>Extrato de Férias:</b> Períodos aquisitivos, saldo de dias de descanso e
+                        recibos com 1/3 constitucional.
+                      </li>
+                      <li>
+                        <b>TRCT / Rescisão:</b> Espelho oficial da rescisão (Portaria MTE nº 1.057)
+                        e verbas rescisórias homologadas.
+                      </li>
+                      <li>
+                        <b>Dados Cadastrais (LGPD):</b> Dados funcionais e matrícula e-Social com
+                        mascaramento protetivo de CPF e CTPS.
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <b>Auditoria & Rastreabilidade CFC:</b> Todas as ações de login e downloads de
+                    documentos pelo empregado são registradas na tabela{' '}
+                    <code className="bg-slate-100 px-1 rounded">audit_log</code> com IP, timestamp e
+                    identificador do colaborador, garantindo rastreabilidade jurídica.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 text-teal-950 text-xs">
+                <b>Blindagem Multi-Tenant & LGPD:</b> O Portal do Empregado opera com regras
+                estritas de isolamento por tenant e empresa. Nenhum colaborador tem acesso às
+                informações, salários ou holerites de outro empregado da mesma ou de outra empresa.
               </div>
             </CardContent>
           </Card>

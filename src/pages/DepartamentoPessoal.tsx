@@ -37,6 +37,8 @@ import { Palmtree, UserMinus, Bus, Scale, UploadCloud } from 'lucide-react'
 import { PainelBeneficios } from '@/components/PainelBeneficios'
 import { PainelConvencoes } from '@/components/PainelConvencoes'
 import { ModalImportacaoColaboradoresEsocial } from '@/components/ModalImportacaoColaboradoresEsocial'
+import { ModalPortalEmpregado } from '@/components/ModalPortalEmpregado'
+import { KeyRound } from 'lucide-react'
 import { useRealtime } from '@/hooks/use-realtime'
 import { beneficiosService } from '@/services/beneficios'
 import { convencoesService } from '@/services/convencoes'
@@ -113,6 +115,8 @@ export default function DepartamentoPessoal() {
   const [fichaColaboradorId, setFichaColaboradorId] = useState<string | null>(null)
   const [fichaColaboradorOpen, setFichaColaboradorOpen] = useState(false)
   const [modalImportacaoEsocialOpen, setModalImportacaoEsocialOpen] = useState(false)
+  const [portalEmpregadoTarget, setPortalEmpregadoTarget] = useState<Funcionario | null>(null)
+  const [modalPortalEmpregadoOpen, setModalPortalEmpregadoOpen] = useState(false)
 
   // Form Funcionário
   const [formFuncEmpresa, setFormFuncEmpresa] = useState('')
@@ -828,6 +832,19 @@ export default function DepartamentoPessoal() {
                         {canManage && (
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setPortalEmpregadoTarget(f)
+                                  setModalPortalEmpregadoOpen(true)
+                                }}
+                                className="h-7 px-2 text-[11px] gap-1 text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585] rounded-lg font-medium"
+                                title="Gerar código de acesso e link para o Portal do Empregado"
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                                <span className="hidden md:inline">Portal</span>
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1795,6 +1812,18 @@ export default function DepartamentoPessoal() {
         empresas={empresas}
         empresaInicialId={selectedEmpresaId}
         onImportConcluido={() => {
+          loadData()
+        }}
+      />
+
+      {/* Modal de Acesso ao Portal do Empregado (Link, Código e WhatsApp) */}
+      <ModalPortalEmpregado
+        open={modalPortalEmpregadoOpen}
+        onOpenChange={setModalPortalEmpregadoOpen}
+        funcionario={portalEmpregadoTarget}
+        usuarioId={member?.user_id || ''}
+        tenantId={tenant?.id || ''}
+        onAcessoAtualizado={() => {
           loadData()
         }}
       />

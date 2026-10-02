@@ -561,8 +561,32 @@ export interface Funcionario extends RecordModel {
   regime_tributario_trabalhador?: string
   categoria_trabalhador?: string
   matricula_esocial?: string
+  token_acesso_publico?: string
+  primeiro_acesso_realizado?: boolean
+  ultimo_acesso_portal?: string
   expand?: {
     empresa?: Empresa
+  }
+}
+
+// === Módulo Portal do Empregado ===
+export interface PortalEmpregadoAcessoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  funcionario_id: string
+  cpf: string
+  nome_colaborador: string
+  telefone_whatsapp?: string
+  token_acesso: string
+  codigo_temporario?: string
+  senha_hash?: string
+  primeiro_acesso_realizado?: boolean
+  ativo?: boolean
+  ultimo_acesso?: string
+  expira_em?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario_id?: Funcionario
   }
 }
 

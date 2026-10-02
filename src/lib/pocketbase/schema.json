@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T20:05:14.400Z",
+  "generatedAt": "2026-10-02T20:14:09.615Z",
   "collections": [
     {
       "name": "users",
@@ -1544,8 +1544,8 @@
       "name": "funcionarios",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "@request.auth.id != '' || token_acesso_publico != ''",
+        "view": "@request.auth.id != '' || token_acesso_publico != ''",
         "create": "@request.auth.id != ''",
         "update": "@request.auth.id != ''",
         "delete": "@request.auth.id != ''"
@@ -1750,6 +1750,24 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "token_acesso_publico",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "primeiro_acesso_realizado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_acesso_portal",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -1762,8 +1780,8 @@
       "name": "folha_pagamento",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "@request.auth.id != '' || funcionario.token_acesso_publico != ''",
+        "view": "@request.auth.id != '' || funcionario.token_acesso_publico != ''",
         "create": "@request.auth.id != ''",
         "update": "@request.auth.id != ''",
         "delete": "@request.auth.id != ''"
@@ -6658,8 +6676,8 @@
       "name": "ferias_periodos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
-        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente' || funcionario.token_acesso_publico != ''",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente' || funcionario.token_acesso_publico != ''",
         "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
         "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
         "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
@@ -7087,8 +7105,8 @@
       "name": "rescisoes",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
-        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente' || funcionario.token_acesso_publico != ''",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente' || funcionario.token_acesso_publico != ''",
         "create": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
         "update": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')",
         "delete": "@request.auth.id != '' && (@request.auth.tenant_members_via_user_id.perfil ?= 'administrador' || @request.auth.tenant_members_via_user_id.perfil ?= 'contador')"
@@ -11454,6 +11472,121 @@
         "CREATE INDEX idx_integra_consumo_empresa ON integra_contador_consumo (empresa)",
         "CREATE INDEX idx_integra_consumo_servico ON integra_contador_consumo (servico)",
         "CREATE INDEX idx_integra_consumo_created ON integra_contador_consumo (created DESC)"
+      ]
+    },
+    {
+      "name": "portal_empregado_acessos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || token_acesso != ''",
+        "view": "@request.auth.id != '' || token_acesso != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' || (token_acesso != '' && token_acesso = @request.body.token_acesso)",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "funcionario_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "cpf",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome_colaborador",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "telefone_whatsapp",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "token_acesso",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "codigo_temporario",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "senha_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "primeiro_acesso_realizado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_acesso",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expira_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pea_tenant_emp ON portal_empregado_acessos (tenant_id, empresa)",
+        "CREATE UNIQUE INDEX idx_pea_func ON portal_empregado_acessos (funcionario_id)",
+        "CREATE INDEX idx_pea_cpf ON portal_empregado_acessos (cpf)",
+        "CREATE UNIQUE INDEX idx_pea_token ON portal_empregado_acessos (token_acesso)",
+        "CREATE INDEX idx_pea_created ON portal_empregado_acessos (created DESC)"
       ]
     }
   ]
