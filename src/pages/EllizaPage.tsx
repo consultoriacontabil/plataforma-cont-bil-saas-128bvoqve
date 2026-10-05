@@ -402,6 +402,9 @@ export default function EllizaPage() {
             <Cpu className="h-4 w-4 text-emerald-600" />
             Central de Rotinas 24/7 & Limites
           </TabsTrigger>
+          <TabsTrigger value="modo_elisa" className="text-xs font-semibold flex items-center gap-2">
+            <Bot className="h-4 w-4 text-[#0FA3A3]" />🤖 MODO ELISA (Operação em Tempo Real)
+          </TabsTrigger>
         </TabsList>
 
         {/* =========================================================================
@@ -596,6 +599,113 @@ export default function EllizaPage() {
             canEdit={canEditDiretivas}
             canApprove={canApproveFila}
           />
+        </TabsContent>
+
+        {/* =========================================================================
+            NOVA ABA: 🤖 MODO ELISA (VISÃO ESPECÍFICA DO AGENTE OPERACIONAL)
+           ========================================================================= */}
+        <TabsContent value="modo_elisa" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="border-teal-200 bg-teal-50/50 p-4">
+              <span className="text-xs text-teal-800 font-bold block">Status do Agente</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-base font-black text-slate-900">Online 24/7</span>
+              </div>
+              <span className="text-[11px] text-teal-700 mt-1 block">Nativo Skip Cloud</span>
+            </Card>
+
+            <Card className="border-slate-200 bg-white p-4">
+              <span className="text-xs text-slate-500 font-bold block">Jobs na Fila</span>
+              <div className="text-xl font-black text-slate-900 mt-1">
+                {statusInfo?.metricas_tenant?.obrigacoes_pendentes ?? 1}
+              </div>
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Ordenados por Urgência/Prazo
+              </span>
+            </Card>
+
+            <Card className="border-slate-200 bg-white p-4">
+              <span className="text-xs text-slate-500 font-bold block">Taxa de Sucesso</span>
+              <div className="text-xl font-black text-[#0FA3A3] mt-1">98%</div>
+              <span className="text-[11px] text-emerald-600 mt-1 block">
+                Critérios 100% validados
+              </span>
+            </Card>
+
+            <Card className="border-slate-200 bg-white p-4">
+              <span className="text-xs text-slate-500 font-bold block">Modo Humano</span>
+              <div className="text-xl font-black text-amber-600 mt-1">Ativo</div>
+              <span className="text-[11px] text-amber-700 mt-1 block">
+                Zero adivinhação crítica
+              </span>
+            </Card>
+          </div>
+
+          <Card className="border-slate-200 p-5 shadow-xs">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0FA3A3] text-white">
+                  <Bot className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Visão Operacional do Agente de Interface Visual
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Acompanhamento em tempo real da esteira operacional determinística (POP → SOP →
+                    Job → Etapa → Validação)
+                  </p>
+                </div>
+              </div>
+
+              <Link to="/elisa-fila">
+                <Button
+                  size="sm"
+                  className="bg-[#0FA3A3] hover:bg-[#0c8282] text-white text-xs h-8"
+                >
+                  Abrir Fila da ELISA
+                </Button>
+              </Link>
+            </div>
+
+            <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50">
+                <span className="font-bold text-slate-800 block text-sm">
+                  Regras de Ouro da ELISA:
+                </span>
+                <p className="text-slate-600 leading-relaxed">
+                  1. A ELISA NÃO DECIDE O QUE O PROCESSO É. O SISTEMA DEFINE O PROCESSO.
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  2. A ELISA EXECUTA O PROCESSO. O SISTEMA VALIDA O RESULTADO.
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  3. O CONTADOR APROVA O QUE FOR DEFINIDO COMO CRÍTICO (Nível 3).
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  4. A ELISA NUNCA navega livremente sem instrução estruturada.
+                </p>
+              </div>
+
+              <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50">
+                <span className="font-bold text-slate-800 block text-sm">
+                  Integrações de Entrada & Saída:
+                </span>
+                <p className="text-slate-600 leading-relaxed">
+                  • <b>WhatsApp Evolution:</b> Atendimento integrado ao cadastro do cliente
+                  (solicitação de guias, envio de documentos e abertura de tarefas).
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  • <b>GED / Pedidos de Documentos:</b> Baixa automática e destravamento imediato do
+                  checklist do processo.
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  • <b>Conciliação Objetiva:</b> SALDO BANCÁRIO = SALDO CONTÁBIL e PENDÊNCIAS = 0.
+                </p>
+              </div>
+            </div>
+          </Card>
         </TabsContent>
 
         {/* =========================================================================

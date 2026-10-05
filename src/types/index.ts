@@ -1,6 +1,7 @@
 import type { RecordModel } from 'pocketbase'
 import type { ItemCheckPassoAbertura } from '@/lib/passosAberturaConfig'
 
+export type { RecordModel }
 export type { ItemCheckPassoAbertura }
 export type UserRole =
   | 'administrador'

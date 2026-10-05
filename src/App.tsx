@@ -9,6 +9,9 @@ import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
 import SignUp from '@/pages/SignUp'
 import Dashboard from '@/pages/Dashboard'
+import ElisaFilaPage from '@/pages/ElisaFilaPage'
+import ProcessosSopsPage from '@/pages/ProcessosSopsPage'
+import ProcessoDetailExecucaoPage from '@/pages/ProcessoDetailExecucaoPage'
 import Empresas from '@/pages/Empresas'
 import EmpresaForm from '@/pages/EmpresaForm'
 import EmpresaDetail from '@/pages/EmpresaDetail'
@@ -77,6 +80,11 @@ export default function App() {
           >
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Nova Arquitetura Operacional ELISA */}
+            <Route path="/elisa-fila" element={<ElisaFilaPage />} />
+            <Route path="/processos" element={<ProcessosSopsPage />} />
+            <Route path="/processos/:id" element={<ProcessoDetailExecucaoPage />} />
 
             {/* Empresas */}
             <Route path="/empresas" element={<Empresas />} />

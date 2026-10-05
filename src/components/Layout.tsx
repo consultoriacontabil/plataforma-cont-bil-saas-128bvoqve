@@ -140,7 +140,10 @@ export default function Layout() {
   // Page title mapping
   const getPageTitle = () => {
     const path = location.pathname
-    if (path.startsWith('/dashboard') || path === '/') return 'Dashboard'
+    if (path.startsWith('/dashboard') || path === '/') return 'Rumo | Central de Operações'
+    if (path.startsWith('/elisa-fila')) return 'Fila Operacional da ELISA'
+    if (path.startsWith('/processos/')) return 'Execução de Processo (Checklist Executável)'
+    if (path.startsWith('/processos')) return 'Processos & SOPs Executáveis'
     if (path.startsWith('/empresas/nova')) return 'Nova Empresa'
     if (path.includes('/editar')) return 'Editar Empresa'
     if (path.startsWith('/empresas/')) return 'Detalhes da Empresa'
@@ -277,9 +280,21 @@ export default function Layout() {
 
   const navGroups = [
     {
+      group: 'OPERAÇÕES & AUTOMAÇÃO',
+      items: [
+        {
+          label: 'Central de Operações',
+          to: '/dashboard',
+          icon: LayoutDashboard,
+          badge: 'OPERACIONAL',
+        },
+        { label: 'Fila da ELISA', to: '/elisa-fila', icon: Bot, badge: 'ROBÔ' },
+        { label: 'Processos & SOPs', to: '/processos', icon: GitPullRequest, badge: 'SOPs' },
+      ],
+    },
+    {
       group: 'PRINCIPAL',
       items: [
-        { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
         { label: 'Empresas', to: '/empresas', icon: Building2 },
         { label: 'Documentos', to: '/documentos', icon: FileText },
         { label: 'Workflow', to: '/workflow', icon: GitPullRequest },

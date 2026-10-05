@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T20:37:05.578Z",
+  "generatedAt": "2026-10-05T22:15:35.274Z",
   "collections": [
     {
       "name": "users",
@@ -11587,6 +11587,1026 @@
         "CREATE INDEX idx_pea_cpf ON portal_empregado_acessos (cpf)",
         "CREATE UNIQUE INDEX idx_pea_token ON portal_empregado_acessos (token_acesso)",
         "CREATE INDEX idx_pea_created ON portal_empregado_acessos (created DESC)"
+      ]
+    },
+    {
+      "name": "sops",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["fiscal", "contabil", "pessoal", "societario", "atendimento", "geral"]
+        },
+        {
+          "name": "versao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "objetivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gatilho",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pre_condicoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entradas",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sistemas_utilizados",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_cargo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agente_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nivel_autonomia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "nivel_1_automatico",
+            "nivel_2_supervisionado",
+            "nivel_3_aprovacao_obrigatoria"
+          ]
+        },
+        {
+          "name": "etapas_template_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regras_negocio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criterios_sucesso",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criterios_erro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "excecoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requer_aprovacao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proximo_processo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sops_tenant_cod ON sops (tenant_id, codigo)",
+        "CREATE INDEX idx_sops_area ON sops (tenant_id, area)"
+      ]
+    },
+    {
+      "name": "processos_operacionais",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "sop_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sops"
+        },
+        {
+          "name": "codigo_sop",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["fiscal", "contabil", "pessoal", "societario", "atendimento", "geral"]
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "CRIADO",
+            "AGUARDANDO",
+            "ENFILEIRADO",
+            "EM_EXECUCAO",
+            "AGUARDANDO_DOCUMENTO",
+            "AGUARDANDO_CLIENTE",
+            "AGUARDANDO_CONFERENCIA",
+            "AGUARDANDO_APROVACAO",
+            "APROVADO",
+            "CONCLUIDO",
+            "ERRO",
+            "BLOQUEADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "name": "prioridade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["urgente", "alta", "media", "baixa"]
+        },
+        {
+          "name": "nivel_autonomia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "nivel_1_automatico",
+            "nivel_2_supervisionado",
+            "nivel_3_aprovacao_obrigatoria"
+          ]
+        },
+        {
+          "name": "etapa_atual_numero",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "etapa_atual_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_etapas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "progresso_percentual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agente_responsavel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_humano_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "prazo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_conclusao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_acao_executada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado_ultima_acao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proxima_acao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criterio_sucesso_atual",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_parada_ou_erro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "decisao_necessaria_humana",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadados_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_proc_tenant_status ON processos_operacionais (tenant_id, status)",
+        "CREATE INDEX idx_proc_empresa ON processos_operacionais (tenant_id, empresa_id, competencia)",
+        "CREATE INDEX idx_proc_prazo ON processos_operacionais (tenant_id, prazo ASC)"
+      ]
+    },
+    {
+      "name": "processo_etapas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "processo_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "processos_operacionais"
+        },
+        {
+          "name": "ordem",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "CRIADO",
+            "AGUARDANDO",
+            "ENFILEIRADO",
+            "EM_EXECUCAO",
+            "AGUARDANDO_DOCUMENTO",
+            "AGUARDANDO_CLIENTE",
+            "AGUARDANDO_CONFERENCIA",
+            "AGUARDANDO_APROVACAO",
+            "APROVADO",
+            "CONCLUIDO",
+            "ERRO",
+            "BLOQUEADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "name": "responsavel_tipo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_usuario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "entrada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criterio_sucesso",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criterio_erro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proxima_etapa_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requer_aprovacao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aprovado_por",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_conclusao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidencia_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_etapas_proc ON processo_etapas (processo_id, ordem ASC)",
+        "CREATE INDEX idx_etapas_tenant_status ON processo_etapas (tenant_id, status)"
+      ]
+    },
+    {
+      "name": "elisa_jobs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "processo_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "processos_operacionais"
+        },
+        {
+          "name": "etapa_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "processo_etapas"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "job_codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["fiscal", "contabil", "pessoal", "societario", "atendimento", "geral"]
+        },
+        {
+          "name": "processo_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "pop_relacionado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "etapa_atual_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proxima_acao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "prioridade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["urgente", "alta", "media", "baixa"]
+        },
+        {
+          "name": "prazo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ENFILEIRADO",
+            "EM_EXECUCAO",
+            "AGUARDANDO_APROVACAO",
+            "AGUARDANDO_CLIENTE",
+            "AGUARDANDO_CONFERENCIA",
+            "CONCLUIDO",
+            "ERRO",
+            "BLOQUEADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "name": "agente_responsavel",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nivel_autonomia",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "nivel_1_automatico",
+            "nivel_2_supervisionado",
+            "nivel_3_aprovacao_obrigatoria"
+          ]
+        },
+        {
+          "name": "necessita_aprovacao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidencia_resumo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "erro_mensagem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tempo_execucao_segundos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_inicio_execucao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_fim_execucao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dependencias_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload_execucao_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_jobs_tenant_status ON elisa_jobs (tenant_id, status, prioridade)",
+        "CREATE INDEX idx_jobs_empresa ON elisa_jobs (tenant_id, empresa_id, competencia)",
+        "CREATE INDEX idx_jobs_prazo ON elisa_jobs (tenant_id, prazo ASC)"
+      ]
+    },
+    {
+      "name": "elisa_evidencias",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "processo_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "processos_operacionais"
+        },
+        {
+          "name": "job_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "elisa_jobs"
+        },
+        {
+          "name": "etapa_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "processo_etapas"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "screenshot",
+            "documento_ged",
+            "protocolo",
+            "recibo",
+            "log_operacao",
+            "hash_assinatura"
+          ]
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "protocolo_numero",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_operacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hash_sha256",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executado_por",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo_evidencia",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dados_tecnicos_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado_obtido",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_evid_processo ON elisa_evidencias (processo_id, created DESC)",
+        "CREATE INDEX idx_evid_tenant_emp ON elisa_evidencias (tenant_id, empresa_id)"
+      ]
+    },
+    {
+      "name": "processo_pendencias",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "processo_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "processos_operacionais"
+        },
+        {
+          "name": "etapa_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "processo_etapas"
+        },
+        {
+          "name": "job_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "elisa_jobs"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "por_que_parou",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "o_que_foi_executado",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "o_que_falta",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "decisao_necessaria",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "aberta",
+            "em_analise",
+            "resolvida",
+            "devolvida_elisa",
+            "rejeitada",
+            "cancelada"
+          ]
+        },
+        {
+          "name": "responsavel_humano_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "resolucao_descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolvido_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pend_proc ON processo_pendencias (processo_id, status)",
+        "CREATE INDEX idx_pend_tenant_status ON processo_pendencias (tenant_id, status)"
       ]
     }
   ]

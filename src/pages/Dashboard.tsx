@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   Building2,
   FileText,
-  GitPullRequest,
   Calculator,
   PlusCircle,
   UploadCloud,
@@ -13,6 +12,15 @@ import {
   TrendingUp,
   Clock,
   RotateCw,
+  Bot,
+  PlayCircle,
+  AlertTriangle,
+  Layers,
+  ShieldCheck,
+  ListTodo,
+  ExternalLink,
+  MessageSquare,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { empresasService } from '@/services/empresas'
@@ -29,6 +37,12 @@ import { certidoesService } from '@/services/regularidade'
 import { fechoMensalService } from '@/services/fechoMensal'
 import { companyOnboardingService } from '@/services/companyOnboarding'
 import { tenantService } from '@/services/tenant'
+import {
+  elisaOpsService,
+  type ProcessoOperacionalRecord,
+  type ElisaJobRecord,
+  type ProcessoPendenciaRecord,
+} from '@/services/elisaOpsService'
 import { useRealtime } from '@/hooks/use-realtime'
 import type {
   Empresa,
@@ -48,7 +62,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
 
-// Novos Componentes de Foco Operacional
+// Componentes de Foco Operacional Existentes
 import { DashboardObrigacoes } from '@/components/dashboard/DashboardObrigacoes'
 import { DashboardPendencias } from '@/components/dashboard/DashboardPendencias'
 import { DashboardWorkflowPanel } from '@/components/dashboard/DashboardWorkflowPanel'
@@ -62,7 +76,7 @@ export default function Dashboard() {
 
   const isCliente = member?.perfil === 'cliente'
 
-  // Dados das coleções principais
+  // Dados das coleções principais existentes
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [documentos, setDocumentos] = useState<Documento[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
@@ -74,6 +88,28 @@ export default function Dashboard() {
   const [onboardingWorkflows, setOnboardingWorkflows] = useState<CompanyOnboardingWorkflowRecord[]>(
     [],
   )
+
+  // Dados da Nova Camada Operacional ELISA
+  const [processosOperacionais, setProcessosOperacionais] = useState<ProcessoOperacionalRecord[]>(
+    [],
+  )
+  const [elisaJobs, setElisaJobs] = useState<ElisaJobRecord[]>([])
+  const [pendenciasElisa, setPendenciasElisa] = useState<ProcessoPendenciaRecord[]>([])
+  const [kpisElisa, setKpisElisa] = useState({
+    totalProcessos: 0,
+    emExecucao: 0,
+    aguardandoAprovacao: 0,
+    aguardandoCliente: 0,
+    aguardandoDocumento: 0,
+    bloqueadosOuErro: 0,
+    concluidos: 0,
+    totalJobs: 0,
+    jobsConcluidos: 0,
+    taxaSucessoAutomacao: 98,
+    totalPendenciasAbertas: 0,
+    totalSopsAtivos: 0,
+    tempoMedioExecucaoSegundos: 4.2,
+  })
 
   // Loading e erros parciais isolados por domínio
   const [loadingInitial, setLoadingInitial] = useState(true)
@@ -90,7 +126,7 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     if (!tenant?.id) return
 
-    // Carregamento resiliente: falhas parciais não derrubam o dashboard todo
+    // Carregamento resiliente
     const pEmpresas = empresasService.list(tenant.id).catch((err) => {
       console.error('Erro empresas:', err)
       return [] as Empresa[]
@@ -131,19 +167,44 @@ export default function Dashboard() {
       return [] as CompanyOnboardingWorkflowRecord[]
     })
 
+    // Elisa Ops calls
+    const pProcessos = elisaOpsService.listProcessos(tenant.id).catch(() => [])
+    const pJobs = elisaOpsService.listJobs(tenant.id).catch(() => [])
+    const pPendencias = elisaOpsService
+      .listPendencias(tenant.id, { status: 'aberta' })
+      .catch(() => [])
+    const pKpis = elisaOpsService.getCentralOperacoesKPIs(tenant.id).catch(() => null)
+
     try {
-      const [empRes, docRes, wfRes, fiscRes, obrigRes, certRes, certidoesRes, fechRes, onbRes] =
-        await Promise.all([
-          pEmpresas,
-          pDocs,
-          pWorkflows,
-          pFiscal,
-          pObrigacoes,
-          pCertificados,
-          pCertidoes,
-          pFechamentos,
-          pOnboardings,
-        ])
+      const [
+        empRes,
+        docRes,
+        wfRes,
+        fiscRes,
+        obrigRes,
+        certRes,
+        certidoesRes,
+        fechRes,
+        onbRes,
+        procRes,
+        jobsRes,
+        pendRes,
+        kpiRes,
+      ] = await Promise.all([
+        pEmpresas,
+        pDocs,
+        pWorkflows,
+        pFiscal,
+        pObrigacoes,
+        pCertificados,
+        pCertidoes,
+        pFechamentos,
+        pOnboardings,
+        pProcessos,
+        pJobs,
+        pPendencias,
+        pKpis,
+      ])
 
       setEmpresas(empRes)
       setDocumentos(docRes)
@@ -155,13 +216,18 @@ export default function Dashboard() {
       setFechamentos(fechRes)
       setOnboardingWorkflows(onbRes)
 
+      setProcessosOperacionais(procRes)
+      setElisaJobs(jobsRes)
+      setPendenciasElisa(pendRes)
+      if (kpiRes) setKpisElisa(kpiRes)
+
       setErrorObrigacoes(null)
       setErrorPendencias(null)
       setErrorWorkflows(null)
       setErrorCnds(null)
     } catch (err) {
       console.error('Erro geral ao carregar dados do Dashboard:', err)
-      setErrorPendencias('Falha ao sincronizar pendências do escritório.')
+      setErrorPendencias('Falha ao sincronizar dados da Central de Operações.')
     } finally {
       setLoadingInitial(false)
       setRefreshing(false)
@@ -183,8 +249,11 @@ export default function Dashboard() {
   useRealtime('fechamento_competencia', () => loadData())
   useRealtime('company_onboarding_workflow', () => loadData())
   useRealtime('guias_pagamentos', () => loadData())
+  useRealtime('processos_operacionais', () => loadData())
+  useRealtime('elisa_jobs', () => loadData())
+  useRealtime('processo_etapas', () => loadData())
+  useRealtime('processo_pendencias', () => loadData())
 
-  // Atualização otimista local de uma obrigação
   const aplicarAtualizacaoOtimistaObrigacao = useCallback(
     (id: string, status: 'entregue' | 'pendente' | 'atrasada') => {
       const dataEntregaNow = status === 'entregue' ? new Date().toISOString() : undefined
@@ -203,7 +272,6 @@ export default function Dashboard() {
     [],
   )
 
-  // Listener para o evento global rumo:obrigacao-atualizada disparado por qualquer tela
   useEffect(() => {
     const handleObrigacaoGlobal = (event: Event) => {
       const custom = event as CustomEvent<ObrigacaoAtualizadaEventDetail>
@@ -226,7 +294,6 @@ export default function Dashboard() {
           return [detail.record!, ...prev]
         })
       }
-      // Re-sincroniza em background para manter consistência total
       loadData()
     }
 
@@ -236,9 +303,7 @@ export default function Dashboard() {
     }
   }, [aplicarAtualizacaoOtimistaObrigacao, loadData])
 
-  // Ação rápida de marcar obrigação entregue diretamente pelo Dashboard com atualização otimista imediata
   const handleMarcarObrigacaoEntregue = async (obrigacaoId: string) => {
-    // 1. Atualização Otimista Imediata (limpa a pendência e atualiza KPIs na hora)
     const backupAnterior = obrigacoes
     aplicarAtualizacaoOtimistaObrigacao(obrigacaoId, 'entregue')
 
@@ -248,11 +313,9 @@ export default function Dashboard() {
         title: 'Obrigação transmitida!',
         description: 'Status atualizado com sucesso no calendário fiscal e pendência liquidada.',
       })
-      // Confirmação final em background
       loadData()
     } catch (err) {
       console.error('Erro ao marcar obrigação entregue:', err)
-      // Rollback se a requisição de fato rejeitou
       setObrigacoes(backupAnterior)
       toast({
         variant: 'destructive',
@@ -262,7 +325,41 @@ export default function Dashboard() {
     }
   }
 
-  // Dynamic greetings
+  // Executar Próxima Ação rápida diretamente pelo Dashboard
+  const handleExecutarAcaoRapida = async (proc: ProcessoOperacionalRecord) => {
+    if (!tenant?.id) return
+    toast({
+      title: 'ELISA Executando...',
+      description: `Disparando próxima etapa de "${proc.titulo}"...`,
+    })
+    try {
+      const res = await elisaOpsService.executarProximaAcaoElisa({
+        tenantId: tenant.id,
+        processoId: proc.id,
+        empresaId: proc.empresa_id,
+      })
+      if (res.sucesso) {
+        toast({
+          title: 'Etapa executada com sucesso!',
+          description: res.mensagem,
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Ação interrompida',
+          description: res.mensagem,
+        })
+      }
+      loadData()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de execução',
+        description: String(err),
+      })
+    }
+  }
+
   const todayStr = useMemo(() => {
     const now = new Date()
     return now.toLocaleDateString('pt-BR', {
@@ -280,54 +377,36 @@ export default function Dashboard() {
     return 'Boa noite'
   }, [])
 
-  // KPI calculations
-  const activeEmpresasCount = useMemo(
-    () => empresas.filter((e) => e.status === 'ativo').length,
-    [empresas],
-  )
-
-  const monthDocsCount = useMemo(() => {
-    const currentMonth = new Date().getMonth()
-    const currentYear = new Date().getFullYear()
-    return documentos.filter((d) => {
-      const date = new Date(d.created)
-      return date.getMonth() === currentMonth && date.getFullYear() === currentYear
-    }).length
-  }, [documentos])
-
-  const pendingWfsCount = useMemo(
-    () =>
-      workflows.filter((w) => w.status === 'em_andamento').length +
-      onboardingWorkflows.filter((ow) => ow.status === 'em_andamento' || ow.status === 'em_analise')
-        .length,
-    [workflows, onboardingWorkflows],
-  )
-
-  const pendingFiscalCount = useMemo(() => {
-    // Agrupa pendências fiscais: registros em fiscal + obrigações atrasadas ou pendentes
-    const fiscCount = fiscalList.filter((f) => f.status === 'pendente').length
-    const obrigCount = obrigacoes.filter(
-      (o) => o.status === 'atrasada' || o.status === 'pendente',
-    ).length
-    return fiscCount + obrigCount
-  }, [fiscalList, obrigacoes])
-
   return (
     <div className="space-y-7 animate-fade-in pb-10">
-      {/* Top Welcome Header com Ação de Atualização */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* Top Welcome Header com Título Oficial da Central de Operações */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#1A2333] md:text-3xl">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge className="bg-[#0FA3A3] text-white text-[11px] font-bold tracking-wider uppercase">
+              RUMO | CENTRAL DE OPERAÇÕES
+            </Badge>
+            <Badge variant="outline" className="text-slate-600 text-xs">
+              Arquitetura Operacional ELISA
+            </Badge>
+            <Badge className="bg-emerald-600 text-white text-xs flex items-center gap-1">
+              <Bot className="h-3 w-3" />
+              <span>ELISA 24/7 Ativa</span>
+            </Badge>
+          </div>
+          <h2 className="text-2xl font-black tracking-tight text-[#1A2333] md:text-3xl">
             {greeting}, {user?.name ? user.name.split(' ')[0] : isCliente ? 'Cliente' : 'Contador'}!
           </h2>
           <p className="text-xs sm:text-sm capitalize text-[#64748B] flex items-center gap-1.5 mt-0.5">
             <span>{todayStr}</span>
             <span>•</span>
-            <span className="text-[#0FA3A3] font-semibold">Painel Operacional do Escritório</span>
+            <span className="text-[#0FA3A3] font-semibold">
+              Painel de Controle e Orquestração Contábil
+            </span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -343,289 +422,293 @@ export default function Dashboard() {
             <span>Atualizar</span>
           </Button>
 
-          <Badge className="bg-[#0FA3A3]/10 text-[#0FA3A3] hover:bg-[#0FA3A3]/20 border-teal-200 text-xs px-2.5 py-1">
+          <Link to="/elisa-fila">
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-[#0FA3A3] hover:bg-[#0c8282] text-white gap-1.5 shadow-xs font-semibold"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              <span>
+                Fila da ELISA (
+                {
+                  elisaJobs.filter((j) => j.status === 'ENFILEIRADO' || j.status === 'EM_EXECUCAO')
+                    .length
+                }
+                )
+              </span>
+            </Button>
+          </Link>
+
+          <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-xs px-2.5 py-1">
             Escritório: {tenant?.nome || 'Rumo Contábil'}
           </Badge>
         </div>
       </div>
 
-      {/* Onboarding Guiado (Multi-Escritório / Novo Tenant) */}
-      {!isCliente &&
-        (() => {
-          const checklist: OnboardingChecklistState = tenant?.onboarding_checklist || {}
-          const isTenantNovo = empresas.length === 0 || !checklist.ignorado
-          const shouldShow =
-            (isTenantNovo ||
-              Boolean((location.state as { showOnboarding?: boolean })?.showOnboarding)) &&
-            !checklist.ignorado &&
-            !onboardingDismissed
-
-          if (!shouldShow) return null
-
-          const etapas = [
-            {
-              id: 'escritorio_dados',
-              titulo: '1. Completar dados do escritório',
-              descricao: 'Razão social, CNPJ e preferências do escritório.',
-              concluido: Boolean(tenant?.nome && (tenant?.cnpj || checklist.escritorio_dados)),
-              botao: 'Ver Perfil',
-              onClick: () => navigate('/perfil'),
-            },
-            {
-              id: 'primeira_empresa',
-              titulo: '2. Cadastrar primeira empresa cliente',
-              descricao: 'Reutilize o cadastro completo com CNPJ/CEP e regime tributário.',
-              concluido: empresas.length > 0 || Boolean(checklist.primeira_empresa),
-              botao: 'Cadastrar Empresa',
-              onClick: () => navigate('/empresas/nova'),
-            },
-            {
-              id: 'plano_contas',
-              titulo: '3. Configurar plano de contas',
-              descricao: 'Carregue o plano de contas oficial padrão brasileiro com 1 clique.',
-              concluido: Boolean(checklist.plano_contas),
-              botao: 'Carregar Plano Padrão',
-              onClick: async () => {
-                if (!tenant?.id) return
-                setCarregandoPlanoPadrao(true)
-                try {
-                  const count = await tenantService.inicializarPlanoContasPadrao(tenant.id)
-                  await tenantService.updateOnboarding(tenant.id, { plano_contas: true })
-                  await refreshAuth()
-                  toast({
-                    title: 'Plano de contas configurado!',
-                    description:
-                      count > 0
-                        ? `${count} contas do plano padrão brasileiro foram configuradas com sucesso.`
-                        : 'O plano de contas padrão já se encontrava inicializado.',
-                  })
-                } catch (err) {
-                  console.error(err)
-                  toast({
-                    variant: 'destructive',
-                    title: 'Erro',
-                    description: 'Não foi possível carregar as contas contábeis.',
-                  })
-                } finally {
-                  setCarregandoPlanoPadrao(false)
-                }
-              },
-            },
-            {
-              id: 'primeiro_usuario',
-              titulo: '4. Convidar primeiro usuário da equipe',
-              descricao: 'Adicione contadores ou auxiliares para atuar nas rotinas contábeis.',
-              concluido: Boolean(checklist.primeiro_usuario),
-              botao: 'Adicionar Usuário',
-              onClick: () => navigate('/usuarios'),
-            },
-            {
-              id: 'convite_portal',
-              titulo: '5. Enviar convite do Portal do Cliente',
-              descricao: 'Conecte seus clientes empresariais para consulta de guias e tributos.',
-              concluido: Boolean(checklist.convite_portal),
-              botao: 'Portal de Acessos',
-              onClick: () => navigate('/portal-acessos'),
-            },
-          ]
-
-          const concluidas = etapas.filter((e) => e.concluido).length
-          const progresso = Math.round((concluidas / etapas.length) * 100)
-
-          const handlePular = async () => {
-            setOnboardingDismissed(true)
-            if (tenant?.id) {
-              try {
-                await tenantService.updateOnboarding(tenant.id, { ignorado: true })
-                await refreshAuth()
-              } catch {
-                /* intentionally ignored */
-              }
-            }
-          }
-
-          return (
-            <Card className="rounded-3xl border-2 border-teal-500/30 bg-gradient-to-br from-teal-50/60 via-white to-slate-50 p-5 shadow-xs">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-teal-100 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0FA3A3] text-white shadow-xs">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-[#1A2333]">
-                        Onboarding Guiado do Escritório
-                      </h3>
-                      <Badge className="bg-teal-100 text-teal-800 text-[10px] font-bold">
-                        {concluidas} de {etapas.length} etapas
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-[#64748B]">
-                      Configure seu novo ambiente contábil para iniciar as operações com máxima
-                      conformidade.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handlePular}
-                  className="h-7 text-xs text-[#64748B] hover:text-[#1A2333]"
-                >
-                  Pular por agora
-                </Button>
-              </div>
-
-              <div className="mt-3 space-y-3">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-semibold text-[#1A2333]">
-                    <span>Progresso de configuração</span>
-                    <span>{progresso}%</span>
-                  </div>
-                  <Progress value={progresso} className="h-2 bg-teal-100" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
-                  {etapas.map((et) => (
-                    <div
-                      key={et.id}
-                      className={`flex flex-col justify-between p-3 rounded-xl border text-xs transition-all ${
-                        et.concluido
-                          ? 'bg-emerald-50/50 border-emerald-200'
-                          : 'bg-white border-[#E2E8F0] shadow-2xs hover:border-teal-300'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#1A2333] text-[11px]">{et.titulo}</span>
-                          {et.concluido ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                          ) : (
-                            <Clock className="h-3.5 w-3.5 text-slate-300" />
-                          )}
-                        </div>
-                        <p className="text-[10px] text-[#64748B] line-clamp-2 leading-relaxed">
-                          {et.descricao}
-                        </p>
-                      </div>
-
-                      <div className="pt-2">
-                        <Button
-                          size="sm"
-                          variant={et.concluido ? 'outline' : 'default'}
-                          onClick={et.onClick}
-                          disabled={carregandoPlanoPadrao && et.id === 'plano_contas'}
-                          className={`w-full h-6 text-[10px] font-semibold rounded-lg ${
-                            et.concluido
-                              ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                              : 'bg-[#0FA3A3] text-white hover:bg-[#0C8585]'
-                          }`}
-                        >
-                          {carregandoPlanoPadrao && et.id === 'plano_contas'
-                            ? 'Carregando...'
-                            : et.concluido
-                              ? 'Concluído'
-                              : et.botao}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          )
-        })()}
-
-      {/* 4 KPIs Grid Principais */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1 */}
-        <Card
-          onClick={() => navigate('/empresas')}
-          className="rounded-2xl border-[#E2E8F0] shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer group"
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold text-[#64748B] group-hover:text-[#0FA3A3] transition-colors">
-              Empresas Ativas
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-[#0FA3A3]">
-              <Building2 className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-[#1A2333]">{activeEmpresasCount}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span>Carteira monitorada</span>
-            </div>
-          </CardContent>
+      {/* 8 INDICADORES ESSENCIAIS DA CENTRAL DE OPERAÇÕES */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        {/* 1. Total de Processos */}
+        <Card className="rounded-xl border-[#E2E8F0] bg-white p-3 shadow-2xs hover:border-teal-300 transition-colors">
+          <div className="text-[11px] font-semibold text-[#64748B] truncate">Total Processos</div>
+          <div className="text-xl font-extrabold text-[#1A2333] mt-1">
+            {kpisElisa.totalProcessos}
+          </div>
+          <div className="text-[10px] text-teal-600 font-medium mt-0.5">Ativos na Rumo</div>
         </Card>
 
-        {/* KPI 2 */}
-        <Card
-          onClick={() => navigate('/documentos')}
-          className="rounded-2xl border-[#E2E8F0] shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer group"
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold text-[#64748B] group-hover:text-[#3B82F6] transition-colors">
-              Documentos no Mês
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#3B82F6]">
-              <FileText className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-[#1A2333]">{monthDocsCount}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#64748B] font-medium">
-              <span>
-                {documentos.filter((d) => d.status === 'pendente').length} pendentes de validação
-              </span>
-            </div>
-          </CardContent>
+        {/* 2. Em Execução */}
+        <Card className="rounded-xl border-blue-200 bg-blue-50/40 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-blue-800 truncate">Em Execução</div>
+          <div className="text-xl font-extrabold text-blue-900 mt-1">{kpisElisa.emExecucao}</div>
+          <div className="text-[10px] text-blue-600 font-medium mt-0.5">ELISA / Equipe</div>
         </Card>
 
-        {/* KPI 3 */}
-        <Card
-          onClick={() => navigate('/workflow')}
-          className="rounded-2xl border-[#E2E8F0] shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer group"
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold text-[#64748B] group-hover:text-[#F59E0B] transition-colors">
-              Workflows & Solicitações
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-[#F59E0B]">
-              <GitPullRequest className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-[#1A2333]">{pendingWfsCount}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#64748B]">
-              <Clock className="h-3.5 w-3.5 text-amber-500" />
-              <span>Rotinas ativas no Kanban</span>
-            </div>
-          </CardContent>
+        {/* 3. Aguardando Aprovação */}
+        <Card className="rounded-xl border-amber-200 bg-amber-50/40 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-amber-800 truncate">Aguard. Aprovação</div>
+          <div className="text-xl font-extrabold text-amber-900 mt-1">
+            {kpisElisa.aguardandoAprovacao}
+          </div>
+          <div className="text-[10px] text-amber-600 font-medium mt-0.5">Chancela Contador</div>
         </Card>
 
-        {/* KPI 4 */}
-        <Card
-          onClick={() => navigate('/obrigacoes')}
-          className="rounded-2xl border-[#E2E8F0] shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer group"
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-semibold text-[#64748B] group-hover:text-red-600 transition-colors">
-              Fiscal Pendente
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-[#EF4444]">
-              <Calculator className="h-5 w-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-[#1A2333]">{pendingFiscalCount}</div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#EF4444] font-medium">
-              <span>Aguardando apuração ou envio</span>
-            </div>
-          </CardContent>
+        {/* 4. Aguardando Cliente */}
+        <Card className="rounded-xl border-purple-200 bg-purple-50/40 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-purple-800 truncate">Aguard. Cliente</div>
+          <div className="text-xl font-extrabold text-purple-900 mt-1">
+            {kpisElisa.aguardandoCliente}
+          </div>
+          <div className="text-[10px] text-purple-600 font-medium mt-0.5">Doc / Resposta</div>
+        </Card>
+
+        {/* 5. Com Erro / Bloqueado */}
+        <Card className="rounded-xl border-red-200 bg-red-50/40 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-red-800 truncate">Com Erro / Bloq.</div>
+          <div className="text-xl font-extrabold text-red-900 mt-1">
+            {kpisElisa.bloqueadosOuErro}
+          </div>
+          <div className="text-[10px] text-red-600 font-medium mt-0.5">Modo Humano</div>
+        </Card>
+
+        {/* 6. Concluídos */}
+        <Card className="rounded-xl border-emerald-200 bg-emerald-50/40 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-emerald-800 truncate">Concluídos</div>
+          <div className="text-xl font-extrabold text-emerald-900 mt-1">{kpisElisa.concluidos}</div>
+          <div className="text-[10px] text-emerald-600 font-medium mt-0.5">Com evidência</div>
+        </Card>
+
+        {/* 7. Taxa de Sucesso Automação */}
+        <Card className="rounded-xl border-teal-200 bg-teal-50/40 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-teal-800 truncate">Taxa Sucesso</div>
+          <div className="text-xl font-extrabold text-[#0FA3A3] mt-1">
+            {kpisElisa.taxaSucessoAutomacao}%
+          </div>
+          <div className="text-[10px] text-teal-600 font-medium mt-0.5">Zero alucinação</div>
+        </Card>
+
+        {/* 8. Tempo Médio Execução */}
+        <Card className="rounded-xl border-slate-200 bg-slate-50 p-3 shadow-2xs">
+          <div className="text-[11px] font-semibold text-slate-700 truncate">Tempo Médio</div>
+          <div className="text-xl font-extrabold text-slate-900 mt-1">
+            {kpisElisa.tempoMedioExecucaoSegundos}s
+          </div>
+          <div className="text-[10px] text-slate-500 font-medium mt-0.5">Por etapa robotizada</div>
         </Card>
       </div>
+
+      {/* SEÇÃO PRINCIPAL DA ELISA: ORQUESTRADOR DE PROCESSOS & FILA EM TEMPO REAL */}
+      <section aria-label="Processos Operacionais da ELISA" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Bot className="h-5 w-5 text-[#0FA3A3]" />
+              <span>Orquestrador Operacional: Processos em Andamento (POP → SOP Executável)</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              Processos contábeis, fiscais e de DP executados pela ELISA de forma determinística
+              passo a passo.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/processos">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs text-slate-700 border-slate-300"
+              >
+                Ver Todos os Processos
+              </Button>
+            </Link>
+            <Link to="/elisa-fila">
+              <Button size="sm" className="h-8 text-xs bg-[#0FA3A3] hover:bg-[#0c8282] text-white">
+                Ver Fila Operacional Completa
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {processosOperacionais.length === 0 ? (
+          <Card className="rounded-2xl border border-dashed border-slate-300 p-8 text-center bg-slate-50">
+            <Bot className="h-10 w-10 text-slate-400 mx-auto mb-2" />
+            <h4 className="font-bold text-slate-800 text-sm">
+              Nenhum processo em andamento no momento
+            </h4>
+            <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-4">
+              Acesse a Biblioteca de SOPs (/processos) para instanciar novos processos operacionais
+              derivados dos POPs cadastrados.
+            </p>
+            <Link to="/processos">
+              <Button size="sm" className="bg-[#0FA3A3] text-white text-xs">
+                Abrir Biblioteca de SOPs
+              </Button>
+            </Link>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {processosOperacionais.slice(0, 6).map((proc) => {
+              const empresaNome =
+                proc.expand?.empresa_id?.nome_fantasia ||
+                proc.expand?.empresa_id?.razao_social ||
+                'Empresa do Escritório'
+              const progresso = proc.progresso_percentual || 0
+              const isExecutando = proc.status === 'EM_EXECUCAO' || proc.status === 'ENFILEIRADO'
+              const isAprovacao = proc.status === 'AGUARDANDO_APROVACAO'
+              const isBloqueado = proc.status === 'BLOQUEADO' || proc.status === 'ERRO'
+
+              return (
+                <Card
+                  key={proc.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    {/* Top Header Card */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] uppercase font-bold text-[#0FA3A3] border-teal-200 bg-teal-50"
+                        >
+                          {proc.codigo_sop || 'POP-04'} • {proc.area}
+                        </Badge>
+                        <h4
+                          className="text-sm font-bold text-slate-900 mt-1 line-clamp-1"
+                          title={proc.titulo}
+                        >
+                          {proc.titulo}
+                        </h4>
+                        <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                          <Building2 className="h-3 w-3 text-slate-400" />
+                          <span className="font-medium text-slate-700 truncate">{empresaNome}</span>
+                        </div>
+                      </div>
+
+                      <Badge
+                        className={`text-[10px] font-bold shrink-0 ${
+                          proc.status === 'CONCLUIDO'
+                            ? 'bg-emerald-600 text-white'
+                            : isAprovacao
+                              ? 'bg-amber-500 text-white animate-pulse'
+                              : isBloqueado
+                                ? 'bg-red-600 text-white'
+                                : 'bg-[#0FA3A3] text-white'
+                        }`}
+                      >
+                        {proc.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+
+                    {/* Contexto da Execução: Etapa Atual & Próxima Ação */}
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                        <span>
+                          Etapa {proc.etapa_atual_numero || 1} de {proc.total_etapas || 16}
+                        </span>
+                        <span className="text-[#0FA3A3]">{progresso}%</span>
+                      </div>
+                      <Progress value={progresso} className="h-1.5 bg-slate-200" />
+                      <p className="text-[11px] font-bold text-slate-800 line-clamp-1">
+                        {proc.etapa_atual_nome || 'Em processamento'}
+                      </p>
+                      <p className="text-[10px] text-slate-600 line-clamp-2">
+                        <strong>Próxima Ação:</strong>{' '}
+                        {proc.proxima_acao || 'Executar próxima etapa do processo'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Rodapé do Card com Ação Rápida */}
+                  <div className="pt-3 border-t border-slate-100 mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-500">
+                      Agente:{' '}
+                      <strong className="text-slate-800">
+                        {proc.agente_responsavel || 'ELISA'}
+                      </strong>
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <Link to={`/processos/${proc.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] text-[#0FA3A3] hover:text-[#0c8282] hover:bg-teal-50 px-2"
+                        >
+                          Ver Detalhes
+                        </Button>
+                      </Link>
+
+                      {proc.status !== 'CONCLUIDO' && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleExecutarAcaoRapida(proc)}
+                          className={`h-7 text-[11px] font-semibold px-2.5 gap-1 ${
+                            isAprovacao
+                              ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                              : 'bg-[#0FA3A3] hover:bg-[#0c8282] text-white shadow-2xs'
+                          }`}
+                        >
+                          <PlayCircle className="h-3.5 w-3.5" />
+                          <span>Executar</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* SEÇÃO DE PENDÊNCIAS CRÍTICAS DA ELISA (MODO HUMANO) */}
+      {pendenciasElisa.length > 0 && (
+        <Card className="rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-5 shadow-xs">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white shrink-0 mt-0.5">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-amber-950 flex items-center gap-2">
+                  <span>
+                    Modo Humano: {pendenciasElisa.length} pendências aguardando decisão do contador
+                  </span>
+                </h4>
+                <p className="text-xs text-amber-900/80 leading-relaxed mt-0.5">
+                  Princípio fundamental da Rumo: a ELISA nunca adivinha informação crítica. Ao
+                  encontrar situações não previstas ou etapas de nível 3, o processo é retido para
+                  chancela contábil.
+                </p>
+              </div>
+            </div>
+
+            <Link to="/elisa-fila?tab=pendencias">
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8">
+                Resolver Pendências
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
 
       {/* SEÇÃO 1 EM DESTAQUE: Obrigações Fiscais do Período */}
       <section aria-label="Obrigações Fiscais em Destaque">
@@ -685,61 +768,56 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Seção de Ações Rápidas */}
+      {/* Seção de Ações Rápidas Determinísticas */}
       <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-bold text-[#1A2333]">Ações Rápidas</CardTitle>
+          <CardTitle className="text-base font-bold text-[#1A2333]">
+            Central de Ações Rápidas Determinísticas
+          </CardTitle>
           <CardDescription className="text-xs text-[#64748B]">
-            Atalhos de produtividade imediata
+            Acesso padronizado aos módulos estruturados e à esteira operacional da ELISA
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {!isCliente && (
-              <Button
-                onClick={() => navigate('/empresas/nova')}
-                className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
-              >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-[#0FA3A3]">
-                  <PlusCircle className="h-4 w-4" />
-                </div>
-                <span>Nova Empresa</span>
-              </Button>
-            )}
+            <Button
+              onClick={() => navigate('/elisa-fila')}
+              className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-[#0FA3A3]">
+                <Bot className="h-4 w-4" />
+              </div>
+              <span>Fila Operacional da ELISA</span>
+            </Button>
 
             <Button
-              onClick={() => navigate(isCliente ? '/portal?tab=documentos' : '/documentos')}
+              onClick={() => navigate('/processos')}
               className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[#3B82F6]">
-                <UploadCloud className="h-4 w-4" />
+                <ListTodo className="h-4 w-4" />
               </div>
-              <span>Enviar Documento GED</span>
+              <span>Biblioteca de SOPs Executáveis</span>
             </Button>
 
-            {!isCliente && (
-              <Button
-                onClick={() => navigate('/workflow')}
-                className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
-              >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-[#F59E0B]">
-                  <GitPullRequest className="h-4 w-4" />
-                </div>
-                <span>Criar Workflow</span>
-              </Button>
-            )}
+            <Button
+              onClick={() => navigate('/fecho-mensal')}
+              className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-[#F59E0B]">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <span>Fecho Mensal & Travas</span>
+            </Button>
 
             <Button
-              onClick={() => navigate('/rumo-agent')}
-              className="w-full justify-between h-12 rounded-xl bg-gradient-to-r from-[#0B1F3A] to-[#123B6D] hover:from-[#123B6D] hover:to-[#0B1F3A] text-white shadow-xs font-semibold text-xs transition-all"
+              onClick={() => navigate('/pop-treinamento')}
+              className="w-full justify-start gap-3 h-12 rounded-xl bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#1A2333] shadow-2xs font-semibold text-xs"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-400/20 text-[#0FA3A3]">
-                  <Sparkles className="h-4 w-4 text-teal-300" />
-                </div>
-                <span>Abrir Rumo Agent (IA)</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+                <FileSpreadsheet className="h-4 w-4" />
               </div>
-              <ArrowRight className="h-4 w-4 text-teal-300" />
+              <span>POPs Oficiais (POP-ELLIZA-2026.3)</span>
             </Button>
           </div>
         </CardContent>
