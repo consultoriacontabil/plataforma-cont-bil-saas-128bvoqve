@@ -1263,4 +1263,196 @@ export const elisaOpsService = {
       }
     }
   },
+
+  /**
+   * Instancia ou vincula processo na Fila da Elliza com jobs paralelos para Proposta de Honorários e Coleta de Documentos
+   */
+  async instanciarEsteiraParalelaContratoDocumentos(params: {
+    tenantId: string
+    empresaId?: string
+    contratoId: string
+    tituloContrato: string
+    fluxoTipo: string // 'abertura' | 'migracao_entrada' | 'migracao_saida'
+    totalDocsCliente: number
+    totalDocsContabilidade: number
+  }): Promise<{ processo: ProcessoOperacionalRecord; jobs: ElisaJobRecord[] }> {
+    const {
+      tenantId,
+      empresaId,
+      contratoId,
+      tituloContrato,
+      fluxoTipo,
+      totalDocsCliente,
+      totalDocsContabilidade,
+    } = params
+    const agora = new Date()
+    const comp = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`
+
+    // 1. Localizar POP-01 ou criar processo vinculado
+    let sop = await pb
+      .collection('sops')
+      .getFirstListItem<SopRecord>(`tenant_id = "${tenantId}" && codigo = "POP-01"`)
+      .catch(() => null)
+
+    const sopId = sop?.id || ''
+    const tipoTexto = fluxoTipo === 'abertura' ? 'Abertura de Empresa' : 'Migração de Cliente'
+
+    // 2. Criar Processo Operacional
+    const proc = await pb.collection('processos_operacionais').create<ProcessoOperacionalRecord>({
+      tenant_id: tenantId,
+      empresa_id: empresaId || '',
+      sop_id: sopId,
+      codigo_sop: 'POP-01',
+      titulo: `Onboarding & Formalização [${tipoTexto}] — ${tituloContrato}`,
+      area: 'societario',
+      competencia: comp,
+      status: 'EM_EXECUCAO',
+      prioridade: 'alta',
+      nivel_autonomia: 'nivel_2_supervisionado',
+      etapa_atual_numero: 1,
+      etapa_atual_nome: 'Trilhas Paralelas: Proposta e Documentação',
+      total_etapas: 2,
+      progresso_percentual: 20,
+      agente_responsavel: 'Elliza',
+      prazo: new Date(Date.now() + 5 * 86400000).toISOString(),
+      proxima_acao:
+        'Avançar coleta de documentos e tramitação da proposta de honorários em paralelo.',
+      criterio_sucesso_atual: 'Validação documental completa e chancela da proposta de honorários.',
+    })
+
+    // 3. Criar as duas etapas paralelas
+    const etapaDoc = await pb.collection('processo_etapas').create<ProcessoEtapaRecord>({
+      tenant_id: tenantId,
+      processo_id: proc.id,
+      ordem: 1,
+      titulo: 'Trilha 1: Coleta e Conferência Documental (Cliente + Escritório)',
+      descricao: `Coleta de ${totalDocsCliente} documento(s) do cliente e elaboração de ${totalDocsContabilidade} ato(s) pela contabilidade.`,
+      status: 'EM_EXECUCAO',
+      responsavel_tipo: 'Elliza',
+      entrada: 'Link público de upload enviado ao cliente e documentos internos',
+      acao: 'Recepcionar arquivos no GED e checar conformidade cadastral',
+      criterio_sucesso: 'Todos os documentos obrigatórios conferidos e aprovados',
+      criterio_erro: 'Documentos essenciais ausentes ou recusados',
+      proxima_etapa_nome: 'Formalização e Assinatura',
+      requer_aprovacao: false,
+    })
+
+    const etapaProp = await pb.collection('processo_etapas').create<ProcessoEtapaRecord>({
+      tenant_id: tenantId,
+      processo_id: proc.id,
+      ordem: 2,
+      titulo: 'Trilha 2: Proposta de Honorários e Formalização Jurídica',
+      descricao: 'Envio da proposta, validação das cláusulas e coleta de assinatura eletrônica.',
+      status: 'EM_EXECUCAO',
+      responsavel_tipo: 'Elliza',
+      entrada: 'Minuta da proposta aprovada pelo contador',
+      acao: 'Disparar notificação de assinatura e monitorar aceite do titular',
+      criterio_sucesso: 'Proposta aceita e assinada eletronicamente pelo cliente',
+      criterio_erro: 'Proposta recusada ou prazo de aceite expirado',
+      proxima_etapa_nome: 'Ativação Contábil Completa',
+      requer_aprovacao: true,
+    })
+
+    // 4. Criar Jobs Paralelos na Fila da Elliza
+    const jobDoc = await pb.collection('elisa_jobs').create<ElisaJobRecord>({
+      tenant_id: tenantId,
+      processo_id: proc.id,
+      etapa_id: etapaDoc.id,
+      empresa_id: empresaId || '',
+      job_codigo: `JOB-DOC-${proc.id.slice(0, 5).toUpperCase()}`,
+      competencia: comp,
+      area: 'societario',
+      processo_nome: proc.titulo,
+      pop_relacionado: 'POP-01',
+      etapa_atual_nome: 'Trilha Documental Paralela',
+      proxima_acao:
+        'Acompanhar recebimento dos documentos solicitados ao cliente e atos da contabilidade.',
+      prioridade: 'alta',
+      prazo: proc.prazo,
+      status: 'EM_EXECUCAO',
+      agente_responsavel: 'Elliza',
+      nivel_autonomia: 'nivel_1_informativo',
+      necessita_aprovacao: false,
+    })
+
+    const jobProp = await pb.collection('elisa_jobs').create<ElisaJobRecord>({
+      tenant_id: tenantId,
+      processo_id: proc.id,
+      etapa_id: etapaProp.id,
+      empresa_id: empresaId || '',
+      job_codigo: `JOB-PROP-${proc.id.slice(0, 5).toUpperCase()}`,
+      competencia: comp,
+      area: 'societario',
+      processo_nome: proc.titulo,
+      pop_relacionado: 'POP-01',
+      etapa_atual_nome: 'Trilha Proposta de Honorários',
+      proxima_acao: 'Aguardar aceite formal do cliente ou assinatura eletrônica do contrato.',
+      prioridade: 'alta',
+      prazo: proc.prazo,
+      status: 'ENFILEIRADO',
+      agente_responsavel: 'Elliza',
+      nivel_autonomia: 'nivel_2_supervisionado',
+      necessita_aprovacao: true,
+    })
+
+    // 5. Vincular ID do processo ao contrato
+    await pb.collection('contratos_honorarios').update(contratoId, {
+      elliza_processo_id: proc.id,
+    })
+
+    // 6. Evidência Inicial de Paralelismo
+    await pb.collection('elisa_evidencias').create({
+      tenant_id: tenantId,
+      processo_id: proc.id,
+      etapa_id: etapaDoc.id,
+      empresa_id: empresaId || '',
+      tipo_evidencia: 'relatorio',
+      titulo: 'Trilhas Paralelas Iniciadas (Proposta + Documentos)',
+      descricao: `Iniciada esteira operacional de Onboarding para ${tituloContrato}. Coleta de documentos e tramitação da proposta avançam simultaneamente sem bloqueio mútuo.`,
+      conteudo_json: {
+        contrato_id: contratoId,
+        fluxo_tipo: fluxoTipo,
+        total_docs_cliente: totalDocsCliente,
+        total_docs_contabilidade: totalDocsContabilidade,
+      },
+      responsavel_tipo: 'Elliza',
+      responsavel_nome: 'Elliza',
+      confianca_score: 99,
+      auditado_por_ia: true,
+    })
+
+    return { processo: proc, jobs: [jobDoc, jobProp] }
+  },
+
+  /**
+   * Registra parada honesta da Elliza por falta de documento crítico do cliente gerando pendência no Modo Humano
+   */
+  async registrarParadaDocumentalModoHumano(params: {
+    tenantId: string
+    processoId: string
+    empresaId?: string
+    documentosPendentesNomes: string[]
+    usuarioId?: string
+  }): Promise<ProcessoPendenciaRecord> {
+    const { tenantId, processoId, empresaId, documentosPendentesNomes, usuarioId } = params
+
+    const pend = await this.createPendencia({
+      tenant_id: tenantId,
+      processo_id: processoId,
+      empresa_id: empresaId || '',
+      titulo: `Documentos Críticos do Cliente Pendentes (${documentosPendentesNomes.length} itens)`,
+      tipo_pendencia: 'documento_ausente',
+      origem_modulo: 'contratos_e_propostas',
+      severidade: 'alta',
+      status: 'aberta',
+      por_que_parou: `A Elliza não pode avançar na conclusão do fluxo sem os documentos obrigatórios do cliente: ${documentosPendentesNomes.join(', ')}.`,
+      o_que_foi_tentado:
+        'Link de solicitação de documentos enviado ao cliente; itens ainda não anexados.',
+      decisao_necessaria:
+        'Notificar cliente via WhatsApp/telefone ou anexar manualmente os documentos pendentes.',
+      responsavel_humano_id: usuarioId,
+    })
+
+    return pend
+  },
 }

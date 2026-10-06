@@ -257,6 +257,32 @@ export function ContratoModalView({
               </div>
             </div>
 
+            {/* Se houver Fluxo Vinculado (Abertura ou Migração), exibir banner no resumo */}
+            {contrato.fluxo_tipo && contrato.fluxo_tipo !== 'nenhum' && (
+              <div className="p-4 rounded-xl border border-teal-200 bg-teal-50/60 text-xs text-teal-950 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-teal-700" />
+                    <span className="font-bold uppercase tracking-wider text-teal-900">
+                      Fluxo Operacional Vinculado (
+                      {contrato.fluxo_tipo === 'abertura' ? 'Abertura' : 'Migração'})
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-teal-800 border-teal-300 font-semibold"
+                  >
+                    Trilhas Paralelas Ativas
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-teal-800 leading-relaxed">
+                  Este contrato opera em trilhas paralelas com a solicitação e conferência de
+                  documentos cadastrais/societários. A contabilidade e o cliente avançam na
+                  documentação sem impedimento do prazo de validação comercial.
+                </p>
+              </div>
+            )}
+
             {/* Cláusulas Contratuais */}
             <div className="space-y-4 pt-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#0FA3A3] border-b pb-1">

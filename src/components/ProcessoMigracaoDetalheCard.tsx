@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +35,8 @@ import {
   Loader2,
   Trash2,
   UserCheck,
+  ExternalLink,
+  FileCheck,
 } from 'lucide-react'
 import type {
   EmpresaMigracaoOnboardingRecord,
@@ -319,13 +322,26 @@ export function ProcessoMigracaoDetalheCard({
               <h3 className="text-base font-bold text-[#1A2333] leading-snug">
                 {empresa?.nome_fantasia || empresa?.razao_social || 'Empresa em Migração'}
               </h3>
-              <p className="text-xs text-[#64748B]">
-                CNPJ:{' '}
-                <span className="font-mono">{empresa?.cnpj ? maskCnpj(empresa.cnpj) : '—'}</span>
-                {empresa?.razao_social && empresa?.nome_fantasia && (
-                  <span> • {empresa.razao_social}</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[#64748B]">
+                <p>
+                  CNPJ:{' '}
+                  <span className="font-mono">{empresa?.cnpj ? maskCnpj(empresa.cnpj) : '—'}</span>
+                  {empresa?.razao_social && empresa?.nome_fantasia && (
+                    <span> • {empresa.razao_social}</span>
+                  )}
+                </p>
+                {processo.contrato_honorario_id && (
+                  <Link
+                    to="/contratos?tab=fluxo_vinculado"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md hover:bg-teal-100 transition-colors"
+                    title="Ver Proposta de Honorários Vinculada & Trilhas Paralelas"
+                  >
+                    <FileCheck className="h-3 w-3 text-teal-600" />
+                    <span>Proposta de Honorários Vinculada</span>
+                    <ExternalLink className="h-2.5 w-2.5 text-teal-600" />
+                  </Link>
                 )}
-              </p>
+              </div>
             </div>
           </div>
 

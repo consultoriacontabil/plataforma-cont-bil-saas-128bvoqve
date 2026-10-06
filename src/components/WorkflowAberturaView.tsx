@@ -627,6 +627,18 @@ export function WorkflowAberturaView({
                               <ExternalLink className="h-2.5 w-2.5 text-teal-600" />
                             </Link>
                           )}
+
+                          {selectedWorkflow.contrato_honorario_id && (
+                            <Link
+                              to={`/contratos?tab=fluxo_vinculado`}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors"
+                              title="Ver Proposta de Honorários Vinculada & Trilhas Paralelas"
+                            >
+                              <FileText className="h-3 w-3 text-indigo-600" />
+                              <span>Proposta de Honorários Vinculada</span>
+                              <ExternalLink className="h-2.5 w-2.5 text-indigo-600" />
+                            </Link>
+                          )}
                         </div>
 
                         <p className="text-xs text-[#64748B]">

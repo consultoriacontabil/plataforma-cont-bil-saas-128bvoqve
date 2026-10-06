@@ -22,7 +22,9 @@ import {
   RotateCcw,
   Sparkles,
   Repeat,
+  GitFork,
 } from 'lucide-react'
+import { FluxoVinculadoSection } from '@/components/FluxoVinculadoSection'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -84,6 +86,7 @@ export function ContratosPage() {
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [editorModalOpen, setEditorModalOpen] = useState(false)
   const [solicitarModalOpen, setSolicitarModalOpen] = useState(false)
+  const [contratoFluxoAbertoId, setContratoFluxoAbertoId] = useState<string | null>(null)
 
   const isAuxiliar = currentRole === 'auxiliar'
   const isCliente = currentRole === 'cliente'
@@ -246,9 +249,19 @@ export function ContratosPage() {
             className="rounded-lg text-xs font-semibold px-4 gap-2 data-[state=active]:bg-white data-[state=active]:text-[#0B1F3A] data-[state=active]:shadow-xs"
           >
             <FileText className="h-4 w-4 text-[#0FA3A3]" />
-            <span>Contratos de Honorários</span>
+            <span>Contratos & Propostas</span>
             <Badge className="ml-1 bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0 border-0">
               {contratos.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger
+            value="fluxo_vinculado"
+            className="rounded-lg text-xs font-semibold px-4 gap-2 data-[state=active]:bg-white data-[state=active]:text-[#0B1F3A] data-[state=active]:shadow-xs"
+          >
+            <GitFork className="h-4 w-4 text-teal-600" />
+            <span>Fluxos Vinculados (Abertura / Migração)</span>
+            <Badge className="ml-1 bg-teal-100 text-teal-800 text-[10px] px-1.5 py-0 border-0 font-bold">
+              {contratos.filter((c) => c.fluxo_tipo && c.fluxo_tipo !== 'nenhum').length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger
@@ -269,6 +282,69 @@ export function ContratosPage() {
             canManage={canSolicitarAssinatura}
             isAuxiliar={isAuxiliar}
           />
+        </TabsContent>
+
+        <TabsContent value="fluxo_vinculado" className="pt-4 space-y-6">
+          {contratos.filter((c) => c.fluxo_tipo && c.fluxo_tipo !== 'nenhum').length === 0 ? (
+            <Card className="rounded-2xl border-[#E2E8F0] shadow-xs">
+              <CardContent className="p-12 text-center space-y-3">
+                <div className="h-12 w-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
+                  <GitFork className="h-6 w-6" />
+                </div>
+                <h3 className="text-base font-bold text-[#1A2333]">
+                  Nenhum contrato com fluxo de abertura ou migração vinculado
+                </h3>
+                <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                  Ao criar ou editar uma proposta/contrato de honorários, selecione o tipo de fluxo
+                  vinculado (Abertura ou Migração). Isso habilitará o paralelismo com coleta de
+                  documentos e tramitação simultânea.
+                </p>
+                {canEdit && (
+                  <Button
+                    onClick={handleOpenNew}
+                    size="sm"
+                    className="rounded-xl text-xs bg-[#0FA3A3] hover:bg-[#0D8B8B] text-white gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Criar Proposta com Fluxo Vinculado</span>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Trilhas Paralelas Ativas: Proposta + Solicitação de Documentos
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Acompanhamento simultâneo do status da proposta e do checklist de documentos
+                    (Cliente vs Contabilidade).
+                  </p>
+                </div>
+              </div>
+
+              {contratos
+                .filter((c) => c.fluxo_tipo && c.fluxo_tipo !== 'nenhum')
+                .map((c) => (
+                  <Card
+                    key={c.id}
+                    className="rounded-2xl border-slate-200 overflow-hidden shadow-xs"
+                  >
+                    <CardContent className="p-6">
+                      <FluxoVinculadoSection
+                        contrato={c}
+                        tenantId={tenant?.id || ''}
+                        userId={user?.id}
+                        onRefresh={loadData}
+                        onOpenSolicitarAssinatura={() => handleOpenSolicitar(c)}
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="contratos" className="pt-2 space-y-6">
@@ -484,6 +560,15 @@ export function ContratosPage() {
                           <Building2 className="h-3.5 w-3.5 text-[#0FA3A3]" />
                           <span className="truncate">{empNome}</span>
                         </p>
+                        {c.fluxo_tipo && c.fluxo_tipo !== 'nenhum' && (
+                          <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                            <GitFork className="h-3 w-3" />
+                            <span>
+                              Fluxo: {c.fluxo_tipo === 'abertura' ? 'Abertura' : 'Migração'}{' '}
+                              (Trilhas Paralelas)
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
 
@@ -551,16 +636,34 @@ export function ContratosPage() {
 
                       {/* Ações */}
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenView(c)}
-                          className="rounded-xl text-xs h-8 px-2.5 border-[#E2E8F0] gap-1 text-[#0FA3A3]"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Visualizar PDF</span>
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenView(c)}
+                            className="rounded-xl text-xs h-8 px-2.5 border-[#E2E8F0] gap-1 text-[#0FA3A3]"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>PDF</span>
+                          </Button>
+
+                          {c.fluxo_tipo && c.fluxo_tipo !== 'nenhum' && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setActiveTab('fluxo_vinculado')
+                              }}
+                              className="rounded-xl text-xs h-8 px-2 border-teal-200 text-teal-800 bg-teal-50/50 hover:bg-teal-100/60 gap-1 font-medium"
+                              title="Ver Trilhas Paralelas de Documentos e Proposta"
+                            >
+                              <GitFork className="h-3.5 w-3.5 text-teal-600" />
+                              <span>Trilhas</span>
+                            </Button>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-1">
                           {/* Se for rascunho ou recusado, pode editar */}

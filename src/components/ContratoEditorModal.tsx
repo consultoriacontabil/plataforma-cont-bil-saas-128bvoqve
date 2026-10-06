@@ -13,7 +13,16 @@ import {
   Clock,
   Layers,
   HelpCircle,
+  GitFork,
+  Sparkles,
 } from 'lucide-react'
+import type {
+  FluxoVinculadoTipo,
+  CompanyOnboardingWorkflowRecord,
+  EmpresaMigracaoOnboardingRecord,
+} from '@/types'
+import { companyOnboardingService } from '@/services/companyOnboarding'
+import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
 import {
   Dialog,
   DialogContent,
@@ -74,6 +83,31 @@ export function ContratoEditorModal({
   const [clausulas, setClausulas] = useState<ClausulaContrato[]>(MODELO_CLAUSULAS_PADRAO)
   const [loading, setLoading] = useState(false)
 
+  // Estados do Fluxo Vinculado (Abertura ou Migração)
+  const [fluxoTipo, setFluxoTipo] = useState<FluxoVinculadoTipo>('nenhum')
+  const [fluxoAberturaId, setFluxoAberturaId] = useState<string>('')
+  const [fluxoMigracaoId, setFluxoMigracaoId] = useState<string>('')
+  const [workflowsAbertura, setWorkflowsAbertura] = useState<CompanyOnboardingWorkflowRecord[]>([])
+  const [processosMigracao, setProcessosMigracao] = useState<EmpresaMigracaoOnboardingRecord[]>([])
+
+  // Carregar listas de aberturas e migrações do tenant
+  useEffect(() => {
+    if (!open || !tenantId) return
+    const carregarFluxos = async () => {
+      try {
+        const [wfs, migrs] = await Promise.all([
+          companyOnboardingService.list(tenantId),
+          empresasMigracoesOnboardingService.list(tenantId),
+        ])
+        setWorkflowsAbertura(wfs)
+        setProcessosMigracao(migrs)
+      } catch (err) {
+        console.warn('Erro ao listar fluxos vinculáveis:', err)
+      }
+    }
+    carregarFluxos()
+  }, [open, tenantId])
+
   // Resetar ou carregar contrato selecionado
   useEffect(() => {
     if (contrato) {
@@ -85,20 +119,26 @@ export function ContratoEditorModal({
       setDiaVencimento(contrato.dia_vencimento ?? 10)
       setPrazoContrato(contrato.prazo_contrato ?? 12)
       setDataInicio(contrato.data_inicio ? contrato.data_inicio.slice(0, 10) : '2026-10-01')
+      setFluxoTipo(contrato.fluxo_tipo || 'nenhum')
+      setFluxoAberturaId(contrato.fluxo_abertura_id || '')
+      setFluxoMigracaoId(contrato.fluxo_migracao_id || '')
       if (Array.isArray(contrato.clausulas) && contrato.clausulas.length > 0) {
         setClausulas(contrato.clausulas)
       } else {
         setClausulas(MODELO_CLAUSULAS_PADRAO)
       }
     } else {
-      setTipo('contrato')
+      setTipo('proposta') // Padrão inteligente: ao criar com fluxo costuma começar como proposta
       setEmpresaId('nenhuma')
-      setTitulo('Contrato de Prestação de Serviços Contábeis')
+      setTitulo('Proposta Comercial & Honorários Contábeis')
       setModeloMensalidade('mensal_fixo')
       setValorMensal(2500)
       setDiaVencimento(10)
       setPrazoContrato(12)
       setDataInicio('2026-10-01')
+      setFluxoTipo('nenhum')
+      setFluxoAberturaId('')
+      setFluxoMigracaoId('')
       setClausulas(MODELO_CLAUSULAS_PADRAO)
     }
   }, [contrato, open])
@@ -197,6 +237,9 @@ export function ContratoEditorModal({
           dataInicio,
           clausulas,
           status: statusFinal,
+          fluxoTipo,
+          fluxoAberturaId: fluxoAberturaId || undefined,
+          fluxoMigracaoId: fluxoMigracaoId || undefined,
         })
         toast({
           title: 'Alterações salvas!',
@@ -216,10 +259,13 @@ export function ContratoEditorModal({
           clausulas,
           status: statusFinal,
           criadoPor: userId,
+          fluxoTipo,
+          fluxoAberturaId: fluxoAberturaId || undefined,
+          fluxoMigracaoId: fluxoMigracaoId || undefined,
         })
         toast({
           title: 'Documento criado!',
-          description: `${tipo === 'proposta' ? 'Proposta' : 'Contrato'} registrado como rascunho.`,
+          description: `${tipo === 'proposta' ? 'Proposta' : 'Contrato'} registrado com fluxo vinculado.`,
         })
       }
 
@@ -311,6 +357,114 @@ export function ContratoEditorModal({
                 placeholder="Ex.: Contrato de Prestação de Serviços Contábeis e Fiscais — Inovatech"
                 className="mt-1 h-9 text-xs rounded-xl border-[#E2E8F0]"
               />
+            </div>
+          </div>
+
+          {/* Seção 1.1: Vinculação de Fluxo Operacional (Abertura ou Migração) */}
+          <div className="space-y-4 p-4 rounded-xl border border-teal-200 bg-teal-50/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitFork className="h-4 w-4 text-[#0FA3A3]" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#0FA3A3]">
+                  Vinculação do Fluxo Operacional & Trilhas Paralelas
+                </h3>
+              </div>
+              <span className="text-[11px] font-medium text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Proposta + Coleta de Documentos em Paralelo
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Vincule este contrato/proposta ao fluxo de abertura ou migração. O envio da proposta e
+              a solicitação de documentos seguem em trilhas paralelas simultâneas sem bloqueio
+              mútuo.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div>
+                <Label className="text-xs font-semibold text-[#1A2333]">
+                  Tipo de Fluxo Vinculado
+                </Label>
+                <Select
+                  value={fluxoTipo}
+                  onValueChange={(val) => {
+                    const novoTipo = val as FluxoVinculadoTipo
+                    setFluxoTipo(novoTipo)
+                    if (novoTipo === 'nenhum') {
+                      setFluxoAberturaId('')
+                      setFluxoMigracaoId('')
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1 h-9 text-xs rounded-xl bg-white border-[#E2E8F0]">
+                    <SelectValue placeholder="Selecione o fluxo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nenhum">Nenhum (Contrato avulso de honorários)</SelectItem>
+                    <SelectItem value="abertura">Abertura / Formação de Nova Empresa</SelectItem>
+                    <SelectItem value="migracao_entrada">
+                      Migração de Cliente (Entrada / Onboarding)
+                    </SelectItem>
+                    <SelectItem value="migracao_saida">
+                      Migração de Cliente (Saída / Handover)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {fluxoTipo === 'abertura' && (
+                <div>
+                  <Label className="text-xs font-semibold text-[#1A2333]">
+                    Processo de Abertura Existente
+                  </Label>
+                  <Select
+                    value={fluxoAberturaId || 'novo'}
+                    onValueChange={(val) => setFluxoAberturaId(val === 'novo' ? '' : val)}
+                  >
+                    <SelectTrigger className="mt-1 h-9 text-xs rounded-xl bg-white border-[#E2E8F0]">
+                      <SelectValue placeholder="Selecione o processo de abertura" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="novo">
+                        (Novo fluxo de abertura — criar automaticamente)
+                      </SelectItem>
+                      {workflowsAbertura.map((wf) => (
+                        <SelectItem key={wf.id} value={wf.id}>
+                          {wf.titulo || wf.razao_social_pretendida || 'Processo sem título'} (
+                          {wf.status})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {(fluxoTipo === 'migracao_entrada' || fluxoTipo === 'migracao_saida') && (
+                <div>
+                  <Label className="text-xs font-semibold text-[#1A2333]">
+                    Processo de Migração Existente
+                  </Label>
+                  <Select
+                    value={fluxoMigracaoId || 'novo'}
+                    onValueChange={(val) => setFluxoMigracaoId(val === 'novo' ? '' : val)}
+                  >
+                    <SelectTrigger className="mt-1 h-9 text-xs rounded-xl bg-white border-[#E2E8F0]">
+                      <SelectValue placeholder="Selecione o processo de migração" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="novo">
+                        (Novo processo de migração — inicializar)
+                      </SelectItem>
+                      {processosMigracao.map((pm) => (
+                        <SelectItem key={pm.id} value={pm.id}>
+                          {pm.expand?.empresa_id?.razao_social || 'Empresa'} —{' '}
+                          {pm.tipo.toUpperCase()} ({pm.status})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
 

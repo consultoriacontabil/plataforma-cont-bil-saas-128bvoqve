@@ -56,8 +56,45 @@ export const companyOnboardingService = {
       .getFullList<CompanyOnboardingWorkflowRecord>({
         filter: `tenant_id = "${tenantId}"`,
         sort: '-created',
-        expand: 'empresa_id,solicitante_id',
+        expand: 'empresa_id,solicitante_id,contrato_honorario_id',
       })
+  },
+
+  /**
+   * Vincula ou desvincula um contrato/proposta de honorários ao workflow de abertura
+   */
+  async vincularContrato(
+    workflowId: string,
+    contratoId: string | null,
+    usuarioId?: string,
+    tenantId?: string,
+  ): Promise<CompanyOnboardingWorkflowRecord> {
+    const updated = await pb
+      .collection('company_onboarding_workflow')
+      .update<CompanyOnboardingWorkflowRecord>(
+        workflowId,
+        {
+          contrato_honorario_id: contratoId,
+        },
+        {
+          expand: 'empresa_id,solicitante_id,contrato_honorario_id',
+        },
+      )
+
+    if (tenantId && usuarioId) {
+      await auditService.log(
+        tenantId,
+        usuarioId,
+        contratoId ? 'Vincular Contrato à Abertura' : 'Desvincular Contrato da Abertura',
+        'company_onboarding_workflow',
+        workflowId,
+        contratoId
+          ? `Workflow de abertura vinculado à proposta/contrato ${contratoId}.`
+          : 'Workflow de abertura desvinculado de contrato.',
+      )
+    }
+
+    return updated
   },
 
   /**

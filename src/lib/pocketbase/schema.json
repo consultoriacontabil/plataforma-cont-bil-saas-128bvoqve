@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T21:53:35.679Z",
+  "generatedAt": "2026-10-06T22:56:23.103Z",
   "collections": [
     {
       "name": "users",
@@ -3637,13 +3637,57 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "fluxo_tipo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["nenhum", "abertura", "migracao_entrada", "migracao_saida"]
+        },
+        {
+          "name": "fluxo_abertura_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "company_onboarding_workflow"
+        },
+        {
+          "name": "fluxo_migracao_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas_migracoes_onboarding"
+        },
+        {
+          "name": "trilha_documentos_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pedido_documento_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pedidos_documentos"
+        },
+        {
+          "name": "elliza_processo_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "processos_operacionais"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_contratos_tenant_empresa ON contratos_honorarios (tenant_id, empresa)",
         "CREATE INDEX idx_contratos_tenant_status ON contratos_honorarios (tenant_id, status)",
         "CREATE INDEX idx_contratos_tipo ON contratos_honorarios (tipo)",
-        "CREATE INDEX idx_contratos_created ON contratos_honorarios (created DESC)"
+        "CREATE INDEX idx_contratos_created ON contratos_honorarios (created DESC)",
+        "CREATE INDEX `idx_contratos_fluxo_abertura` ON `contratos_honorarios` (fluxo_abertura_id)",
+        "CREATE INDEX `idx_contratos_fluxo_migracao` ON `contratos_honorarios` (fluxo_migracao_id)",
+        "CREATE INDEX `idx_contratos_fluxo_tipo` ON `contratos_honorarios` (fluxo_tipo)"
       ]
     },
     {
@@ -9670,6 +9714,13 @@
           "type": "json",
           "required": false,
           "system": false
+        },
+        {
+          "name": "contrato_honorario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_honorarios"
         }
       ],
       "indexes": [
@@ -9818,6 +9869,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "contrato_honorario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contratos_honorarios"
         }
       ],
       "indexes": [

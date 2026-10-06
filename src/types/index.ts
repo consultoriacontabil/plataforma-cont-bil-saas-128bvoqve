@@ -1580,6 +1580,24 @@ export interface DadosCongeladosContrato {
   gerado_em: string
 }
 
+export type FluxoVinculadoTipo = 'nenhum' | 'abertura' | 'migracao_entrada' | 'migracao_saida'
+export type ResponsavelDocumentoItem = 'cliente' | 'contabilidade'
+
+export interface ItemDocumentoTrilha {
+  id: string
+  titulo: string
+  descricao?: string
+  categoria?: string
+  responsavel: ResponsavelDocumentoItem // 'cliente' ou 'contabilidade'
+  obrigatorio: boolean
+  status: 'pendente' | 'recebido' | 'aprovado' | 'recusado'
+  recebido_em?: string
+  aprovado_em?: string
+  documento_ged_id?: string
+  nome_arquivo?: string
+  observacao?: string
+}
+
 export interface ContratoHonorarioRecord extends RecordModel {
   tenant_id: string
   empresa?: string
@@ -1595,9 +1613,19 @@ export interface ContratoHonorarioRecord extends RecordModel {
   dados_congelados?: DadosCongeladosContrato | Record<string, unknown>
   observacoes_recusa?: string
   criado_por?: string
+  // Vinculação ao Fluxo de Abertura ou Migração
+  fluxo_tipo?: FluxoVinculadoTipo
+  fluxo_abertura_id?: string
+  fluxo_migracao_id?: string
+  trilha_documentos_json?: ItemDocumentoTrilha[]
+  pedido_documento_id?: string
+  elliza_processo_id?: string
   expand?: {
     empresa?: Empresa
     criado_por?: User
+    fluxo_abertura_id?: CompanyOnboardingWorkflowRecord
+    fluxo_migracao_id?: EmpresaMigracaoOnboardingRecord
+    pedido_documento_id?: PedidoDocumentoRecord
   }
 }
 
@@ -3267,10 +3295,12 @@ export interface CompanyOnboardingWorkflowRecord extends RecordModel {
   cliente_email?: string
   cliente_telefone?: string
   observacoes?: string
+  contrato_honorario_id?: string
   expand?: {
     empresa_id?: Empresa
     solicitante_id?: User
     tenant_id?: Tenant
+    contrato_honorario_id?: ContratoHonorarioRecord
   }
 }
 
@@ -3386,11 +3416,13 @@ export interface EmpresaMigracaoOnboardingRecord extends RecordModel {
   observacoes?: string
   concluido_em?: string
   concluido_por_id?: string
+  contrato_honorario_id?: string
   expand?: {
     empresa_id?: Empresa
     responsavel_id?: User
     concluido_por_id?: User
     tenant_id?: Tenant
+    contrato_honorario_id?: ContratoHonorarioRecord
   }
 }
 

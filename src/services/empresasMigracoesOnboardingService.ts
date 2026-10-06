@@ -172,8 +172,45 @@ export const empresasMigracoesOnboardingService = {
       .getFullList<EmpresaMigracaoOnboardingRecord>({
         filter: finalFilter,
         sort,
-        expand: 'empresa_id,responsavel_id,concluido_por_id',
+        expand: 'empresa_id,responsavel_id,concluido_por_id,contrato_honorario_id',
       })
+  },
+
+  /**
+   * Vincula ou desvincula um contrato/proposta de honorários ao processo de migração
+   */
+  async vincularContrato(
+    processoId: string,
+    contratoId: string | null,
+    usuarioId?: string,
+    tenantId?: string,
+  ): Promise<EmpresaMigracaoOnboardingRecord> {
+    const updated = await pb
+      .collection('empresas_migracoes_onboarding')
+      .update<EmpresaMigracaoOnboardingRecord>(
+        processoId,
+        {
+          contrato_honorario_id: contratoId,
+        },
+        {
+          expand: 'empresa_id,responsavel_id,concluido_por_id,contrato_honorario_id',
+        },
+      )
+
+    if (tenantId && usuarioId) {
+      await auditService.log(
+        tenantId,
+        usuarioId,
+        contratoId ? 'Vincular Contrato à Migração' : 'Desvincular Contrato da Migração',
+        'empresas_migracoes_onboarding',
+        processoId,
+        contratoId
+          ? `Processo de migração vinculado à proposta/contrato ${contratoId}.`
+          : 'Processo de migração desvinculado de contrato.',
+      )
+    }
+
+    return updated
   },
 
   /**
