@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T16:57:26.734Z",
+  "generatedAt": "2026-10-06T21:53:35.679Z",
   "collections": [
     {
       "name": "users",
@@ -12986,7 +12986,7 @@
         {
           "name": "valor_bruto",
           "type": "number",
-          "required": true,
+          "required": false,
           "system": false
         },
         {
@@ -13046,7 +13046,7 @@
         {
           "name": "valor_liquido",
           "type": "number",
-          "required": true,
+          "required": false,
           "system": false
         },
         {

@@ -633,7 +633,7 @@ export const PainelProLaboreDistribuicao: React.FC<PainelProLaboreDistribuicaoPr
           </div>
         </div>
 
-        {/* Banner de Aprovação Humana Obrigatória */}
+        {/* Banner de Modo Humano: Aprovação Obrigatória ou Aguardando Cliente */}
         {processoDemo?.status === 'AGUARDANDO_APROVACAO' && (
           <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -649,6 +649,30 @@ export const PainelProLaboreDistribuicao: React.FC<PainelProLaboreDistribuicaoPr
               className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-7 font-bold shrink-0 rounded-lg"
             >
               Chancelar Agora
+            </Button>
+          </div>
+        )}
+
+        {processoDemo?.status === 'AGUARDANDO_CLIENTE' && (
+          <div className="mt-4 rounded-xl border border-sky-300 bg-sky-50 p-3 text-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-sky-600 shrink-0" />
+              <div>
+                <span className="text-sky-950 font-bold block">
+                  Status: AGUARDANDO DEFINIÇÃO DO CLIENTE (10/2026)
+                </span>
+                <span className="text-sky-800 text-[11px] block mt-0.5">
+                  {processoDemo.decisao_necessaria_humana ||
+                    'O quadro de sócios foi importado do Contrato Social do GED. Falta apenas a indicação do valor mensal de pró-labore por sócio para apuração do INSS/IRRF.'}
+                </span>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setActiveSubTab('socios')}
+              className="bg-sky-600 hover:bg-sky-700 text-white text-xs h-7 font-bold shrink-0 rounded-lg"
+            >
+              Definir Pró-labore
             </Button>
           </div>
         )}
@@ -973,10 +997,16 @@ export const PainelProLaboreDistribuicao: React.FC<PainelProLaboreDistribuicaoPr
                               className={`text-[10px] font-bold ${
                                 item.status === 'aprovado'
                                   ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-teal-100 text-[#0FA3A3]'
+                                  : item.valor_bruto === 0 ||
+                                      item.observacoes?.includes('AGUARDANDO_CLIENTE')
+                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                    : 'bg-teal-100 text-[#0FA3A3]'
                               }`}
                             >
-                              {item.status.toUpperCase()}
+                              {item.valor_bruto === 0 ||
+                              item.observacoes?.includes('AGUARDANDO_CLIENTE')
+                                ? 'AGUARDANDO CLIENTE'
+                                : item.status.toUpperCase()}
                             </Badge>
                           </td>
                           <td className="py-3.5 px-4 text-right">

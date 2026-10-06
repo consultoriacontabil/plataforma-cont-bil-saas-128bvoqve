@@ -122,7 +122,7 @@ migrate(
             maxSelect: 1,
           },
           { name: 'competencia', type: 'text', required: true }, // MM/AAAA
-          { name: 'valor_bruto', type: 'number', required: true, min: 0 },
+          { name: 'valor_bruto', type: 'number', min: 0 },
           { name: 'base_inss', type: 'number', min: 0 },
           { name: 'aliquota_inss', type: 'number', min: 0 }, // 11% contribuinte individual
           { name: 'inss_retido', type: 'number', min: 0 },
@@ -132,7 +132,7 @@ migrate(
           { name: 'parcela_deduzir_irrf', type: 'number', min: 0 },
           { name: 'irrf_retido', type: 'number', min: 0 },
           { name: 'deducao_simplificada_usada', type: 'bool' },
-          { name: 'valor_liquido', type: 'number', required: true, min: 0 },
+          { name: 'valor_liquido', type: 'number', min: 0 },
           { name: 'distribuicao_lucro_valor', type: 'number', min: 0 },
           {
             name: 'distribuicao_status',
