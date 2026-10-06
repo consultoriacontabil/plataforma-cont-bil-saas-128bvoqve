@@ -14,7 +14,9 @@
 
 migrate(
   (app) => {
-    console.log('[MIGRATION-0110] Iniciando seed do POP-09 e execução dos 5 processos operacionais...')
+    console.log(
+      '[MIGRATION-0110] Iniciando seed do POP-09 e execução dos 5 processos operacionais...',
+    )
 
     // 1. Obter tenant principal
     let tenantId = 'l91og8ybo9krtay'
@@ -27,9 +29,15 @@ migrate(
     let empInovatechId = 'feb9h004jovi7xh'
     let empGraosId = 'xgfoy8yifisdc0n'
     try {
-      const e1 = app.findFirstRecordByFilter('empresas', `tenant_id = '${tenantId}' && nome_fantasia ~ 'Inovatech'`)
+      const e1 = app.findFirstRecordByFilter(
+        'empresas',
+        `tenant_id = '${tenantId}' && nome_fantasia ~ 'Inovatech'`,
+      )
       if (e1) empInovatechId = e1.id
-      const e2 = app.findFirstRecordByFilter('empresas', `tenant_id = '${tenantId}' && nome_fantasia ~ 'Grãos'`)
+      const e2 = app.findFirstRecordByFilter(
+        'empresas',
+        `tenant_id = '${tenantId}' && nome_fantasia ~ 'Grãos'`,
+      )
       if (e2) empGraosId = e2.id
     } catch (_) {}
 
@@ -62,30 +70,38 @@ migrate(
     // ==========================================
     let sopPop09 = null
     try {
-      sopPop09 = app.findFirstRecordByFilter('sops', `tenant_id = '${tenantId}' && codigo = 'POP-09'`)
+      sopPop09 = app.findFirstRecordByFilter(
+        'sops',
+        `tenant_id = '${tenantId}' && codigo = 'POP-09'`,
+      )
     } catch (_) {}
 
     const etapasPop09Template = [
       {
         ordem: 1,
         titulo: '1. Varredura e captura em fontes oficiais (DOU, RFB e SEFAZ)',
-        descricao: 'Acompanhar Diário Oficial da União, atos da Receita Federal e portarias das Secretarias de Fazenda estaduais.',
+        descricao:
+          'Acompanhar Diário Oficial da União, atos da Receita Federal e portarias das Secretarias de Fazenda estaduais.',
         responsavel_tipo: 'ELISA',
         entrada: 'Diário Oficial da União (Seção 1), Normas RFB e Portarias SEFAZ (PR/SP)',
         acao: 'Varrer publicações legislativas, extrair número da norma, vigência, tributo e variação de alíquota.',
-        criterio_sucesso: 'Ato normativo identificado com ementa oficial, tributos e alíquotas estruturadas.',
-        criterio_erro: 'Fonte oficial indisponível ou documento sem assinatura/publicação reconhecida.',
+        criterio_sucesso:
+          'Ato normativo identificado com ementa oficial, tributos e alíquotas estruturadas.',
+        criterio_erro:
+          'Fonte oficial indisponível ou documento sem assinatura/publicação reconhecida.',
         proxima_etapa_nome: 'Cruzamento cadastral e cálculo de impacto financeiro por empresa',
         requer_aprovacao: false,
       },
       {
         ordem: 2,
         titulo: '2. Cruzamento cadastral e quantificação de impacto (R$) por empresa',
-        descricao: 'Cruzar alíquotas/tetos/pisos normativos com o cadastro fiscal, regime tributário e faturamento da carteira de clientes.',
+        descricao:
+          'Cruzar alíquotas/tetos/pisos normativos com o cadastro fiscal, regime tributário e faturamento da carteira de clientes.',
         responsavel_tipo: 'ELISA',
         entrada: 'Base de empresas ativas + Histórico de apuração fiscal + Parâmetros do evento',
         acao: 'Calcular a variação percentual da alíquota e projetar o acréscimo ou decréscimo mensal em R$ por cliente afetado.',
-        criterio_sucesso: 'Impacto financeiro apurado com tabela consolidada de empresas afetadas e recomendações contábeis geradas.',
+        criterio_sucesso:
+          'Impacto financeiro apurado com tabela consolidada de empresas afetadas e recomendações contábeis geradas.',
         criterio_erro: 'Faturamento base ou regime tributário não parametrizado na empresa.',
         proxima_etapa_nome: 'Validação técnica pelo Contador (Nível 2 — Supervisionado)',
         requer_aprovacao: true,
@@ -93,23 +109,28 @@ migrate(
       {
         ordem: 3,
         titulo: '3. Validação técnica pelo Contador (Nível 2 — Supervisionado)',
-        descricao: 'O contador responsável revisa os impactos calculados pela ELISA e valida orientações fiscais aos clientes.',
+        descricao:
+          'O contador responsável revisa os impactos calculados pela ELISA e valida orientações fiscais aos clientes.',
         responsavel_tipo: 'Humano',
         entrada: 'Relatório de impacto financeiro por empresa + Parecer automatizado da ELISA',
         acao: 'Aprovar o cálculo de impacto, validar adequações em sistemas emissores e despachar notas de orientação contábil.',
-        criterio_sucesso: 'Despacho técnico emitido pelo contador e notificação de impacto liberada para envio aos clientes.',
-        criterio_erro: 'Divergência de interpretação jurídica na norma que exige parecer consultivo externo.',
+        criterio_sucesso:
+          'Despacho técnico emitido pelo contador e notificação de impacto liberada para envio aos clientes.',
+        criterio_erro:
+          'Divergência de interpretação jurídica na norma que exige parecer consultivo externo.',
         proxima_etapa_nome: 'Disparo de comunicados e registro na auditoria contábil',
         requer_aprovacao: true,
       },
       {
         ordem: 4,
         titulo: '4. Disparo de alertas fiscais e registro na auditoria',
-        descricao: 'Publicar alertas no sino, gerar comunicados aos clientes impactados e gravar registro probatório na auditoria.',
+        descricao:
+          'Publicar alertas no sino, gerar comunicados aos clientes impactados e gravar registro probatório na auditoria.',
         responsavel_tipo: 'ELISA',
         entrada: 'Aprovação do Contador + Lista de empresas impactadas',
         acao: 'Registrar evidência formal com hash SHA-256 e criar pendências de adequação cadastral para os clientes que necessitarem.',
-        criterio_sucesso: 'Comunicação concluída, evidência auditável gravada e histórico de conformidade atualizado.',
+        criterio_sucesso:
+          'Comunicação concluída, evidência auditável gravada e histórico de conformidade atualizado.',
         criterio_erro: 'Falha de comunicação ou canal de alerta inativo.',
         proxima_etapa_nome: 'Processo Concluído',
         requer_aprovacao: false,
@@ -127,21 +148,30 @@ migrate(
         'objetivo',
         'Acompanhamento contínuo e determinístico do Diário Oficial da União, Receita Federal e SEFAZ com cálculo automatizado de impacto financeiro por empresa da carteira.',
       )
-      sopPop09.set('gatilho', 'Publicação de nova norma legal, portaria, decreto ou resolução fazendária (rotina diária das 08h da ELISA).')
-      sopPop09.set('pre_condicoes', 'Carteira de clientes cadastrada com regime tributário e faturamento médio.')
-      sopPop09.set('entradas', 'Diário Oficial da União, Portal da RFB, Diários Oficiais Estaduais e parâmetros de alíquotas.')
+      sopPop09.set(
+        'gatilho',
+        'Publicação de nova norma legal, portaria, decreto ou resolução fazendária (rotina diária das 08h da ELISA).',
+      )
+      sopPop09.set(
+        'pre_condicoes',
+        'Carteira de clientes cadastrada com regime tributário e faturamento médio.',
+      )
+      sopPop09.set(
+        'entradas',
+        'Diário Oficial da União, Portal da RFB, Diários Oficiais Estaduais e parâmetros de alíquotas.',
+      )
       sopPop09.set('nivel_autonomia', 'nivel_2_supervisionado')
       sopPop09.set('agente_nome', 'ELISA')
       sopPop09.set('etapas_template_json', etapasPop09Template)
+      sopPop09.set('regras_negocio_json', [
+        'A ELISA detecta e quantifica o impacto financeiro (R$), mas a chancela é privativa do Contador (Nível 2).',
+        'Alíquotas são checadas com base nas apurações e faturamento médio dos últimos 3 meses.',
+        'Em caso de ausência de conectores de API externos, opera em Modo Supervisão com alertas explícitos.',
+      ])
       sopPop09.set(
-        'regras_negocio_json',
-        [
-          'A ELISA detecta e quantifica o impacto financeiro (R$), mas a chancela é privativa do Contador (Nível 2).',
-          'Alíquotas são checadas com base nas apurações e faturamento médio dos últimos 3 meses.',
-          'Em caso de ausência de conectores de API externos, opera em Modo Supervisão com alertas explícitos.',
-        ],
+        'excecoes',
+        'Normas sem vigência expressa ou de efeito prospectivo sem regulamentação de alíquota ficam retidas como Informativas.',
       )
-      sopPop09.set('excecoes', 'Normas sem vigência expressa ou de efeito prospectivo sem regulamentação de alíquota ficam retidas como Informativas.')
       sopPop09.set('ativo', true)
       app.save(sopPop09)
       console.log('[MIGRATION-0110] POP-09 criado no catálogo de SOPs com sucesso!')
@@ -160,7 +190,10 @@ migrate(
     if (pubExistente.length === 0) {
       const pubNova = new Record(pubCol)
       pubNova.set('tenant_id', tenantId)
-      pubNova.set('titulo', 'Atualização da Tabela de Retenção na Fonte e Alíquotas Progressivas 2026')
+      pubNova.set(
+        'titulo',
+        'Atualização da Tabela de Retenção na Fonte e Alíquotas Progressivas 2026',
+      )
       pubNova.set('numero_norma', 'Portaria RFB nº 489/2026')
       pubNova.set('fonte', 'rfb')
       pubNova.set('data_publicacao', '2026-09-18 08:30:00.000Z')
@@ -171,13 +204,23 @@ migrate(
         'resumo',
         'Reajuste das faixas de retenção de IRRF e consolidação das alíquotas efetivas de tributos retidos na fonte para serviços tomados e folha.',
       )
-      pubNova.set('conteudo_completo', 'Portaria Conjunta RFB/PGFN nº 489/2026: Dispõe sobre os parâmetros de apuração e limites de retenção.')
-      pubNova.set('link_oficial', 'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=140920')
+      pubNova.set(
+        'conteudo_completo',
+        'Portaria Conjunta RFB/PGFN nº 489/2026: Dispõe sobre os parâmetros de apuração e limites de retenção.',
+      )
+      pubNova.set(
+        'link_oficial',
+        'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=140920',
+      )
       pubNova.set('tributo_afetado', 'IRRF / Retenções Federais')
       pubNova.set('aliquota_anterior', 1.5)
       pubNova.set('aliquota_nova', 1.75)
       pubNova.set('regimes_afetados_json', ['simples_nacional', 'lucro_presumido', 'lucro_real'])
-      pubNova.set('setores_afetados_json', ['tecnologia_software', 'comercio_varejista', 'servicos_gerais'])
+      pubNova.set('setores_afetados_json', [
+        'tecnologia_software',
+        'comercio_varejista',
+        'servicos_gerais',
+      ])
       pubNova.set('status', 'nova')
       pubNova.set('origem_captura', 'manual_supervisionado')
       pubNova.set('impacto_calculado_json', {
@@ -196,7 +239,8 @@ migrate(
             custoNovoMensal: 910,
             impactoFinanceiro: 130,
             impactoPercentual: 16.67,
-            orientacao: 'Acréscimo de R$ 130,00/mês nas retenções de serviços tomados de TI. Parametrizar emissor de NFS-e.',
+            orientacao:
+              'Acréscimo de R$ 130,00/mês nas retenções de serviços tomados de TI. Parametrizar emissor de NFS-e.',
           },
           {
             empresaId: empGraosId,
@@ -209,7 +253,8 @@ migrate(
             custoNovoMensal: 490,
             impactoFinanceiro: 70,
             impactoPercentual: 16.67,
-            orientacao: 'Acréscimo estimado de R$ 70,00/mês nas notas de frete e intermediação comercial.',
+            orientacao:
+              'Acréscimo estimado de R$ 70,00/mês nas notas de frete e intermediação comercial.',
           },
         ],
       })
@@ -246,7 +291,9 @@ migrate(
         20,
       )
 
-      console.log(`[MIGRATION-0110] Processando folha para ${funcs.length} colaboradores na empresa ${empresaFolhaId}...`)
+      console.log(
+        `[MIGRATION-0110] Processando folha para ${funcs.length} colaboradores na empresa ${empresaFolhaId}...`,
+      )
 
       // Criar holerites reais para todos os funcionários ativos da competência 09/2026
       for (let i = 0; i < funcs.length; i++) {
@@ -256,7 +303,8 @@ migrate(
 
         // Cálculo determinístico CLT
         const inss = Math.round(salarioBase * 0.09 * 100) / 100
-        const irrf = salarioBase > 3000 ? Math.round((salarioBase - inss - 564.8) * 0.075 * 100) / 100 : 0
+        const irrf =
+          salarioBase > 3000 ? Math.round((salarioBase - inss - 564.8) * 0.075 * 100) / 100 : 0
         const fgts = Math.round(salarioBase * 0.08 * 100) / 100
         const liquido = Math.round((salarioBase - inss - irrf) * 100) / 100
 
@@ -327,7 +375,8 @@ migrate(
         }
 
         // Garantir credencial ativa no portal_empregado_acessos e token no funcionario
-        const tokenPublico = func.getString('token_acesso_publico') || 'RUMO' + fId.slice(0, 4).toUpperCase()
+        const tokenPublico =
+          func.getString('token_acesso_publico') || 'RUMO' + fId.slice(0, 4).toUpperCase()
         if (!func.getString('token_acesso_publico')) {
           func.set('token_acesso_publico', tokenPublico)
           app.save(func)
@@ -371,7 +420,10 @@ migrate(
       evidFolha.set('empresa_id', empresaFolhaId)
       evidFolha.set('tipo', 'protocolo')
       evidFolha.set('titulo', 'Evidência de Cálculo da Folha e Emissão de Holerites (09/2026)')
-      evidFolha.set('descricao', `Folha mensal processada pela ELISA com base nos parâmetros CLT e disponibilizada no Portal do Empregado. Total de ${funcs.length} holerites emitidos.`)
+      evidFolha.set(
+        'descricao',
+        `Folha mensal processada pela ELISA com base nos parâmetros CLT e disponibilizada no Portal do Empregado. Total de ${funcs.length} holerites emitidos.`,
+      )
       evidFolha.set('protocolo_numero', numOpFolha)
       evidFolha.set('numero_operacao', numOpFolha)
       evidFolha.set('hash_sha256', hashFolha)
@@ -380,9 +432,15 @@ migrate(
         competencia: '09/2026',
         colaboradores_processados: funcs.length,
         status_portal: 'disponibilizado_com_token',
-        inss_retido_total: funcs.reduce((acc, f) => acc + Math.round((f.getFloat('salario') || 3800) * 0.09 * 100) / 100, 0),
+        inss_retido_total: funcs.reduce(
+          (acc, f) => acc + Math.round((f.getFloat('salario') || 3800) * 0.09 * 100) / 100,
+          0,
+        ),
       })
-      evidFolha.set('resultado_obtido', 'Holerites emitidos com proventos, deduções de INSS progressivo, IRRF e FGTS calculados. Registros publicados no Portal do Empregado com token de segurança.')
+      evidFolha.set(
+        'resultado_obtido',
+        'Holerites emitidos com proventos, deduções de INSS progressivo, IRRF e FGTS calculados. Registros publicados no Portal do Empregado com token de segurança.',
+      )
       app.save(evidFolha)
 
       // Atualizar etapas:
@@ -401,25 +459,37 @@ migrate(
           app.save(et)
         } else if (o === 2) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', `Cálculo oficial CLT concluído com sucesso. ${funcs.length} colaboradores apurados.`)
+          et.set(
+            'resultado',
+            `Cálculo oficial CLT concluído com sucesso. ${funcs.length} colaboradores apurados.`,
+          )
           et.set('data_conclusao', '2026-10-06 08:32:00.000Z')
           app.save(et)
         } else if (o === 3) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', `Holerites gerados e publicados com sucesso no Portal do Empregado (/portal-empregado). Protocolo: ${numOpFolha}.`)
+          et.set(
+            'resultado',
+            `Holerites gerados e publicados com sucesso no Portal do Empregado (/portal-empregado). Protocolo: ${numOpFolha}.`,
+          )
           et.set('evidencia_id', evidFolha.id)
           et.set('data_conclusao', '2026-10-06 08:35:00.000Z')
           app.save(et)
         } else if (o === 4) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', 'XMLs dos eventos S-1200 e S-1210 gerados e validados no schema oficial do eSocial.')
+          et.set(
+            'resultado',
+            'XMLs dos eventos S-1200 e S-1210 gerados e validados no schema oficial do eSocial.',
+          )
           et.set('data_conclusao', '2026-10-06 08:38:00.000Z')
           app.save(et)
         } else if (o === 5) {
           et.set('status', 'AGUARDANDO_APROVACAO')
           et.set('requer_aprovacao', true)
           et.set('responsavel_tipo', 'Humano')
-          et.set('resultado', 'Aguardando validação e chancela do Contador (Nível 3 — Nenhuma transmissão governamental sem autorização humana expressa).')
+          et.set(
+            'resultado',
+            'Aguardando validação e chancela do Contador (Nível 3 — Nenhuma transmissão governamental sem autorização humana expressa).',
+          )
           app.save(et)
         }
       }
@@ -429,10 +499,22 @@ migrate(
       pF.set('etapa_atual_numero', 5)
       pF.set('etapa_atual_nome', '5. Conferência técnica e transmissão eSocial (Nível 3)')
       pF.set('progresso_percentual', 80)
-      pF.set('ultima_acao_executada', 'Holerites gerados e disponibilizados no Portal do Empregado. XMLs eSocial preparados.')
-      pF.set('resultado_ultima_acao', `Holerites da competência 09/2026 publicados no Portal do Empregado (/portal-empregado). Prontos para conferência.`)
-      pF.set('proxima_acao', 'Aprovação técnica do Contador para conferência de encargos antes do envio da DCTFWeb.')
-      pF.set('decisao_necessaria_humana', 'Conferir totais de INSS patronal, FGTS digital e autorizar lote de fechamento do eSocial.')
+      pF.set(
+        'ultima_acao_executada',
+        'Holerites gerados e disponibilizados no Portal do Empregado. XMLs eSocial preparados.',
+      )
+      pF.set(
+        'resultado_ultima_acao',
+        `Holerites da competência 09/2026 publicados no Portal do Empregado (/portal-empregado). Prontos para conferência.`,
+      )
+      pF.set(
+        'proxima_acao',
+        'Aprovação técnica do Contador para conferência de encargos antes do envio da DCTFWeb.',
+      )
+      pF.set(
+        'decisao_necessaria_humana',
+        'Conferir totais de INSS patronal, FGTS digital e autorizar lote de fechamento do eSocial.',
+      )
       app.save(pF)
 
       // Atualizar Job da Folha na Fila da ELISA
@@ -443,12 +525,17 @@ migrate(
         jF.set('etapa_atual_nome', '5. Conferência técnica e transmissão eSocial (Nível 3)')
         jF.set('proxima_acao', 'Aguardando chancela do contador para transmissão final do eSocial.')
         jF.set('necessita_aprovacao', true)
-        jF.set('resultado', 'Holerites emitidos no Portal do Empregado. Etapa final retida com segurança para chancela humana.')
+        jF.set(
+          'resultado',
+          'Holerites emitidos no Portal do Empregado. Etapa final retida com segurança para chancela humana.',
+        )
         jF.set('evidencia_resumo', `Protocolo ${numOpFolha} registrado.`)
         app.save(jF)
       }
 
-      console.log('[MIGRATION-0110] Processo de Folha atualizado: holerites gravados e etapa final aguardando aprovação!')
+      console.log(
+        '[MIGRATION-0110] Processo de Folha atualizado: holerites gravados e etapa final aguardando aprovação!',
+      )
     }
 
     // -------------------------------------------------------------------------
@@ -520,7 +607,10 @@ migrate(
           recTit.set('data_vencimento', item.data_vencimento)
           recTit.set('status', 'pendente')
           recTit.set('documento_ref', item.documento_ref)
-          recTit.set('observacoes', 'Lote de teste preparado pela ELISA para autorização no Modo Humano.')
+          recTit.set(
+            'observacoes',
+            'Lote de teste preparado pela ELISA para autorização no Modo Humano.',
+          )
           app.save(recTit)
         }
       }
@@ -542,7 +632,10 @@ migrate(
       evidPagar.set('empresa_id', empresaPagarId)
       evidPagar.set('tipo', 'protocolo')
       evidPagar.set('titulo', 'Evidência de Lote de Contas a Pagar — Pré-autorização Bancária')
-      evidPagar.set('descricao', 'Lote de pagamentos (R$ 2.651,20) montado com conciliação das ordens de compra e códigos de barras. Retido com segurança para aprovação humana.')
+      evidPagar.set(
+        'descricao',
+        'Lote de pagamentos (R$ 2.651,20) montado com conciliação das ordens de compra e códigos de barras. Retido com segurança para aprovação humana.',
+      )
       evidPagar.set('protocolo_numero', numOpPagar)
       evidPagar.set('numero_operacao', numOpPagar)
       evidPagar.set('hash_sha256', hashPagar)
@@ -553,7 +646,10 @@ migrate(
         origem: 'boletos_e_faturas_recebidas',
         exige_aprovacao_dupla: true,
       })
-      evidPagar.set('resultado_obtido', 'Lote de 3 títulos gerado e conferido. NENHUM título marcado como liquidado sem comprovante bancário com hash SHA-256.')
+      evidPagar.set(
+        'resultado_obtido',
+        'Lote de 3 títulos gerado e conferido. NENHUM título marcado como liquidado sem comprovante bancário com hash SHA-256.',
+      )
       app.save(evidPagar)
 
       // Atualizar etapas de Contas a Pagar:
@@ -566,17 +662,26 @@ migrate(
         const o = et.getInt('ordem')
         if (o === 1) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', '3 títulos recebidos, lidos e registrados com linha digitável e centro de custo.')
+          et.set(
+            'resultado',
+            '3 títulos recebidos, lidos e registrados com linha digitável e centro de custo.',
+          )
           et.set('data_conclusao', '2026-10-06 09:00:00.000Z')
           app.save(et)
         } else if (o === 2) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', 'Saldo projetado em conta suficiente para honrar o lote sem custo de cheque especial.')
+          et.set(
+            'resultado',
+            'Saldo projetado em conta suficiente para honrar o lote sem custo de cheque especial.',
+          )
           et.set('data_conclusao', '2026-10-06 09:05:00.000Z')
           app.save(et)
         } else if (o === 3) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', `Lote financeiro montado com sucesso (R$ 2.651,20). Protocolo: ${numOpPagar}.`)
+          et.set(
+            'resultado',
+            `Lote financeiro montado com sucesso (R$ 2.651,20). Protocolo: ${numOpPagar}.`,
+          )
           et.set('evidencia_id', evidPagar.id)
           et.set('data_conclusao', '2026-10-06 09:10:00.000Z')
           app.save(et)
@@ -584,7 +689,10 @@ migrate(
           et.set('status', 'AGUARDANDO_APROVACAO')
           et.set('requer_aprovacao', true)
           et.set('responsavel_tipo', 'Humano')
-          et.set('resultado', 'Lote preparado. Aguardando chancela do Contador no Modo Humano para autorizar a liquidação bancária.')
+          et.set(
+            'resultado',
+            'Lote preparado. Aguardando chancela do Contador no Modo Humano para autorizar a liquidação bancária.',
+          )
           app.save(et)
         }
       }
@@ -594,11 +702,23 @@ migrate(
       pP.set('etapa_atual_numero', 4)
       pP.set('etapa_atual_nome', '4. Aprovação e chancela contábil de pagamentos (Nível 3)')
       pP.set('progresso_percentual', 75)
-      pP.set('ultima_acao_executada', 'Lote de pagamentos montado e conferido contra extrato e fluxo de caixa.')
-      pP.set('resultado_ultima_acao', 'Lote com 3 títulos (R$ 2.651,20) retido em AGUARDANDO_APROVACAO.')
+      pP.set(
+        'ultima_acao_executada',
+        'Lote de pagamentos montado e conferido contra extrato e fluxo de caixa.',
+      )
+      pP.set(
+        'resultado_ultima_acao',
+        'Lote com 3 títulos (R$ 2.651,20) retido em AGUARDANDO_APROVACAO.',
+      )
       pP.set('proxima_acao', 'Aprovação humana expressa no Modo Humano da Fila.')
-      pP.set('decisao_necessaria_humana', 'Conferir comprovantes, autenticidade dos boletos e autorizar liberação da remessa bancária.')
-      pP.set('motivo_parada_ou_erro', 'Parada de aprovação Nível 3: nenhum pagamento pode ser debitado sem autorização do responsável técnico.')
+      pP.set(
+        'decisao_necessaria_humana',
+        'Conferir comprovantes, autenticidade dos boletos e autorizar liberação da remessa bancária.',
+      )
+      pP.set(
+        'motivo_parada_ou_erro',
+        'Parada de aprovação Nível 3: nenhum pagamento pode ser debitado sem autorização do responsável técnico.',
+      )
       app.save(pP)
 
       // Atualizar Job de Contas a Pagar na Fila
@@ -611,7 +731,10 @@ migrate(
         jP.set('etapa_atual_nome', '4. Aprovação e chancela contábil de pagamentos (Nível 3)')
         jP.set('proxima_acao', '[A APROVAR] Aprovação técnica de lote financeiro no Modo Humano.')
         jP.set('necessita_aprovacao', true)
-        jP.set('resultado', 'Lote de R$ 2.651,20 pronto para autorização. Títulos não foram baixados preventivamente.')
+        jP.set(
+          'resultado',
+          'Lote de R$ 2.651,20 pronto para autorização. Títulos não foram baixados preventivamente.',
+        )
         jP.set('evidencia_resumo', `Protocolo ${numOpPagar} registrado.`)
         app.save(jP)
       }
@@ -631,10 +754,22 @@ migrate(
         if (jPId) pendPagar.set('job_id', jPId)
         pendPagar.set('empresa_id', empresaPagarId)
         pendPagar.set('titulo', 'Aprovação de Lote de Contas a Pagar (R$ 2.651,20)')
-        pendPagar.set('por_que_parou', 'POP-07 (Nível 3): A ELISA nunca marca título como pago sem autorização humana formal e comprovante com hash.')
-        pendPagar.set('o_que_foi_executado', 'ELISA coletou 3 boletos de serviços/infraestrutura, validou códigos de barras, saldo em conta e apurou retenções.')
-        pendPagar.set('o_que_falta', 'Chancela do Contador / Administrador para autorizar a liquidação bancária.')
-        pendPagar.set('decisao_necessaria', 'Aprovar o lote de R$ 2.651,20 ou solicitar conferência adicional de fornecedor.')
+        pendPagar.set(
+          'por_que_parou',
+          'POP-07 (Nível 3): A ELISA nunca marca título como pago sem autorização humana formal e comprovante com hash.',
+        )
+        pendPagar.set(
+          'o_que_foi_executado',
+          'ELISA coletou 3 boletos de serviços/infraestrutura, validou códigos de barras, saldo em conta e apurou retenções.',
+        )
+        pendPagar.set(
+          'o_que_falta',
+          'Chancela do Contador / Administrador para autorizar a liquidação bancária.',
+        )
+        pendPagar.set(
+          'decisao_necessaria',
+          'Aprovar o lote de R$ 2.651,20 ou solicitar conferência adicional de fornecedor.',
+        )
         pendPagar.set('status', 'aberta')
         app.save(pendPagar)
       }
@@ -674,7 +809,10 @@ migrate(
       evidCartoes.set('empresa_id', empresaCartoesId)
       evidCartoes.set('tipo', 'documento_ged')
       evidCartoes.set('titulo', 'Evidência de Conciliação de Vendas por Cartão — 09/2026')
-      evidCartoes.set('descricao', 'Confronto entre vendas PDV e extratos eletrônicos de adquirentes (Cielo/Stone). Identificado extrato Stone pendente.')
+      evidCartoes.set(
+        'descricao',
+        'Confronto entre vendas PDV e extratos eletrônicos de adquirentes (Cielo/Stone). Identificado extrato Stone pendente.',
+      )
       evidCartoes.set('protocolo_numero', numOpCartoes)
       evidCartoes.set('numero_operacao', numOpCartoes)
       evidCartoes.set('hash_sha256', hashCartoes)
@@ -684,7 +822,10 @@ migrate(
         taxa_media_mdr: '2,15%',
         divergencia_encontrada: 'Faltam extratos da maquininha Stone dos dias 28 a 30/09',
       })
-      evidCartoes.set('resultado_obtido', 'Etapas 1 e 2 executadas. Etapa 3 retida em AGUARDANDO_DOCUMENTO conforme política determinística da ELISA (não adivinha valores).')
+      evidCartoes.set(
+        'resultado_obtido',
+        'Etapas 1 e 2 executadas. Etapa 3 retida em AGUARDANDO_DOCUMENTO conforme política determinística da ELISA (não adivinha valores).',
+      )
       app.save(evidCartoes)
 
       for (let ec = 0; ec < etapasCartoes.length; ec++) {
@@ -702,7 +843,10 @@ migrate(
           app.save(et)
         } else if (o === 3) {
           et.set('status', 'AGUARDANDO_DOCUMENTO')
-          et.set('resultado', 'Aguardando extrato complementar de fechamento da Stone (dias 28-30/09) para conciliação bancária 100%.')
+          et.set(
+            'resultado',
+            'Aguardando extrato complementar de fechamento da Stone (dias 28-30/09) para conciliação bancária 100%.',
+          )
           et.set('evidencia_id', evidCartoes.id)
           app.save(et)
         }
@@ -715,7 +859,10 @@ migrate(
       pC.set('ultima_acao_executada', 'Conferência de vendas e taxas contratuais concluída.')
       pC.set('resultado_ultima_acao', 'Aguardando extrato complementar de adquirente Stone.')
       pC.set('proxima_acao', 'Coletar extrato EDI complementar da Stone no GED ou via portal.')
-      pC.set('motivo_parada_ou_erro', 'Extrato parcial: faltam registros dos dias 28 a 30/09 da adquirente Stone.')
+      pC.set(
+        'motivo_parada_ou_erro',
+        'Extrato parcial: faltam registros dos dias 28 a 30/09 da adquirente Stone.',
+      )
       app.save(pC)
 
       const jobsCartoes = app.findRecordsByFilter('elisa_jobs', `processo_id = '${pCId}'`, '', 1)
@@ -763,7 +910,10 @@ migrate(
       evidReceber.set('empresa_id', empresaReceberId)
       evidReceber.set('tipo', 'protocolo')
       evidReceber.set('titulo', 'Evidência de Emissão e Monitoramento de Títulos a Receber')
-      evidReceber.set('descricao', 'Geração de faturamento mensal e emissão de cobranças automáticas com conciliação PIX QR Code.')
+      evidReceber.set(
+        'descricao',
+        'Geração de faturamento mensal e emissão de cobranças automáticas com conciliação PIX QR Code.',
+      )
       evidReceber.set('protocolo_numero', numOpReceber)
       evidReceber.set('numero_operacao', numOpReceber)
       evidReceber.set('hash_sha256', hashReceber)
@@ -773,7 +923,10 @@ migrate(
         titulos_emitidos: 8,
         canal_disparo: 'Portal do Cliente & Lembrete Preventivo',
       })
-      evidReceber.set('resultado_obtido', 'Títulos gerados e conciliação bancária preventiva em monitoramento.')
+      evidReceber.set(
+        'resultado_obtido',
+        'Títulos gerados e conciliação bancária preventiva em monitoramento.',
+      )
       app.save(evidReceber)
 
       for (let er = 0; er < etapasReceber.length; er++) {
@@ -781,7 +934,10 @@ migrate(
         const o = et.getInt('ordem')
         if (o === 1) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', 'Títulos emitidos no contas a receber com base nas notas fiscais autorizadas.')
+          et.set(
+            'resultado',
+            'Títulos emitidos no contas a receber com base nas notas fiscais autorizadas.',
+          )
           et.set('data_conclusao', '2026-10-06 08:10:00.000Z')
           app.save(et)
         } else if (o === 2) {
@@ -850,7 +1006,10 @@ migrate(
       evidFecho.set('empresa_id', empresaFechoId)
       evidFecho.set('tipo', 'documento_ged')
       evidFecho.set('titulo', 'Evidência de Pré-fechamento Contábil e Balancete Verificado')
-      evidFecho.set('descricao', 'Conferência de partidas dobradas e conciliação das contas patrimoniais e de resultado.')
+      evidFecho.set(
+        'descricao',
+        'Conferência de partidas dobradas e conciliação das contas patrimoniais e de resultado.',
+      )
       evidFecho.set('protocolo_numero', numOpFecho)
       evidFecho.set('numero_operacao', numOpFecho)
       evidFecho.set('hash_sha256', hashFecho)
@@ -861,7 +1020,10 @@ migrate(
         debitos_totais: 185420.0,
         creditos_totais: 185420.0,
       })
-      evidFecho.set('resultado_obtido', 'Diferença entre débitos e créditos igual a R$ 0,00. Contas de resultado apuradas.')
+      evidFecho.set(
+        'resultado_obtido',
+        'Diferença entre débitos e créditos igual a R$ 0,00. Contas de resultado apuradas.',
+      )
       app.save(evidFecho)
 
       for (let ef = 0; ef < etapasFecho.length; ef++) {
@@ -879,7 +1041,10 @@ migrate(
           app.save(et)
         } else if (o === 3) {
           et.set('status', 'CONCLUIDO')
-          et.set('resultado', `Balancete preliminar emitido com débito = crédito (R$ 185.420,00). Protocolo: ${numOpFecho}.`)
+          et.set(
+            'resultado',
+            `Balancete preliminar emitido com débito = crédito (R$ 185.420,00). Protocolo: ${numOpFecho}.`,
+          )
           et.set('evidencia_id', evidFecho.id)
           et.set('data_conclusao', '2026-10-06 07:00:00.000Z')
           app.save(et)
@@ -887,7 +1052,10 @@ migrate(
           et.set('status', 'AGUARDANDO_APROVACAO')
           et.set('requer_aprovacao', true)
           et.set('responsavel_tipo', 'Humano')
-          et.set('resultado', 'Aguardando validação formal de encerramento do balanço pelo Contador responsável.')
+          et.set(
+            'resultado',
+            'Aguardando validação formal de encerramento do balanço pelo Contador responsável.',
+          )
           app.save(et)
         }
       }
@@ -896,10 +1064,19 @@ migrate(
       pFecho.set('etapa_atual_numero', 4)
       pFecho.set('etapa_atual_nome', '4. Parecer e encerramento do período contábil (Nível 2)')
       pFecho.set('progresso_percentual', 75)
-      pFecho.set('ultima_acao_executada', 'Balancete de verificação emitido e confrontado sem inconsistências.')
+      pFecho.set(
+        'ultima_acao_executada',
+        'Balancete de verificação emitido e confrontado sem inconsistências.',
+      )
       pFecho.set('resultado_ultima_acao', 'Débitos e Créditos equilibrados em R$ 185.420,00.')
-      pFecho.set('proxima_acao', 'Validação técnica e assinatura do fechamento contábil pelo Contador.')
-      pFecho.set('decisao_necessaria_humana', 'Conferir DRE e Balancete final para emitir termo de encerramento da competência.')
+      pFecho.set(
+        'proxima_acao',
+        'Validação técnica e assinatura do fechamento contábil pelo Contador.',
+      )
+      pFecho.set(
+        'decisao_necessaria_humana',
+        'Conferir DRE e Balancete final para emitir termo de encerramento da competência.',
+      )
       app.save(pFecho)
 
       const jobsFecho = app.findRecordsByFilter('elisa_jobs', `processo_id = '${pFechoId}'`, '', 1)

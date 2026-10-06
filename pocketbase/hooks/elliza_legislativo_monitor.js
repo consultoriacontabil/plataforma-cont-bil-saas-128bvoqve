@@ -5,7 +5,9 @@
 
 cronAdd('elliza_legislativo_monitor', '0 8 * * *', () => {
   const app = $app
-  console.log('[ELLIZA-POP09] Iniciando rotina diária das 08h de Monitoramento Legislativo & Alíquotas...')
+  console.log(
+    '[ELLIZA-POP09] Iniciando rotina diária das 08h de Monitoramento Legislativo & Alíquotas...',
+  )
 
   try {
     const hoje = new Date()
@@ -54,7 +56,9 @@ cronAdd('elliza_legislativo_monitor', '0 8 * * *', () => {
         20,
       )
 
-      console.log(`[ELLIZA-POP09] Tenant ${tenantId}: ${pubsNovas.length} publicações com alteração de alíquota pendentes`)
+      console.log(
+        `[ELLIZA-POP09] Tenant ${tenantId}: ${pubsNovas.length} publicações com alteração de alíquota pendentes`,
+      )
 
       // Se não há credenciais de API externas configuradas para scraping em tempo real,
       // a rotina atua no Modo Supervisão: recalcula e valida impactos nas empresas do tenant
@@ -72,7 +76,10 @@ cronAdd('elliza_legislativo_monitor', '0 8 * * *', () => {
         const aliqAnt = pub.getFloat('aliquota_anterior')
         const aliqNova = pub.getFloat('aliquota_nova')
 
-        if (aliqNova > 0 && (!pub.get('impacto_calculado_json') || pub.getString('impacto_calculado_json') === '{}')) {
+        if (
+          aliqNova > 0 &&
+          (!pub.get('impacto_calculado_json') || pub.getString('impacto_calculado_json') === '{}')
+        ) {
           const detalhes = []
           let impactoTotal = 0
 
@@ -96,9 +103,10 @@ cronAdd('elliza_legislativo_monitor', '0 8 * * *', () => {
               custoAnteriorMensal: cAnt,
               custoNovoMensal: cNov,
               impactoFinanceiro: dif,
-              orientacao: dif > 0
-                ? `Acréscimo de R$ ${dif}/mês previsto pela ELLIZA. Avaliar repasse na cadeia.`
-                : 'Impacto neutro ou favorável.',
+              orientacao:
+                dif > 0
+                  ? `Acréscimo de R$ ${dif}/mês previsto pela ELLIZA. Avaliar repasse na cadeia.`
+                  : 'Impacto neutro ou favorável.',
             })
           }
 
@@ -125,7 +133,8 @@ cronAdd('elliza_legislativo_monitor', '0 8 * * *', () => {
           'detalhes',
           JSON.stringify({
             status: 'concluido_modo_supervisao',
-            mensagem: 'Varredura diária das fontes legislativas (DOU/RFB/SEFAZ). Em Modo Supervisão: conector externo aguardando credenciais de API corporativa.',
+            mensagem:
+              'Varredura diária das fontes legislativas (DOU/RFB/SEFAZ). Em Modo Supervisão: conector externo aguardando credenciais de API corporativa.',
             publicacoes_verificadas: pubsNovas.length,
             empresas_impactadas_calculadas: totalEmpresasImpactadas,
             executado_em: hojeISO,

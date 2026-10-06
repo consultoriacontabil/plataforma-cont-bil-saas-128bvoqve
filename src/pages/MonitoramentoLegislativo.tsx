@@ -21,8 +21,12 @@ import {
   Upload,
   Info,
   Check,
+  Bot,
+  PlayCircle,
 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { elisaOpsService } from '@/services/elisaOpsService'
 import { monitoramentoLegislativoService } from '@/services/monitoramentoLegislativo'
 import { auditService } from '@/services/audit'
 import { notificacoesService } from '@/services/notificacoes'
@@ -60,7 +64,9 @@ import { useToast } from '@/hooks/use-toast'
 
 export function MonitoramentoLegislativoPage() {
   const { tenant, user } = useAuth()
+  const navigate = useNavigate()
   const { toast } = useToast()
+  const [criandoProcessoPop09, setCriandoProcessoPop09] = useState(false)
 
   const [publicacoes, setPublicacoes] = useState<PublicacaoLegislativaRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -833,6 +839,57 @@ export function MonitoramentoLegislativoPage() {
                               </a>
                             </Button>
                           )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs text-[#0FA3A3] border-teal-200 hover:bg-teal-50 gap-1 font-semibold"
+                            disabled={criandoProcessoPop09}
+                            onClick={async () => {
+                              if (!tenant?.id) return
+                              setCriandoProcessoPop09(true)
+                              try {
+                                const sops = await elisaOpsService.listSops(tenant.id, 'fiscal')
+                                const sop09 = sops.find((s) => s.codigo === 'POP-09')
+                                if (!sop09) {
+                                  toast({
+                                    variant: 'destructive',
+                                    title: 'SOP POP-09 não encontrado',
+                                    description: 'Cadastre o POP-09 no catálogo de SOPs.',
+                                  })
+                                  return
+                                }
+                                const empId =
+                                  pub.impacto_calculado_json?.detalhesPorEmpresa?.[0]?.empresaId
+                                const empresas = await elisaOpsService.listProcessos(tenant.id)
+                                const targetEmpresaId = empId || empresas[0]?.empresa_id || ''
+
+                                const novo = await elisaOpsService.createProcessoFromSop({
+                                  tenantId: tenant.id,
+                                  empresaId: targetEmpresaId,
+                                  sop: sop09,
+                                  competencia: '09/2026',
+                                  prioridade: 'alta',
+                                })
+                                toast({
+                                  title: 'Processo Operacional Criado na Fila!',
+                                  description: `Processo da norma ${pub.numero_norma} enfileirado para a ELISA (Nível 2).`,
+                                })
+                                navigate(`/processos/${novo.processo.id}`)
+                              } catch (err: any) {
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Erro ao instanciar processo',
+                                  description: err.message,
+                                })
+                              } finally {
+                                setCriandoProcessoPop09(false)
+                              }
+                            }}
+                          >
+                            <Bot className="w-3 h-3 text-[#0FA3A3]" />
+                            <span>Criar Processo / Tarefa</span>
+                          </Button>
 
                           {podeEditar && pub.status === 'nova' && (
                             <Button

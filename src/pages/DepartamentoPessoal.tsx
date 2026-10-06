@@ -723,10 +723,10 @@ export default function DepartamentoPessoal() {
                 <Button
                   onClick={() => setModalImportacaoEsocialOpen(true)}
                   variant="outline"
-                  className="gap-2 rounded-xl text-xs font-semibold h-9 border-teal-200 text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585]"
+                  className="gap-2 rounded-xl text-xs font-bold h-9 border-[#0FA3A3] text-[#0FA3A3] hover:bg-teal-50 hover:text-[#0C8585] shadow-2xs"
                 >
                   <UploadCloud className="h-4 w-4" />
-                  <span>Importar via e-Social</span>
+                  <span>IMPORTAR e-SOCIAL</span>
                 </Button>
 
                 <Button
