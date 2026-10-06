@@ -135,3 +135,13 @@ export function formatRelativeTimePtBr(dateString?: string | null): string {
     return '—'
   }
 }
+
+export function formatCurrency(val?: number | null): string {
+  if (val === undefined || val === null || isNaN(val)) return 'R$ 0,00'
+  return val.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}

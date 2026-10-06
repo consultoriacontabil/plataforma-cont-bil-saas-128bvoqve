@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T12:31:33.223Z",
+  "generatedAt": "2026-10-06T16:57:26.734Z",
   "collections": [
     {
       "name": "users",
@@ -12769,6 +12769,511 @@
         "CREATE INDEX idx_agente_key_hash ON elliza_agente_externo_chaves (api_key_hash)",
         "CREATE INDEX idx_agente_tenant_status ON elliza_agente_externo_chaves (tenant_id, status)",
         "CREATE UNIQUE INDEX idx_agente_identificador ON elliza_agente_externo_chaves (tenant_id, identificador_agente)"
+      ]
+    },
+    {
+      "name": "socios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "nome_completo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cpf",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "telefone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cargo_funcao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "percentual_participacao",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "quantidade_quotas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_participacao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pro_labore_definido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_saida",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_contribuinte_individual",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "optante_distribuicao_lucros",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dependentes_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "banco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conta",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "chave_pix",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "afastado", "desligado"]
+        },
+        {
+          "name": "funcionario_vinculado",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "funcionarios"
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_socios_tenant_empresa ON socios (tenant_id, empresa)",
+        "CREATE INDEX idx_socios_cpf ON socios (cpf)",
+        "CREATE INDEX idx_socios_status ON socios (status)"
+      ]
+    },
+    {
+      "name": "pro_labore_lancamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "socio",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "socios"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_bruto",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "base_inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_inss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inss_retido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "atingiu_teto_inss",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "base_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "aliquota_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parcela_deduzir_irrf",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "irrf_retido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deducao_simplificada_usada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_liquido",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "distribuicao_lucro_valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "distribuicao_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["aguardando_fechamento", "calculado", "pago", "isento_sem_saldo"]
+        },
+        {
+          "name": "distribuicao_base_legal",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["rascunho", "calculado", "em_conferencia", "aprovado", "pago"]
+        },
+        {
+          "name": "pago_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "guia_darf_gerada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_recibo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hash_evidencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_prolabore_tenant_emp_comp ON pro_labore_lancamentos (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_prolabore_socio ON pro_labore_lancamentos (socio)",
+        "CREATE INDEX idx_prolabore_status ON pro_labore_lancamentos (status)"
+      ]
+    },
+    {
+      "name": "prolabore_fator_r_alertas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_alerta",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "cruzamento_fator_r_28",
+            "limite_teto_inss",
+            "faixa_irrf_alterada",
+            "faturamento_insuficiente",
+            "otimizacao_recomendada",
+            "informativo"
+          ]
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mensagem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "rbt12",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "folha12",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fator_r_atual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fator_r_projetado",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "enquadramento_anterior",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "enquadramento_novo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "severidade",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["baixa", "media", "alta", "critica"]
+        },
+        {
+          "name": "resolvido",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolvido_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolvido_por",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "processo_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acao_recomendada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_fator_r_tenant_emp_comp ON prolabore_fator_r_alertas (tenant_id, empresa, competencia)",
+        "CREATE INDEX idx_fator_r_severidade ON prolabore_fator_r_alertas (severidade)"
       ]
     }
   ]

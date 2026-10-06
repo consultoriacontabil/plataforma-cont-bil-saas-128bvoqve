@@ -46,6 +46,7 @@ import {
 } from 'lucide-react'
 import { PainelBeneficios } from '@/components/PainelBeneficios'
 import { PainelConvencoes } from '@/components/PainelConvencoes'
+import { PainelProLaboreDistribuicao } from '@/components/PainelProLaboreDistribuicao'
 import { ModalImportacaoColaboradoresEsocial } from '@/components/ModalImportacaoColaboradoresEsocial'
 import { ModalPortalEmpregado } from '@/components/ModalPortalEmpregado'
 import { KeyRound } from 'lucide-react'
@@ -102,6 +103,7 @@ export default function DepartamentoPessoal() {
   const [activeTab, setActiveTab] = useState<
     | 'funcionarios'
     | 'folha'
+    | 'pro_labore'
     | 'ferias_decimo'
     | 'rescisoes'
     | 'verbas'
@@ -642,6 +644,10 @@ export default function DepartamentoPessoal() {
           <TabsTrigger value="folha" className="gap-2 text-xs font-semibold rounded-lg">
             <Receipt className="h-4 w-4" />
             <span>Folha de Pagamento</span>
+          </TabsTrigger>
+          <TabsTrigger value="pro_labore" className="gap-2 text-xs font-semibold rounded-lg">
+            <Coins className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Pró-labore &amp; Distribuição</span>
           </TabsTrigger>
           <TabsTrigger value="ferias_decimo" className="gap-2 text-xs font-semibold rounded-lg">
             <Palmtree className="h-4 w-4 text-emerald-600" />
@@ -1555,6 +1561,16 @@ export default function DepartamentoPessoal() {
             canManage={canManage}
             canEdit={member?.perfil === 'administrador' || member?.perfil === 'contador'}
             onNavigateToEsocial={() => setActiveTab('esocial')}
+          />
+        </TabsContent>
+
+        {/* === TAB: PRÓ-LABORE, DISTRIBUIÇÃO DE LUCROS & FATOR R === */}
+        <TabsContent value="pro_labore" className="space-y-4 mt-4">
+          <PainelProLaboreDistribuicao
+            empresaSelecionadaId={selectedEmpresaId}
+            competenciaAtual={selectedCompetencia}
+            empresas={empresas}
+            funcionarios={funcionarios}
           />
         </TabsContent>
 

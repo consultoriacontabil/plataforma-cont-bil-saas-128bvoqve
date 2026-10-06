@@ -769,6 +769,113 @@ export interface FolhaPagamento extends RecordModel {
 
 export type EventoDpTipo = 'admissao' | 'demissao' | 'ferias' | 'afastado' | 'alteracao_salarial'
 
+// === Módulo DP: Sócios, Pró-Labore & Distribuição de Lucros (Fator R) ===
+export type SocioStatus = 'ativo' | 'afastado' | 'desligado'
+export type ProLaboreLancamentoStatus =
+  | 'rascunho'
+  | 'calculado'
+  | 'em_conferencia'
+  | 'aprovado'
+  | 'pago'
+export type DistribuicaoLucroStatus =
+  | 'aguardando_fechamento'
+  | 'calculado'
+  | 'pago'
+  | 'isento_sem_saldo'
+export type FatorRAlertaTipo =
+  | 'cruzamento_fator_r_28'
+  | 'limite_teto_inss'
+  | 'faixa_irrf_alterada'
+  | 'faturamento_insuficiente'
+  | 'otimizacao_recomendada'
+  | 'informativo'
+export type FatorRAlertaSeveridade = 'baixa' | 'media' | 'alta' | 'critica'
+
+export interface SocioRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  nome_completo: string
+  cpf: string
+  email?: string
+  telefone?: string
+  cargo_funcao: string
+  percentual_participacao: number
+  quantidade_quotas?: number
+  valor_participacao?: number
+  pro_labore_definido?: number
+  data_inicio: string
+  data_saida?: string
+  is_contribuinte_individual?: boolean
+  optante_distribuicao_lucros?: boolean
+  dependentes_irrf?: number
+  banco?: string
+  agencia?: string
+  conta?: string
+  chave_pix?: string
+  status: SocioStatus
+  funcionario_vinculado?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    funcionario_vinculado?: Funcionario
+  }
+}
+
+export interface ProLaboreLancamentoRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  socio: string
+  competencia: string
+  valor_bruto: number
+  base_inss: number
+  aliquota_inss: number
+  inss_retido: number
+  atingiu_teto_inss: boolean
+  base_irrf: number
+  aliquota_irrf: number
+  parcela_deduzir_irrf: number
+  irrf_retido: number
+  deducao_simplificada_usada: boolean
+  valor_liquido: number
+  distribuicao_lucro_valor?: number
+  distribuicao_status: DistribuicaoLucroStatus
+  distribuicao_base_legal?: string
+  status: ProLaboreLancamentoStatus
+  pago_em?: string
+  guia_darf_gerada?: boolean
+  numero_recibo?: string
+  hash_evidencia?: string
+  observacoes?: string
+  expand?: {
+    empresa?: Empresa
+    socio?: SocioRecord
+  }
+}
+
+export interface ProLaboreFatorRAlertaRecord extends RecordModel {
+  tenant_id: string
+  empresa: string
+  competencia: string
+  tipo_alerta: FatorRAlertaTipo
+  titulo: string
+  mensagem: string
+  rbt12?: number
+  folha12?: number
+  fator_r_atual?: number
+  fator_r_projetado?: number
+  enquadramento_anterior?: string
+  enquadramento_novo?: string
+  severidade: FatorRAlertaSeveridade
+  resolvido?: boolean
+  resolvido_em?: string
+  resolvido_por?: string
+  processo_id?: string
+  acao_recomendada?: string
+  expand?: {
+    empresa?: Empresa
+  }
+}
+
 export interface EventoDp extends RecordModel {
   tenant_id: string
   empresa: string
