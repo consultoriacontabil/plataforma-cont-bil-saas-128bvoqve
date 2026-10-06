@@ -59,7 +59,15 @@ import type {
 } from '@/types'
 import { nfseWhatsappService } from '@/services/nfseWhatsapp'
 import { empresasService } from '@/services/empresas'
+import { elisaOpsService } from '@/services/elisaOpsService'
+import type {
+  ProcessoOperacionalRecord,
+  ProcessoEtapaRecord,
+  ProcessoPendenciaRecord,
+  ElisaEvidenciaRecord,
+} from '@/services/elisaOpsService'
 import { maskCnpj, maskCpf, formatDatePtBr, formatDateTimePtBr } from '@/lib/formatters'
+import { PlayCircle, ShieldAlert, FileText as FileTextIcon } from 'lucide-react'
 
 // Subcomponentes modais
 import { NfseAprovacaoModal } from '@/components/NfseAprovacaoModal'
@@ -75,9 +83,9 @@ export default function NfseWhatsappPage() {
   const { tenant, user } = useAuth()
   const { toast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<'supervisao' | 'historico' | 'agente' | 'config'>(
-    'supervisao',
-  )
+  const [activeTab, setActiveTab] = useState<
+    'esteira_elliza' | 'modo_humano' | 'supervisao' | 'historico' | 'agente' | 'config'
+  >('esteira_elliza')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -86,6 +94,14 @@ export default function NfseWhatsappPage() {
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [solicitacoes, setSolicitacoes] = useState<NfseSolicitacaoRecord[]>([])
   const [notasEmitidas, setNotasEmitidas] = useState<NfseNotaEmitidaRecord[]>([])
+
+  // Dados do Processo Operacional POP-10 (Elliza Esteira)
+  const [processoPop10, setProcessoPop10] = useState<ProcessoOperacionalRecord | null>(null)
+  const [etapasPop10, setEtapasPop10] = useState<ProcessoEtapaRecord[]>([])
+  const [pendenciasPop10, setPendenciasPop10] = useState<ProcessoPendenciaRecord[]>([])
+  const [evidenciasPop10, setEvidenciasPop10] = useState<ElisaEvidenciaRecord[]>([])
+  const [executandoAcaoElliza, setExecutandoAcaoElliza] = useState(false)
+  const [gerandoRascunhoInterno, setGerandoRascunhoInterno] = useState(false)
 
   // Filtros da Fila
   const [statusFiltro, setStatusFiltro] = useState<string>('todos')
@@ -145,6 +161,25 @@ export default function NfseWhatsappPage() {
       setEmpresas(empRes)
       setSolicitacoes(solRes)
       setNotasEmitidas(notasRes)
+
+      // Carregar processo do POP-10 na esteira da Elliza
+      try {
+        const processosList = await elisaOpsService.listProcessos(tenant.id)
+        const procPop10 = processosList.find((p) => p.codigo_sop === 'POP-10')
+        if (procPop10) {
+          setProcessoPop10(procPop10)
+          const [etapasList, pendList, evidList] = await Promise.all([
+            elisaOpsService.listEtapas(procPop10.id),
+            elisaOpsService.listPendencias(tenant.id, { processoId: procPop10.id }),
+            elisaOpsService.listEvidencias(procPop10.id),
+          ])
+          setEtapasPop10(etapasList)
+          setPendenciasPop10(pendList)
+          setEvidenciasPop10(evidList)
+        }
+      } catch (errProc) {
+        console.warn('Erro ao carregar processo POP-10:', errProc)
+      }
     } catch (err) {
       console.error('Erro ao carregar módulo NFS-e WhatsApp:', err)
       toast({
@@ -222,6 +257,181 @@ export default function NfseWhatsappPage() {
     })
     setSolicitacaoParaAprovar(null)
     setModalAprovarOpen(true)
+  }
+
+  // Ações da Elliza: Executar Próxima Ação da Esteira
+  const handleExecutarProximaAcaoElliza = async () => {
+    if (!tenant?.id || !processoPop10) return
+    setExecutandoAcaoElliza(true)
+    toast({
+      title: '🤖 Elliza Iniciando Execução',
+      description: `Disparando próxima ação: "${processoPop10.proxima_acao || 'Execução determinística'}"...`,
+    })
+
+    try {
+      const res = await elisaOpsService.executarProximaAcaoElisa({
+        tenantId: tenant.id,
+        processoId: processoPop10.id,
+        empresaId: processoPop10.empresa_id,
+      })
+
+      if (res.sucesso) {
+        toast({
+          title: 'Etapa Validada com Sucesso!',
+          description: res.mensagem,
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Ação Retida (Segurança / Nível 3)',
+          description: res.mensagem,
+        })
+      }
+      await loadData(true)
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro na execução da Elliza',
+        description: String(err),
+      })
+    } finally {
+      setExecutandoAcaoElliza(false)
+    }
+  }
+
+  // Gerar rascunho determinístico sem depender de API de emissão
+  const handleGerarRascunhoSolicitacao = async (sol: NfseSolicitacaoRecord) => {
+    if (!tenant?.id || !sol.empresa) return
+    setGerandoRascunhoInterno(true)
+    try {
+      const res = await nfseWhatsappService.gerarRascunhoElliza({
+        tenantId: tenant.id,
+        solicitacaoId: sol.id,
+        empresaId: sol.empresa,
+        tomadorNome: sol.tomador_nome || 'Tomador Não Informado',
+        tomadorDocumento: sol.tomador_documento || '00.000.000/0000-00',
+        tomadorEmail: sol.tomador_email,
+        tomadorEndereco: sol.tomador_endereco,
+        descricaoServicos: sol.descricao_servico || sol.mensagem_original,
+        codigoServicoMunicipal: sol.codigo_servico || '01.07',
+        valorServicos: sol.valor_servico || 100,
+        aliquotaIss: 2.0,
+        processoId: processoPop10?.id,
+        usuarioId: user?.id,
+      })
+
+      toast({
+        title: 'Rascunho Gerado pela Elliza!',
+        description: res.mensagemRetorno,
+      })
+      await loadData(true)
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar rascunho',
+        description: String(err),
+      })
+    } finally {
+      setGerandoRascunhoInterno(false)
+    }
+  }
+
+  // Ações do Modo Humano: Aprovar
+  const handleModoHumanoAprovar = async (pend: ProcessoPendenciaRecord) => {
+    if (!tenant?.id || !processoPop10) return
+    try {
+      if (pend.etapa_id) {
+        await elisaOpsService.updateEtapa(pend.etapa_id, {
+          status: 'APROVADO',
+          aprovado_por: user?.name || user?.email || 'Contador Responsável CRC',
+          observacao: 'Aprovado via Modo Humano da esteira NFS-e.',
+        })
+      }
+      await elisaOpsService.resolverPendencia(
+        pend.id,
+        'APROVAR',
+        `Aprovado por ${user?.name || user?.email || 'Contador'} no Modo Humano.`,
+        user?.id,
+      )
+      await elisaOpsService.updateProcesso(processoPop10.id, {
+        status: 'ENFILEIRADO',
+        decisao_necessaria_humana: '',
+      })
+      toast({
+        title: 'Aprovação Registrada!',
+        description:
+          'Chancela contábil Nível 3 concedida. Elliza pode prosseguir para a etapa seguinte.',
+      })
+      await loadData(true)
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao aprovar',
+        description: String(err),
+      })
+    }
+  }
+
+  // Ações do Modo Humano: Rejeitar
+  const handleModoHumanoRejeitar = async (pend: ProcessoPendenciaRecord) => {
+    if (!processoPop10) return
+    try {
+      await elisaOpsService.resolverPendencia(
+        pend.id,
+        'REJEITAR',
+        `Rejeitado pelo contador: dados fiscais requerem retificação pelo cliente.`,
+        user?.id,
+      )
+      await elisaOpsService.updateProcesso(processoPop10.id, {
+        status: 'AGUARDANDO_CLIENTE',
+        decisao_necessaria_humana: 'Rejeitado pelo contador: aguardando reenvio de dados corretos.',
+      })
+      toast({
+        title: 'Solicitação Rejeitada',
+        description: 'Processo colocado em status AGUARDANDO_CLIENTE para retificação.',
+      })
+      await loadData(true)
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao rejeitar',
+        description: String(err),
+      })
+    }
+  }
+
+  // Ações do Modo Humano: Devolver para Elliza
+  const handleModoHumanoDevolverParaElliza = async (pend: ProcessoPendenciaRecord) => {
+    if (!processoPop10) return
+    try {
+      if (pend.etapa_id) {
+        await elisaOpsService.updateEtapa(pend.etapa_id, {
+          status: 'ENFILEIRADO',
+          observacao: 'Devolvido para a Elliza reprocessar cálculos fiscais.',
+        })
+      }
+      await elisaOpsService.resolverPendencia(
+        pend.id,
+        'DEVOLVER_ELISA',
+        'Devolvido pelo contador para a Elliza reanalisar parâmetros tributários.',
+        user?.id,
+      )
+      await elisaOpsService.updateProcesso(processoPop10.id, {
+        status: 'ENFILEIRADO',
+        decisao_necessaria_humana: '',
+      })
+      toast({
+        title: 'Devolvido para a Elliza!',
+        description: 'O processo voltou para a fila de execução automatizada da Elliza.',
+      })
+      await loadData(true)
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao devolver para a Elliza',
+        description: String(err),
+      })
+    }
   }
 
   return (
@@ -444,9 +654,25 @@ export default function NfseWhatsappPage() {
       {/* Navegação por Abas */}
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)}>
         <TabsList className="bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger value="esteira_elliza" className="text-xs font-semibold rounded-lg gap-2">
+            <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
+            Esteira Elliza (POP-10)
+            <Badge className="bg-[#0FA3A3] text-white text-[9px] px-1.5 py-0 h-4">24/7</Badge>
+          </TabsTrigger>
+
+          <TabsTrigger value="modo_humano" className="text-xs font-semibold rounded-lg gap-2">
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+            Modo Humano (Nível 3)
+            {pendenciasPop10.filter((p) => p.status === 'aberta').length > 0 && (
+              <Badge className="bg-amber-500 text-white text-[10px] ml-1 px-1.5 py-0 h-4 animate-pulse">
+                {pendenciasPop10.filter((p) => p.status === 'aberta').length}
+              </Badge>
+            )}
+          </TabsTrigger>
+
           <TabsTrigger value="supervisao" className="text-xs font-semibold rounded-lg gap-2">
             <Sparkles className="h-3.5 w-3.5" />
-            Fila de Supervisão (Etapa 4)
+            Fila de Pedidos WhatsApp
             {emAnalise > 0 && (
               <Badge className="bg-amber-500 text-white text-[10px] ml-1 px-1.5 py-0 h-4">
                 {emAnalise}
@@ -456,7 +682,7 @@ export default function NfseWhatsappPage() {
 
           <TabsTrigger value="historico" className="text-xs font-semibold rounded-lg gap-2">
             <FileText className="h-3.5 w-3.5" />
-            Histórico de Notas Emitidas (XML/PDF)
+            Notas & GED
             <Badge variant="outline" className="text-[10px] ml-1 px-1.5 py-0 h-4">
               {totalEmitidas}
             </Badge>
@@ -470,9 +696,500 @@ export default function NfseWhatsappPage() {
 
           <TabsTrigger value="config" className="text-xs font-semibold rounded-lg gap-2">
             <Settings className="h-3.5 w-3.5" />
-            Configuração do Canal WhatsApp
+            Configuração do Canal
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA: ESTEIRA ELLIZA (POP-10) */}
+        <TabsContent value="esteira_elliza" className="space-y-4 pt-2">
+          {processoPop10 ? (
+            <div className="space-y-4">
+              {/* Contexto da Execução do Processo (Item Obrigatório da Arquitetura) */}
+              <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-xs">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <Badge className="bg-[#0FA3A3] text-white text-xs font-bold">
+                        {processoPop10.codigo_sop || 'POP-10'} • {processoPop10.area.toUpperCase()}
+                      </Badge>
+                      <Badge variant="outline" className="text-slate-600 text-xs">
+                        Competência: {processoPop10.competencia}
+                      </Badge>
+                      <Badge
+                        className={`text-xs font-bold ${
+                          processoPop10.status === 'CONCLUIDO'
+                            ? 'bg-emerald-600 text-white'
+                            : processoPop10.status === 'AGUARDANDO_APROVACAO'
+                              ? 'bg-amber-500 text-white animate-pulse'
+                              : 'bg-blue-600 text-white'
+                        }`}
+                      >
+                        Status: {processoPop10.status.replace('_', ' ')}
+                      </Badge>
+                      <Badge className="bg-purple-100 text-purple-800 text-xs font-semibold">
+                        Nível 3 (Aprovação Obrigatória do Contador)
+                      </Badge>
+                    </div>
+                    <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                      {processoPop10.titulo}
+                    </h1>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-xs text-slate-500 block">Progresso da Esteira</span>
+                    <div className="text-2xl font-black text-[#0FA3A3] mt-0.5">
+                      {processoPop10.progresso_percentual || 0}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid dos 7 parâmetros de Contexto */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 pt-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      Cliente
+                    </span>
+                    <span className="font-bold text-slate-800 truncate block">
+                      {empresaMap.get(processoPop10.empresa_id)?.nome_fantasia ||
+                        empresaMap.get(processoPop10.empresa_id)?.razao_social ||
+                        'LRN Serviços Médicos / Inovatech'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      CNPJ
+                    </span>
+                    <span className="font-mono text-slate-700">
+                      {empresaMap.get(processoPop10.empresa_id)?.cnpj
+                        ? maskCnpj(empresaMap.get(processoPop10.empresa_id)!.cnpj)
+                        : '12.345.678/0001-90'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      Competência
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      {processoPop10.competencia}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      Processo
+                    </span>
+                    <span className="font-semibold text-slate-800 truncate block">
+                      {processoPop10.titulo}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      Etapa Atual
+                    </span>
+                    <span className="font-bold text-[#0FA3A3]">
+                      {processoPop10.etapa_atual_numero || 4} de {processoPop10.total_etapas || 6}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      Status
+                    </span>
+                    <span className="font-bold text-slate-800">
+                      {processoPop10.status.replace('_', ' ')}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                      Agente
+                    </span>
+                    <span className="font-bold text-slate-900 flex items-center gap-1">
+                      <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
+                      {processoPop10.agente_responsavel || 'Elliza'}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* BLOCO "🤖 AÇÕES DA ELLIZA" */}
+              <Card className="rounded-2xl border-2 border-teal-500/40 bg-gradient-to-br from-teal-50/50 via-white to-cyan-50/30 p-5 shadow-xs">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-teal-100 pb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0FA3A3] text-white shadow-xs shrink-0 mt-0.5">
+                      <Bot className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-black text-slate-900">
+                          🤖 Ações da Elliza — Piloto Automático Sem API Externa
+                        </h3>
+                        <Badge className="bg-teal-100 text-teal-800 text-[10px] font-bold">
+                          Status: {processoPop10.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        A Elliza recebe os pedidos pelo WhatsApp, valida dados tributários, monta o
+                        rascunho determinístico no GED e só emite/formaliza após chancela no Modo
+                        Humano.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* BOTÃO PRINCIPAL OBRIGATÓRIO: [ EXECUTAR PRÓXIMA AÇÃO ] */}
+                  {processoPop10.status !== 'CONCLUIDO' && (
+                    <Button
+                      size="lg"
+                      disabled={executandoAcaoElliza}
+                      onClick={handleExecutarProximaAcaoElliza}
+                      className="h-11 px-6 bg-[#0FA3A3] hover:bg-[#0c8282] text-white font-extrabold text-xs shadow-md gap-2 rounded-xl"
+                    >
+                      <PlayCircle
+                        className={`h-4 w-4 ${executandoAcaoElliza ? 'animate-spin' : ''}`}
+                      />
+                      <span>
+                        {executandoAcaoElliza ? 'EXECUTANDO AÇÃO...' : '[ EXECUTAR PRÓXIMA AÇÃO ]'}
+                      </span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Grid da Ação Atual */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-4 text-xs">
+                  <div className="rounded-xl bg-white border border-slate-200 p-3 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Etapa Atual
+                    </span>
+                    <span className="font-bold text-slate-900 block mt-0.5">
+                      {processoPop10.etapa_atual_nome || 'Aguardando início'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-slate-200 p-3 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-teal-700 block">
+                      Próxima Ação
+                    </span>
+                    <span
+                      className="font-semibold text-slate-800 block mt-0.5 line-clamp-2"
+                      title={processoPop10.proxima_acao}
+                    >
+                      {processoPop10.proxima_acao || 'Nenhuma ação pendente'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-slate-200 p-3 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Critério de Sucesso
+                    </span>
+                    <span
+                      className="text-slate-700 block mt-0.5 line-clamp-2"
+                      title={processoPop10.criterio_sucesso_atual}
+                    >
+                      {processoPop10.criterio_sucesso_atual ||
+                        'Validação fiscal e cálculo de retenções'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl bg-white border border-slate-200 p-3 shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Última Ação Executada
+                    </span>
+                    <span
+                      className="text-emerald-700 font-medium block mt-0.5 line-clamp-2"
+                      title={processoPop10.resultado_ultima_acao}
+                    >
+                      {processoPop10.resultado_ultima_acao || 'Aguardando primeira execução'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Alerta de Modo Humano Nível 3 */}
+                {processoPop10.status === 'AGUARDANDO_APROVACAO' && (
+                  <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                      <div>
+                        <span className="text-amber-900 font-bold block">
+                          Parada de Segurança Nível 3: Aprovação Obrigatória do Contador
+                        </span>
+                        <span className="text-amber-800 text-[11px]">
+                          {processoPop10.decisao_necessaria_humana ||
+                            'O rascunho determinístico está pronto no GED. O contador deve homologar na aba Modo Humano.'}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setActiveTab('modo_humano')}
+                      className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 font-bold shrink-0 gap-1.5"
+                    >
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      Ir para o Modo Humano
+                    </Button>
+                  </div>
+                )}
+              </Card>
+
+              {/* Checklist das 6 Etapas do POP-10 */}
+              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <FileTextIcon className="h-4 w-4 text-[#0FA3A3]" />
+                      Checklist Executável do POP-10: Emissão Inteligente de NFS-e
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Ciclo operacional completo da Elliza: WhatsApp In ➔ Validação ➔ Rascunho no
+                      GED ➔ Modo Humano ➔ Formalização/Emissão ➔ WhatsApp Out.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {etapasPop10.filter((e) => e.status === 'CONCLUIDO').length} de{' '}
+                    {etapasPop10.length || 6} Concluídas
+                  </Badge>
+                </div>
+
+                <div className="space-y-2.5">
+                  {etapasPop10.map((et) => {
+                    const isConcluida = et.status === 'CONCLUIDO'
+                    const isAguardandoAprov = et.status === 'AGUARDANDO_APROVACAO'
+                    const isExecutando = et.status === 'EM_EXECUCAO'
+
+                    return (
+                      <div
+                        key={et.id}
+                        className={`rounded-xl border p-3.5 transition-all ${
+                          isConcluida
+                            ? 'bg-emerald-50/40 border-emerald-200'
+                            : isAguardandoAprov
+                              ? 'bg-amber-50/50 border-amber-300 ring-1 ring-amber-300'
+                              : isExecutando
+                                ? 'bg-teal-50/30 border-[#0FA3A3]'
+                                : 'bg-slate-50/50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                                isConcluida
+                                  ? 'bg-emerald-600 text-white'
+                                  : isAguardandoAprov
+                                    ? 'bg-amber-500 text-white'
+                                    : 'bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {et.ordem}
+                            </span>
+                            <span className="font-bold text-xs text-slate-900">{et.titulo}</span>
+                            <Badge
+                              className={`text-[9px] font-bold ${
+                                isConcluida
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : isAguardandoAprov
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {et.status}
+                            </Badge>
+                            <Badge variant="outline" className="text-[9px] text-slate-600">
+                              Agente: {et.responsavel_tipo}
+                            </Badge>
+                            {et.requer_aprovacao && (
+                              <Badge className="bg-amber-100 text-amber-800 text-[9px]">
+                                Nível 3 (Contador)
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-slate-500">
+                            {et.resultado ? (
+                              <span className="text-emerald-700 font-medium truncate max-w-xs block">
+                                ✓ {et.resultado}
+                              </span>
+                            ) : (
+                              <span>Próxima: {et.proxima_etapa_nome || '—'}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 mt-2 pl-8 leading-relaxed">
+                          {et.descricao}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+
+              {/* Evidências com Hash SHA-256 Gravadas pela Elliza */}
+              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
+                    Trilha de Auditoria e Evidências com Hash SHA-256
+                  </h4>
+                  <Badge variant="outline" className="text-xs">
+                    {evidenciasPop10.length} Registro(s) Imutável(is)
+                  </Badge>
+                </div>
+
+                <div className="space-y-2">
+                  {evidenciasPop10.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-3 text-center">
+                      Nenhuma evidência registrada ainda.
+                    </p>
+                  ) : (
+                    evidenciasPop10.map((evid) => (
+                      <div
+                        key={evid.id}
+                        className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">{evid.titulo}</span>
+                          <span className="font-mono text-[10px] text-slate-500">
+                            Protocolo: {evid.protocolo_numero}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-[11px]">{evid.descricao}</p>
+                        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-slate-200/60 text-[10px]">
+                          <span className="text-slate-500">
+                            Executado por: <b>{evid.executado_por}</b>
+                          </span>
+                          <span className="text-slate-500 font-mono">Hash: {evid.hash_sha256}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <Card className="p-8 text-center text-slate-500">
+              <p className="text-sm">Nenhum processo do POP-10 localizado para este tenant.</p>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ABA: MODO HUMANO (NÍVEL 3) */}
+        <TabsContent value="modo_humano" className="space-y-4 pt-2">
+          <Card className="rounded-2xl border-2 border-amber-300 bg-amber-50/40 p-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200 pb-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Modo Humano — Central de Decisão e Chancela do Contador (Nível 3)
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    Por conformidade com as diretivas do CFC, notas fiscais e obrigações Nível 3
+                    nunca são transmitidas sem chancela técnica humana expressa.
+                  </p>
+                </div>
+              </div>
+
+              <Badge className="bg-amber-600 text-white text-xs">
+                {pendenciasPop10.filter((p) => p.status === 'aberta').length} Pendência(s) Aberta(s)
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
+              {pendenciasPop10.filter((p) => p.status === 'aberta').length === 0 ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-800 space-y-1">
+                  <CheckCircle className="h-6 w-6 mx-auto text-emerald-600" />
+                  <p className="text-xs font-bold">Nenhuma pendência no Modo Humano no momento!</p>
+                  <p className="text-[11px] text-emerald-700">
+                    Todas as solicitações da esteira foram revisadas ou estão sob execução
+                    determinística da Elliza.
+                  </p>
+                </div>
+              ) : (
+                pendenciasPop10
+                  .filter((p) => p.status === 'aberta')
+                  .map((pend) => (
+                    <Card
+                      key={pend.id}
+                      className="rounded-xl border border-amber-300 bg-white p-4 shadow-2xs space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-amber-500 text-white text-[10px] font-bold">
+                              NÍVEL 3 • REQUER CHANCELA
+                            </Badge>
+                            <h4 className="font-bold text-sm text-slate-900">{pend.titulo}</h4>
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            <b>Motivo da Parada:</b> {pend.por_que_parou}
+                          </p>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            <b>O que a Elliza executou:</b> {pend.o_que_foi_executado}
+                          </p>
+                          <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-200">
+                            <b>Decisão Necessária:</b> {pend.decisao_necessaria}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quatro Botões do Modo Humano Conforme Especificado */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleModoHumanoDevolverParaElliza(pend)}
+                          className="text-xs text-slate-700 border-slate-300 hover:bg-slate-100 gap-1.5 h-8"
+                          title="Devolver para a Elliza recalcular ou reanalisar os parâmetros"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 text-[#0FA3A3]" />[ DEVOLVER PARA ELLIZA
+                          ]
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (solicitacoes.length > 0) {
+                              setSolicitacaoParaAprovar(solicitacoes[0])
+                              setModalAprovarOpen(true)
+                            }
+                          }}
+                          className="text-xs text-blue-700 border-blue-300 hover:bg-blue-50 gap-1.5 h-8"
+                          title="Editar dados fiscais manualmente na interface"
+                        >
+                          <Code className="h-3.5 w-3.5" />[ CORRIGIR ]
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleModoHumanoRejeitar(pend)}
+                          className="text-xs text-rose-700 border-rose-300 hover:bg-rose-50 gap-1.5 h-8"
+                          title="Rejeitar a solicitação e solicitar reenvio pelo cliente"
+                        >
+                          <X className="h-3.5 w-3.5" />[ REJEITAR ]
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={() => handleModoHumanoAprovar(pend)}
+                          className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 h-8 shadow-xs"
+                          title="Aprovar formalização/emissão da nota e envio pelo WhatsApp"
+                        >
+                          <Check className="h-3.5 w-3.5" />[ APROVAR ]
+                        </Button>
+                      </div>
+                    </Card>
+                  ))
+              )}
+            </div>
+          </Card>
+        </TabsContent>
 
         {/* ABA 1: FILA DE SUPERVISÃO */}
         <TabsContent value="supervisao" className="space-y-4 pt-2">
@@ -672,6 +1389,19 @@ export default function NfseWhatsappPage() {
                             {(sol.status === 'em_analise' || sol.status === 'erro_emissao') &&
                               canEmit && (
                                 <>
+                                  {/* Botão Rascunho Elliza no GED */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={gerandoRascunhoInterno}
+                                    onClick={() => handleGerarRascunhoSolicitacao(sol)}
+                                    className="h-8 px-2 text-[11px] text-teal-700 border-teal-300 hover:bg-teal-50"
+                                    title="Montar Rascunho da NFS-e e formalizar no GED sem API externa"
+                                  >
+                                    <Bot className="h-3 w-3 mr-1 text-[#0FA3A3]" />
+                                    Rascunho GED
+                                  </Button>
+
                                   <Button
                                     variant="ghost"
                                     size="sm"
