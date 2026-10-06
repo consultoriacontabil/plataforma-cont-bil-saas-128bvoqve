@@ -173,6 +173,7 @@ export interface ElisaJobRecord {
     | 'ENFILEIRADO'
     | 'EM_EXECUCAO'
     | 'AGUARDANDO_APROVACAO'
+    | 'APROVADO'
     | 'AGUARDANDO_CLIENTE'
     | 'AGUARDANDO_CONFERENCIA'
     | 'CONCLUIDO'
@@ -190,6 +191,10 @@ export interface ElisaJobRecord {
   data_fim_execucao?: string
   dependencias_json?: string[]
   payload_execucao_json?: Record<string, unknown>
+  executado_por_agente_externo?: boolean
+  agente_externo_id?: string
+  agente_externo_nome?: string
+  data_atribuicao_agente?: string
   expand?: {
     empresa_id?: {
       id: string
@@ -200,6 +205,74 @@ export interface ElisaJobRecord {
     processo_id?: ProcessoOperacionalRecord
     etapa_id?: ProcessoEtapaRecord
   }
+}
+
+export type TipoIntegracaoAgente =
+  | 'playwright_computer_use'
+  | 'rpa_script_python'
+  | 'custom_agent'
+  | 'webhook_runner'
+
+export interface EllizaAgenteExternoChaveRecord {
+  id: string
+  created: string
+  updated: string
+  tenant_id: string
+  nome: string
+  identificador_agente: string
+  api_key_hash: string
+  api_key_prefixo: string
+  tipo_integracao: TipoIntegracaoAgente
+  status: 'ativo' | 'revogado' | 'pausado'
+  permite_execucao: boolean
+  permite_evidencia: boolean
+  limitar_areas_json?: string[]
+  ultimo_acesso_em?: string
+  ultima_busca_em?: string
+  ultima_execucao_em?: string
+  total_tarefas_executadas?: number
+  ip_origem_recente?: string
+  criado_por?: string
+}
+
+export interface BlueprintTarefaAprovada {
+  job_id: string
+  job_codigo: string
+  cliente: {
+    id: string
+    razao_social: string
+    nome_fantasia?: string
+    cnpj: string
+  }
+  competencia: string
+  area: AreaOperacional
+  processo: {
+    id: string
+    titulo: string
+    codigo_sop?: string
+    area: string
+    sop_id?: string
+  }
+  pop_relacionado?: string
+  etapa_atual: {
+    id?: string
+    ordem: number
+    titulo: string
+    acao: string
+    criterio_sucesso: string
+    criterio_erro: string
+    proxima_etapa_nome?: string
+  }
+  proxima_acao: string
+  criterio_sucesso: string
+  criterio_erro: string
+  o_que_fazer_em_caso_de_erro: string
+  prazo?: string
+  prioridade: PrioridadeOperacional
+  nivel_autonomia: AutonomiaNivel
+  status: string
+  payload_execucao?: Record<string, unknown>
+  atribuido_ao_agente?: string
 }
 
 export interface ElisaEvidenciaRecord {
@@ -877,6 +950,244 @@ export const elisaOpsService = {
       novaEtapa: proximaEtapa,
       processoConcluido: !proximaEtapa,
       evidenciaCriadaId: evidencia.id,
+    }
+  },
+
+  // === GESTÃO DE AGENTES EXTERNOS (RPA / Playwright + Computer Use) ===
+  async listChavesAgenteExterno(tenantId: string): Promise<EllizaAgenteExternoChaveRecord[]> {
+    try {
+      return await pb
+        .collection('elliza_agente_externo_chaves')
+        .getFullList<EllizaAgenteExternoChaveRecord>({
+          filter: `tenant_id = "${tenantId}"`,
+          sort: '-created',
+        })
+    } catch (err) {
+      console.error('[elisaOpsService.listChavesAgenteExterno] Erro:', err)
+      return []
+    }
+  },
+
+  async criarChaveAgenteExterno(params: {
+    tenantId: string
+    nome: string
+    identificadorAgente: string
+    tipoIntegracao: TipoIntegracaoAgente
+    limitarAreas?: string[]
+  }): Promise<{ chaveRecord: EllizaAgenteExternoChaveRecord; apiKeyPlana: string }> {
+    // Gerar token aleatório seguro no frontend: elliza_agt_live_<32 hex chars>
+    const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+    const apiKeyPlana = `elliza_agt_live_${randomHex}`
+
+    // Gerar SHA-256 da chave
+    const encoder = new TextEncoder()
+    const data = encoder.encode(apiKeyPlana)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const apiKeyHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+    const prefixo = `${apiKeyPlana.slice(0, 16)}...`
+
+    const rec = await pb
+      .collection('elliza_agente_externo_chaves')
+      .create<EllizaAgenteExternoChaveRecord>({
+        tenant_id: params.tenantId,
+        nome: params.nome,
+        identificador_agente: params.identificadorAgente,
+        api_key_hash: apiKeyHash,
+        api_key_prefixo: prefixo,
+        tipo_integracao: params.tipoIntegracao,
+        status: 'ativo',
+        permite_execucao: true,
+        permite_evidencia: true,
+        limitar_areas_json: params.limitarAreas || ['fiscal', 'contabil', 'geral', 'societario'],
+        total_tarefas_executadas: 0,
+      })
+
+    // Registrar no audit_log
+    try {
+      await pb.collection('audit_log').create({
+        tenant_id: params.tenantId,
+        acao: 'AGENTE_EXTERNO_CHAVE_CRIADA',
+        entidade_tipo: 'elliza_agente_externo_chaves',
+        entidade_id: rec.id,
+        detalhes: JSON.stringify({
+          identificador_agente: params.identificadorAgente,
+          nome: params.nome,
+          tipo_integracao: params.tipoIntegracao,
+          prefixo: prefixo,
+        }),
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    return { chaveRecord: rec, apiKeyPlana }
+  },
+
+  async revogarChaveAgenteExterno(id: string, tenantId: string): Promise<boolean> {
+    try {
+      await pb.collection('elliza_agente_externo_chaves').update(id, {
+        status: 'revogado',
+      })
+      await pb.collection('audit_log').create({
+        tenant_id: tenantId,
+        acao: 'AGENTE_EXTERNO_CHAVE_REVOGADA',
+        entidade_tipo: 'elliza_agente_externo_chaves',
+        entidade_id: id,
+        detalhes: JSON.stringify({ revogado_em: new Date().toISOString() }),
+      })
+      return true
+    } catch (err) {
+      console.error('[elisaOpsService.revogarChaveAgenteExterno] Erro:', err)
+      return false
+    }
+  },
+
+  async atribuirJobParaAgenteExterno(params: {
+    jobId: string
+    agenteIdentificador: string
+    agenteNome: string
+  }): Promise<ElisaJobRecord> {
+    const job = await pb.collection('elisa_jobs').update<ElisaJobRecord>(params.jobId, {
+      executado_por_agente_externo: true,
+      agente_externo_id: params.agenteIdentificador,
+      agente_externo_nome: params.agenteNome,
+      data_atribuicao_agente: new Date().toISOString(),
+    })
+    return job
+  },
+
+  // === CONSUMO CLIENT-SIDE DA API DO AGENTE EXTERNO (Simulador e Testes de Integração via pb.send) ===
+  async testarEndpointAgenteValidar(
+    apiKey: string,
+  ): Promise<{ sucesso: boolean; dados?: any; erro?: string }> {
+    try {
+      const data = await pb.send('/backend/v1/elliza-agente/auth/validar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Elliza-Api-Key': apiKey,
+        },
+      })
+      return { sucesso: true, dados: data }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha de comunicação' }
+    }
+  },
+
+  async testarEndpointBuscarTarefasAprovadas(
+    apiKey: string,
+  ): Promise<{ sucesso: boolean; tarefas?: BlueprintTarefaAprovada[]; erro?: string }> {
+    try {
+      const data = await pb.send('/backend/v1/elliza-agente/tarefas-aprovadas', {
+        method: 'GET',
+        headers: {
+          'X-Elliza-Api-Key': apiKey,
+        },
+      })
+      return { sucesso: true, tarefas: data.tarefas || [] }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha de comunicação' }
+    }
+  },
+
+  async testarEndpointIniciarJob(
+    jobId: string,
+    apiKey: string,
+  ): Promise<{ sucesso: boolean; dados?: any; erro?: string }> {
+    try {
+      const data = await pb.send(`/backend/v1/elliza-agente/tarefas/${jobId}/iniciar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Elliza-Api-Key': apiKey,
+        },
+      })
+      return { sucesso: true, dados: data }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha ao iniciar job' }
+    }
+  },
+
+  async testarEndpointEnviarEvidencia(
+    jobId: string,
+    apiKey: string,
+    payload: {
+      titulo: string
+      tipo?: string
+      protocolo_numero?: string
+      numero_operacao?: string
+      hash_sha256?: string
+      descricao?: string
+      salvar_no_ged?: boolean
+      resultado_obtido?: string
+      dados_adicionais?: Record<string, unknown>
+    },
+  ): Promise<{ sucesso: boolean; dados?: any; erro?: string }> {
+    try {
+      const data = await pb.send(`/backend/v1/elliza-agente/tarefas/${jobId}/evidencias`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Elliza-Api-Key': apiKey,
+        },
+        body: payload,
+      })
+      return { sucesso: true, dados: data }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha ao enviar evidência' }
+    }
+  },
+
+  async testarEndpointConcluirJob(
+    jobId: string,
+    apiKey: string,
+    payload: {
+      resultado: string
+      criterio_sucesso_validado: boolean
+      tempo_execucao_segundos?: number
+    },
+  ): Promise<{ sucesso: boolean; dados?: any; erro?: string }> {
+    try {
+      const data = await pb.send(`/backend/v1/elliza-agente/tarefas/${jobId}/concluir`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Elliza-Api-Key': apiKey,
+        },
+        body: payload,
+      })
+      return { sucesso: true, dados: data }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha ao concluir job' }
+    }
+  },
+
+  async testarEndpointReportarErro(
+    jobId: string,
+    apiKey: string,
+    payload: {
+      por_que_parou: string
+      decisao_necessaria: string
+      o_que_foi_executado?: string
+      o_que_falta?: string
+      status_processo?: 'BLOQUEADO' | 'AGUARDANDO_CONFERENCIA'
+    },
+  ): Promise<{ sucesso: boolean; dados?: any; erro?: string }> {
+    try {
+      const data = await pb.send(`/backend/v1/elliza-agente/tarefas/${jobId}/reportar-erro`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Elliza-Api-Key': apiKey,
+        },
+        body: payload,
+      })
+      return { sucesso: true, dados: data }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha ao reportar erro' }
     }
   },
 

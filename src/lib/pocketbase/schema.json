@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T02:54:30.723Z",
+  "generatedAt": "2026-10-06T12:31:33.223Z",
   "collections": [
     {
       "name": "users",
@@ -12246,6 +12246,7 @@
             "ENFILEIRADO",
             "EM_EXECUCAO",
             "AGUARDANDO_APROVACAO",
+            "APROVADO",
             "AGUARDANDO_CLIENTE",
             "AGUARDANDO_CONFERENCIA",
             "CONCLUIDO",
@@ -12338,6 +12339,30 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "executado_por_agente_externo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agente_externo_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agente_externo_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_atribuicao_agente",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -12607,6 +12632,143 @@
       "indexes": [
         "CREATE INDEX idx_pend_proc ON processo_pendencias (processo_id, status)",
         "CREATE INDEX idx_pend_tenant_status ON processo_pendencias (tenant_id, status)"
+      ]
+    },
+    {
+      "name": "elliza_agente_externo_chaves",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "identificador_agente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "api_key_hash",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "api_key_prefixo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_integracao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "playwright_computer_use",
+            "rpa_script_python",
+            "custom_agent",
+            "webhook_runner"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "revogado", "pausado"]
+        },
+        {
+          "name": "permite_execucao",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "permite_evidencia",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "limitar_areas_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultimo_acesso_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_busca_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultima_execucao_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_tarefas_executadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ip_origem_recente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_agente_key_hash ON elliza_agente_externo_chaves (api_key_hash)",
+        "CREATE INDEX idx_agente_tenant_status ON elliza_agente_externo_chaves (tenant_id, status)",
+        "CREATE UNIQUE INDEX idx_agente_identificador ON elliza_agente_externo_chaves (tenant_id, identificador_agente)"
       ]
     }
   ]

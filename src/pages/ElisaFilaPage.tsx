@@ -20,7 +20,9 @@ import {
   Layers,
   ChevronRight,
   ShieldAlert,
+  Laptop,
 } from 'lucide-react'
+import { PainelAgenteExterno } from '@/components/PainelAgenteExterno'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   elisaOpsService,
@@ -361,6 +363,10 @@ export default function ElisaFilaPage() {
               Modo Humano ({pendencias.filter((p) => p.status === 'aberta').length} Abertas)
             </span>
           </TabsTrigger>
+          <TabsTrigger value="agente-externo" className="text-xs font-semibold gap-2">
+            <Laptop className="h-4 w-4 text-[#0FA3A3]" />
+            <span>Agente Externo (RPA / Playwright)</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* ABA 1: FILA OPERACIONAL */}
@@ -529,10 +535,15 @@ export default function ElisaFilaPage() {
                             <span className="font-bold text-slate-800 block">
                               {job.etapa_atual_nome}
                             </span>
-                            <span className="text-[10px] text-slate-500">
+                            <span className="text-[10px] text-slate-500 block">
                               Agente:{' '}
                               <strong className="text-slate-700">{job.agente_responsavel}</strong>
                             </span>
+                            {job.executado_por_agente_externo && (
+                              <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[9px] font-bold mt-1">
+                                [ RPA Externo ]
+                              </Badge>
+                            )}
                           </td>
 
                           {/* 5. Próxima Ação */}
@@ -567,14 +578,18 @@ export default function ElisaFilaPage() {
                                   ? 'bg-emerald-600 text-white'
                                   : job.status === 'EM_EXECUCAO'
                                     ? 'bg-blue-600 text-white'
-                                    : job.status === 'AGUARDANDO_APROVACAO'
-                                      ? 'bg-amber-500 text-white animate-pulse'
-                                      : job.status === 'ERRO' || job.status === 'BLOQUEADO'
-                                        ? 'bg-red-600 text-white'
-                                        : 'bg-slate-700 text-white'
+                                    : job.status === 'APROVADO'
+                                      ? 'bg-emerald-500 text-white'
+                                      : job.status === 'AGUARDANDO_APROVACAO'
+                                        ? 'bg-amber-500 text-white animate-pulse'
+                                        : job.status === 'ERRO' || job.status === 'BLOQUEADO'
+                                          ? 'bg-red-600 text-white'
+                                          : 'bg-slate-700 text-white'
                               }`}
                             >
-                              {job.status.replace('_', ' ')}
+                              {job.status === 'APROVADO'
+                                ? 'APROVADO (RPA)'
+                                : job.status.replace('_', ' ')}
                             </Badge>
                           </td>
 
@@ -756,6 +771,11 @@ export default function ElisaFilaPage() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        {/* ABA 3: INTEGRAÇÃO COM AGENTE EXTERNO (RPA / PLAYWRIGHT / COMPUTER USE) */}
+        <TabsContent value="agente-externo" className="space-y-4">
+          <PainelAgenteExterno tenantId={tenant?.id || ''} onRefreshFila={loadData} />
         </TabsContent>
       </Tabs>
 
