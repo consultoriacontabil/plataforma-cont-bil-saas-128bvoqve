@@ -408,6 +408,7 @@ export default function ElisaFilaPage() {
                     <SelectItem value="pessoal">Pessoal (DP)</SelectItem>
                     <SelectItem value="societario">Societário</SelectItem>
                     <SelectItem value="atendimento">Atendimento</SelectItem>
+                    <SelectItem value="geral">Geral / Administrativo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

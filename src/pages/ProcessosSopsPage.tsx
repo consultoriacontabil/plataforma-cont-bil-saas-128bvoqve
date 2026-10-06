@@ -230,7 +230,8 @@ export default function ProcessosSopsPage() {
                     <SelectItem value="fiscal">Fiscal</SelectItem>
                     <SelectItem value="pessoal">Pessoal (DP)</SelectItem>
                     <SelectItem value="societario">Societário</SelectItem>
-                    <SelectItem value="geral">Geral / Atendimento</SelectItem>
+                    <SelectItem value="atendimento">Atendimento</SelectItem>
+                    <SelectItem value="geral">Geral / Administrativo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
