@@ -33,10 +33,10 @@ import type { AgentConversationRecord } from '@/types'
 import { cn } from '@/lib/utils'
 
 const PROMPT_SUGESTOES = [
-  'Resumo das rotinas ativas da ELLIZA 24/7 e o que falta para fechar a competência atual',
+  'Resumo das rotinas ativas da Elliza 24/7 e o que falta para fechar a competência atual',
   'Quais são os 12 Procedimentos Operacionais Padrão (POP) e como funciona a supervisão humana?',
   'Quais rotinas contábeis estão ativas sem credenciais externas e quais dependem de A1/WhatsApp?',
-  'Como a ELLIZA executa a conciliação bancária assistida e a conferência do Fecho Mensal?',
+  'Como a Elliza executa a conciliação bancária assistida e a conferência do Fecho Mensal?',
 ]
 
 export default function EllizaPage() {
@@ -76,7 +76,7 @@ export default function EllizaPage() {
       const data = await ellizaAgentService.getStatus(tenant.id)
       setStatusInfo(data)
     } catch (err) {
-      console.warn('Não foi possível carregar status da ELLIZA:', err)
+      console.warn('Não foi possível carregar status da Elliza:', err)
     } finally {
       setLoadingStatus(false)
     }
@@ -96,7 +96,7 @@ export default function EllizaPage() {
         setActiveConvId(convs[0].id)
       }
     } catch (err) {
-      console.error('Erro ao listar conversas da ELLIZA:', err)
+      console.error('Erro ao listar conversas da Elliza:', err)
     }
   }, [user?.id, activeConvId])
 
@@ -130,7 +130,7 @@ export default function EllizaPage() {
             id: 'welcome-elliza',
             role: 'agent',
             conteudo:
-              'Olá! Sou a **ELLIZA**, a hiperautomação 24/7 da plataforma Rumo Contábil.\n\n' +
+              'Olá! Sou a **Elliza**, a hiperautomação 24/7 da plataforma Rumo Contábil.\n\n' +
               'Atuo no backend Skip Cloud processando dados do seu escritório: conheço todos os 12 Procedimentos Operacionais Padrão (POP), monitoro prazos de obrigações, audito vencimentos de certificados A1 e auxilio na conciliação e fecho contábil.\n\n' +
               '💡 *Lembrete de governança: Todas as transmissões com efeitos legais externos e fechamentos oficiais operam em Modo Assistivo Supervisionado, exigindo a chancela técnica do Contador Responsável (NBC PP 01 / NBC PG 01).*\n\n' +
               'Como posso acelerar suas rotinas hoje?',
@@ -162,7 +162,7 @@ export default function EllizaPage() {
   const handleNewConversation = async () => {
     if (!tenant?.id) return
     try {
-      const newConv = await ellizaAgentService.criarConversa('Nova sessão ELLIZA', tenant.id)
+      const newConv = await ellizaAgentService.criarConversa('Nova sessão Elliza', tenant.id)
       setConversations((prev) => [newConv, ...prev])
       setActiveConvId(newConv.id)
       setMessages([
@@ -170,7 +170,7 @@ export default function EllizaPage() {
           id: 'welcome-elliza',
           role: 'agent',
           conteudo:
-            'Olá! Nova sessão iniciada com a **ELLIZA**. Estou conectada ao seu escritório contábil. Como posso te apoiar?',
+            'Olá! Nova sessão iniciada com a **Elliza**. Estou conectada ao seu escritório contábil. Como posso te apoiar?',
         },
       ])
     } catch (err: unknown) {
@@ -230,7 +230,7 @@ export default function EllizaPage() {
       const finalReply =
         res.conteudo ||
         accumulatedReply.trim() ||
-        'Consulta realizada com sucesso na base contábil da ELLIZA.'
+        'Consulta realizada com sucesso na base contábil da Elliza.'
 
       setMessages((prev) => [
         ...prev,
@@ -249,8 +249,8 @@ export default function EllizaPage() {
         lower.includes('procedimento')
       ) {
         fallbackText =
-          '### Base Operacional ELLIZA — Procedimentos Operacionais Padrão (POP)\n\n' +
-          'A ELLIZA opera fundamentada nos 12 POPs homologados da plataforma:\n' +
+          '### Base Operacional Elliza — Procedimentos Operacionais Padrão (POP)\n\n' +
+          'A Elliza opera fundamentada nos 12 POPs homologados da plataforma:\n' +
           '• **POP 01 (Onboarding):** Cadastro via CNPJ público, guarda A1 no cofre e migração de planilhas.\n' +
           '• **POP 02 (DP & e-Social):** Folha mensal CLT, verbas, CCT em 1 clique e cadeia S-1200 a S-1299/DCTFWeb.\n' +
           '• **POP 03 (Fiscal & SPED):** Apuração DAS/DARF, parcelamentos PAR/PER-DCOMP e validação PVA com hash MD5.\n' +
@@ -265,7 +265,7 @@ export default function EllizaPage() {
         lower.includes('credencial')
       ) {
         fallbackText =
-          '### Status das Rotinas da Hiperautomação 24/7 ELLIZA\n\n' +
+          '### Status das Rotinas da Hiperautomação 24/7 Elliza\n\n' +
           '🟢 **Rotinas Ativas sem Credenciais Externas:**\n' +
           '• Varredura contínua de vencimentos de obrigações e prazos fiscais\n' +
           '• Auditoria de saúde e validade de certificados A1 no cofre criptografado\n' +
@@ -275,14 +275,14 @@ export default function EllizaPage() {
           '• Transmissão e-CAC RFB oficial (Requer certificado A1 .pfx + procuração eletrônica)\n' +
           '• Atendimento WhatsApp automatizado (Requer Evolution API configurada em NFS-e WhatsApp)\n' +
           '• Baixa bancária automática de honorários (Requer credenciais de API / Webhook bancário)\n\n' +
-          '*A infraestrutura 24 horas da ELLIZA é 100% nativa na nuvem Skip Cloud (sem necessidade de VM ou RPA de tela).*'
+          '*A infraestrutura 24 horas da Elliza é 100% nativa na nuvem Skip Cloud (sem necessidade de VM ou RPA de tela).*'
       } else if (
         lower.includes('fecho') ||
         lower.includes('fechamento') ||
         lower.includes('competência')
       ) {
         fallbackText =
-          '### Diagnóstico de Fechamento Contábil — ELLIZA\n\n' +
+          '### Diagnóstico de Fechamento Contábil — Elliza\n\n' +
           'Consultando a base de dados do escritório "' +
           (tenant?.nome || 'Escritório') +
           '":\n\n' +
@@ -323,7 +323,7 @@ export default function EllizaPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Badge className="bg-[#0FA3A3] text-white">ELLIZA 24/7</Badge>
+            <Badge className="bg-[#0FA3A3] text-white">Elliza 24/7</Badge>
             <Badge variant="outline" className="border-teal-300 text-teal-800 bg-teal-50/50">
               Hiperautomação Nativa Skip Cloud
             </Badge>
@@ -336,7 +336,7 @@ export default function EllizaPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0FA3A3] text-white shadow-xs">
               <Bot className="h-5 w-5" />
             </span>
-            ELLIZA — Hiperautomação Contábil 24/7
+            Elliza — Hiperautomação Contábil 24/7
           </h1>
           <p className="text-sm text-slate-600 mt-1">
             Agente nativo da plataforma com memória persistente, RAG sobre o POP e rotinas em nuvem.
@@ -380,9 +380,9 @@ export default function EllizaPage() {
         </div>
       </div>
 
-      {/* Painel de Abas: Chat da ELLIZA e Central de Rotinas 24/7 */}
-      <Tabs defaultValue="chat" className="space-y-6">
-        <TabsList className="bg-slate-100 p-1 border border-slate-200">
+      {/* Painel de Abas: Chat da Elliza e Central de Rotinas 24/7 */}
+      <Tabs defaultValue="status_autonomia" className="space-y-6">
+        <TabsList className="bg-slate-100 p-1 border border-slate-200 flex-wrap">
           <TabsTrigger
             value="status_autonomia"
             className="text-xs font-semibold flex items-center gap-2"
@@ -392,7 +392,7 @@ export default function EllizaPage() {
           </TabsTrigger>
           <TabsTrigger value="chat" className="text-xs font-semibold flex items-center gap-2">
             <MessageSquare className="h-4 w-4 text-[#0FA3A3]" />
-            Chat com a ELLIZA
+            Chat com a Elliza
           </TabsTrigger>
           <TabsTrigger value="diretivas" className="text-xs font-semibold flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-[#0FA3A3]" />
@@ -403,10 +403,9 @@ export default function EllizaPage() {
             Central de Rotinas 24/7 & Limites
           </TabsTrigger>
           <TabsTrigger value="modo_elisa" className="text-xs font-semibold flex items-center gap-2">
-            <Bot className="h-4 w-4 text-[#0FA3A3]" />🤖 MODO ELISA (Operação em Tempo Real)
+            <Bot className="h-4 w-4 text-[#0FA3A3]" />🤖 MODO ELLIZA (Operação em Tempo Real)
           </TabsTrigger>
         </TabsList>
-
         {/* =========================================================================
             ABA: STATUS DE AUTONOMIA & CREDENCIAIS OPERACIONAIS (FRENTE 3)
            ========================================================================= */}
@@ -491,7 +490,7 @@ export default function EllizaPage() {
                     </span>
                     <div>
                       <CardTitle className="text-sm font-bold text-slate-900">
-                        ELLIZA • Assistente & Hiperautomação Contábil
+                        Elliza • Assistente & Hiperautomação Contábil
                       </CardTitle>
                       <CardDescription className="text-xs">
                         Conhecimento consolidado dos 12 POPs e coleções da Rumo Contábil
@@ -573,7 +572,7 @@ export default function EllizaPage() {
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Pergunte à ELLIZA sobre procedimentos operacionais (POP), prazos, folha CLT, SPED ou fecho..."
+                  placeholder="Pergunte à Elliza sobre procedimentos operacionais (POP), prazos, folha CLT, SPED ou fecho..."
                   className="min-h-[44px] max-h-32 text-xs resize-none"
                   rows={2}
                   disabled={streaming}
@@ -602,7 +601,7 @@ export default function EllizaPage() {
         </TabsContent>
 
         {/* =========================================================================
-            NOVA ABA: 🤖 MODO ELISA (VISÃO ESPECÍFICA DO AGENTE OPERACIONAL)
+            NOVA ABA: 🤖 MODO ELLIZA (VISÃO ESPECÍFICA DO AGENTE OPERACIONAL)
            ========================================================================= */}
         <TabsContent value="modo_elisa" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -664,7 +663,7 @@ export default function EllizaPage() {
                   size="sm"
                   className="bg-[#0FA3A3] hover:bg-[#0c8282] text-white text-xs h-8"
                 >
-                  Abrir Fila da ELISA
+                  Abrir Fila da Elliza
                 </Button>
               </Link>
             </div>
@@ -672,19 +671,19 @@ export default function EllizaPage() {
             <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50">
                 <span className="font-bold text-slate-800 block text-sm">
-                  Regras de Ouro da ELISA:
+                  Regras de Ouro da Elliza:
                 </span>
                 <p className="text-slate-600 leading-relaxed">
-                  1. A ELISA NÃO DECIDE O QUE O PROCESSO É. O SISTEMA DEFINE O PROCESSO.
+                  1. A Elliza NÃO DECIDE O QUE O PROCESSO É. O SISTEMA DEFINE O PROCESSO.
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  2. A ELISA EXECUTA O PROCESSO. O SISTEMA VALIDA O RESULTADO.
+                  2. A Elliza EXECUTA O PROCESSO. O SISTEMA VALIDA O RESULTADO.
                 </p>
                 <p className="text-slate-600 leading-relaxed">
                   3. O CONTADOR APROVA O QUE FOR DEFINIDO COMO CRÍTICO (Nível 3).
                 </p>
                 <p className="text-slate-600 leading-relaxed">
-                  4. A ELISA NUNCA navega livremente sem instrução estruturada.
+                  4. A Elliza NUNCA navega livremente sem instrução estruturada.
                 </p>
               </div>
 
@@ -718,7 +717,7 @@ export default function EllizaPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-[#0FA3A3]" />
-                  O Que a ELLIZA É (Hiperautomação 24/7)
+                  O Que a Elliza É (Hiperautomação 24/7)
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-slate-700 space-y-2">
@@ -750,7 +749,7 @@ export default function EllizaPage() {
               </CardHeader>
               <CardContent className="text-xs text-slate-600 space-y-2">
                 <p>
-                  • <b>Sem RPA Visual:</b> A ELLIZA não enxerga telas gráficas, não movimenta mouse
+                  • <b>Sem RPA Visual:</b> A Elliza não enxerga telas gráficas, não movimenta mouse
                   e não dá cliques em botões de janelas de desktop.
                 </p>
                 <p>

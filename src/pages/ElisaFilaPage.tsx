@@ -108,11 +108,11 @@ export default function ElisaFilaPage() {
       setPendencias(pendRes)
       setEmpresas(empRes)
     } catch (err) {
-      console.error('Erro ao carregar Fila da ELISA:', err)
+      console.error('Erro ao carregar Fila da Elliza:', err)
       toast({
         variant: 'destructive',
         title: 'Erro de carregamento',
-        description: 'Falha ao sincronizar fila operacional da ELISA.',
+        description: 'Falha ao sincronizar fila operacional da Elliza.',
       })
     } finally {
       setLoading(false)
@@ -152,7 +152,7 @@ export default function ElisaFilaPage() {
     if (!tenant?.id) return
     setExecutandoJobId(job.id)
     toast({
-      title: '🤖 ELISA em Execução',
+      title: '🤖 Elliza em Execução',
       description: `Executando: ${job.proxima_acao}...`,
     })
 
@@ -282,7 +282,7 @@ export default function ElisaFilaPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Badge className="bg-[#0FA3A3] text-white text-xs font-bold">FILA DA ELISA</Badge>
+            <Badge className="bg-[#0FA3A3] text-white text-xs font-bold">FILA DA ELLIZA</Badge>
             <Badge variant="outline" className="text-slate-600 text-xs">
               Orquestração Determinística de Tarefas
             </Badge>
@@ -292,10 +292,10 @@ export default function ElisaFilaPage() {
             </Badge>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-[#1A2333] tracking-tight">
-            Fila Operacional da ELISA
+            Fila Operacional da Elliza
           </h1>
           <p className="text-sm text-[#64748B] mt-1">
-            A ELISA não navega livremente: recebe tarefa estruturada e executa a próxima ação
+            A Elliza não navega livremente: recebe tarefa estruturada e executa a próxima ação
             definida pelo processo contábil.
           </p>
         </div>
@@ -455,7 +455,7 @@ export default function ElisaFilaPage() {
                     <th className="py-3.5 px-3">Cliente / CNPJ</th>
                     <th className="py-3.5 px-3">Processo / POP</th>
                     <th className="py-3.5 px-3">Etapa Atual</th>
-                    <th className="py-3.5 px-3">Próxima Ação da ELISA</th>
+                    <th className="py-3.5 px-3">Próxima Ação da Elliza</th>
                     <th className="py-3.5 px-3">Prioridade / Prazo</th>
                     <th className="py-3.5 px-3">Status</th>
                     <th className="py-3.5 px-3">Autonomia</th>
@@ -630,9 +630,9 @@ export default function ElisaFilaPage() {
                   Painel de Supervisão e Decisão Humana
                 </h3>
                 <p className="text-xs text-amber-900/80 leading-relaxed mt-0.5">
-                  Toda vez que a ELISA encontra uma inconsistência (ex.: lançamento bancário sem
+                  Toda vez que a Elliza encontra uma inconsistência (ex.: lançamento bancário sem
                   classificação, divergência de saldo ou etapa que exige aprovação legal de nível
-                  3), a etapa é pausada de forma segura e encaminhada para este painel. A ELISA
+                  3), a etapa é pausada de forma segura e encaminhada para este painel. A Elliza
                   nunca toma decisões críticas por adivinhação.
                 </p>
               </div>
@@ -646,7 +646,7 @@ export default function ElisaFilaPage() {
                 Nenhuma pendência retida no Modo Humano
               </h4>
               <p className="text-xs text-slate-500 mt-1">
-                Todas as operações da ELISA estão fluindo normalmente sem retenções críticas.
+                Todas as operações da Elliza estão fluindo normalmente sem retenções críticas.
               </p>
             </Card>
           ) : (
@@ -688,7 +688,7 @@ export default function ElisaFilaPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
                           <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
                             <span className="font-bold text-red-900 block">
-                              1. Por que a ELISA parou?
+                              1. Por que a Elliza parou?
                             </span>
                             <span className="text-red-800">{pend.por_que_parou}</span>
                           </div>
@@ -758,7 +758,7 @@ export default function ElisaFilaPage() {
         </TabsContent>
       </Tabs>
 
-      {/* MODAL MODO HUMANO: APROVAR / REJEITAR / CORRIGIR / DEVOLVER PARA ELISA */}
+      {/* MODAL MODO HUMANO: APROVAR / REJEITAR / CORRIGIR / DEVOLVER PARA ELLIZA */}
       <Dialog open={decisaoModalAberta} onOpenChange={setDecisaoModalAberta}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
@@ -807,7 +807,7 @@ export default function ElisaFilaPage() {
                   }`}
                 >
                   <Bot className="h-4 w-4" />
-                  <span>[ DEVOLVER PARA ELISA ]</span>
+                  <span>[ DEVOLVER PARA ELLIZA ]</span>
                 </Button>
 
                 <Button

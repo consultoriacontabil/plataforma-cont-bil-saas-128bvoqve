@@ -89,7 +89,7 @@ export default function Dashboard() {
     [],
   )
 
-  // Dados da Nova Camada Operacional ELISA
+  // Dados da Nova Camada Operacional Elliza
   const [processosOperacionais, setProcessosOperacionais] = useState<ProcessoOperacionalRecord[]>(
     [],
   )
@@ -329,7 +329,7 @@ export default function Dashboard() {
   const handleExecutarAcaoRapida = async (proc: ProcessoOperacionalRecord) => {
     if (!tenant?.id) return
     toast({
-      title: 'ELISA Executando...',
+      title: 'Elliza Executando...',
       description: `Disparando próxima etapa de "${proc.titulo}"...`,
     })
     try {
@@ -387,11 +387,11 @@ export default function Dashboard() {
               RUMO | CENTRAL DE OPERAÇÕES
             </Badge>
             <Badge variant="outline" className="text-slate-600 text-xs">
-              Arquitetura Operacional ELISA
+              Arquitetura Operacional Elliza
             </Badge>
             <Badge className="bg-emerald-600 text-white text-xs flex items-center gap-1">
               <Bot className="h-3 w-3" />
-              <span>ELISA 24/7 Ativa</span>
+              <span>Elliza 24/7 Ativa</span>
             </Badge>
           </div>
           <h2 className="text-2xl font-black tracking-tight text-[#1A2333] md:text-3xl">
@@ -429,7 +429,7 @@ export default function Dashboard() {
             >
               <Bot className="h-3.5 w-3.5" />
               <span>
-                Fila da ELISA (
+                Fila da Elliza (
                 {
                   elisaJobs.filter((j) => j.status === 'ENFILEIRADO' || j.status === 'EM_EXECUCAO')
                     .length
@@ -460,7 +460,7 @@ export default function Dashboard() {
         <Card className="rounded-xl border-blue-200 bg-blue-50/40 p-3 shadow-2xs">
           <div className="text-[11px] font-semibold text-blue-800 truncate">Em Execução</div>
           <div className="text-xl font-extrabold text-blue-900 mt-1">{kpisElisa.emExecucao}</div>
-          <div className="text-[10px] text-blue-600 font-medium mt-0.5">ELISA / Equipe</div>
+          <div className="text-[10px] text-blue-600 font-medium mt-0.5">Elliza / Equipe</div>
         </Card>
 
         {/* 3. Aguardando Aprovação */}
@@ -516,8 +516,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* SEÇÃO PRINCIPAL DA ELISA: ORQUESTRADOR DE PROCESSOS & FILA EM TEMPO REAL */}
-      <section aria-label="Processos Operacionais da ELISA" className="space-y-4">
+      {/* SEÇÃO PRINCIPAL DA ELLIZA: ORQUESTRADOR DE PROCESSOS & FILA EM TEMPO REAL */}
+      <section aria-label="Processos Operacionais da Elliza" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -525,7 +525,7 @@ export default function Dashboard() {
               <span>Orquestrador Operacional: Processos em Andamento (POP → SOP Executável)</span>
             </h3>
             <p className="text-xs text-slate-500">
-              Processos contábeis, fiscais e de DP executados pela ELISA de forma determinística
+              Processos contábeis, fiscais e de DP executados pela Elliza de forma determinística
               passo a passo.
             </p>
           </div>
@@ -641,7 +641,7 @@ export default function Dashboard() {
                     <span className="text-[10px] text-slate-500">
                       Agente:{' '}
                       <strong className="text-slate-800">
-                        {proc.agente_responsavel || 'ELISA'}
+                        {proc.agente_responsavel || 'Elliza'}
                       </strong>
                     </span>
 
@@ -679,7 +679,7 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* SEÇÃO DE PENDÊNCIAS CRÍTICAS DA ELISA (MODO HUMANO) */}
+      {/* SEÇÃO DE PENDÊNCIAS CRÍTICAS DA ELLIZA (MODO HUMANO) */}
       {pendenciasElisa.length > 0 && (
         <Card className="rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-5 shadow-xs">
           <div className="flex items-start justify-between gap-3">
@@ -694,7 +694,7 @@ export default function Dashboard() {
                   </span>
                 </h4>
                 <p className="text-xs text-amber-900/80 leading-relaxed mt-0.5">
-                  Princípio fundamental da Rumo: a ELISA nunca adivinha informação crítica. Ao
+                  Princípio fundamental da Rumo: a Elliza nunca adivinha informação crítica. Ao
                   encontrar situações não previstas ou etapas de nível 3, o processo é retido para
                   chancela contábil.
                 </p>
@@ -775,7 +775,7 @@ export default function Dashboard() {
             Central de Ações Rápidas Determinísticas
           </CardTitle>
           <CardDescription className="text-xs text-[#64748B]">
-            Acesso padronizado aos módulos estruturados e à esteira operacional da ELISA
+            Acesso padronizado aos módulos estruturados e à esteira operacional da Elliza
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -787,7 +787,7 @@ export default function Dashboard() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-[#0FA3A3]">
                 <Bot className="h-4 w-4" />
               </div>
-              <span>Fila Operacional da ELISA</span>
+              <span>Fila Operacional da Elliza</span>
             </Button>
 
             <Button
@@ -817,7 +817,7 @@ export default function Dashboard() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
                 <FileSpreadsheet className="h-4 w-4" />
               </div>
-              <span>POPs Oficiais (POP-ELLIZA-2026.3)</span>
+              <span>POPs Oficiais (POP-Elliza-2026.3)</span>
             </Button>
           </div>
         </CardContent>

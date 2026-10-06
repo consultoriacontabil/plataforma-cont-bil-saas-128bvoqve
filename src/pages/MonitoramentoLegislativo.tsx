@@ -873,7 +873,7 @@ export function MonitoramentoLegislativoPage() {
                                 })
                                 toast({
                                   title: 'Processo Operacional Criado na Fila!',
-                                  description: `Processo da norma ${pub.numero_norma} enfileirado para a ELISA (Nível 2).`,
+                                  description: `Processo da norma ${pub.numero_norma} enfileirado para a Elliza (Nível 2).`,
                                 })
                                 navigate(`/processos/${novo.processo.id}`)
                               } catch (err: any) {

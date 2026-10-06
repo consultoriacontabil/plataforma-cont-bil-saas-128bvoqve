@@ -190,7 +190,7 @@ export default function PopTreinamentoPage() {
     {
       id: 'autonomia_identidade',
       label:
-        'Governança ELLIZA: Perfil operacional nativo (elliza_perfil), Painel de Autonomia e Matriz de Credenciais',
+        'Governança Elliza: Perfil operacional nativo (elliza_perfil), Painel de Autonomia e Matriz de Credenciais',
       checked: true,
     },
     {
@@ -273,7 +273,7 @@ export default function PopTreinamentoPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:border-b-2 print:border-slate-800">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Badge className="bg-[#0FA3A3] text-white">POP-ELLIZA-2026.3</Badge>
+            <Badge className="bg-[#0FA3A3] text-white">POP-Elliza-2026.3</Badge>
             <Badge variant="outline" className="text-slate-600 font-medium">
               Versão 0.0.114 • NBC PP 01 & NBC PG 01
             </Badge>
@@ -315,7 +315,7 @@ export default function PopTreinamentoPage() {
           <Link to="/elliza">
             <Button className="bg-[#0FA3A3] hover:bg-[#0c8282] text-white flex items-center gap-2 text-xs h-9 shadow-xs">
               <Bot className="h-4 w-4" />
-              Painel ELLIZA (Diretivas & Autonomia)
+              Painel Elliza (Diretivas & Autonomia)
             </Button>
           </Link>
           <Link to="/manual">
@@ -351,7 +351,7 @@ export default function PopTreinamentoPage() {
       <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-xs text-sky-950 space-y-2">
         <div className="flex items-center gap-2 font-bold text-sky-900">
           <History className="h-4 w-4 text-sky-700" />
-          <span>Nota de Revisão — Atualização POP-ELLIZA-2026.3 (Plataforma v0.0.114)</span>
+          <span>Nota de Revisão — Atualização POP-Elliza-2026.3 (Plataforma v0.0.114)</span>
         </div>
         <p className="leading-relaxed">
           Esta revisão incorpora integralmente todas as atualizações tecnológicas e regulatórias
@@ -511,12 +511,12 @@ export default function PopTreinamentoPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-900">
                   <Bot className="h-4 w-4 text-[#0FA3A3]" />
-                  Perfil Operacional ELLIZA (Agente IA)
+                  Perfil Operacional Elliza (Agente IA)
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-slate-600 space-y-2">
                 <p>
-                  A ELLIZA possui identidade própria registrada na coleção{' '}
+                  A Elliza possui identidade própria registrada na coleção{' '}
                   <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">elliza_perfil</code>{' '}
                   (instituída na migration 0097) —{' '}
                   <b>não é um usuário humano nem concorre com licenças</b>.
@@ -1062,7 +1062,7 @@ export default function PopTreinamentoPage() {
             <CardContent className="space-y-4 text-xs text-slate-700">
               <p className="text-slate-600 leading-relaxed">
                 Toda emissão de NFS-e segue o padrão assistivo obrigatório: o cliente pode solicitar
-                via WhatsApp, a ELLIZA gera a minuta para conferência de alíquotas e códigos de
+                via WhatsApp, a Elliza gera a minuta para conferência de alíquotas e códigos de
                 serviço, e o Contador aprova a transmissão. Para emissão direta via API sem depender
                 de robô de tela, utilize o <b>POP 14 (Provedor NFE.io)</b>.
               </p>
@@ -1462,11 +1462,11 @@ export default function PopTreinamentoPage() {
                     </p>
                   </li>
                   <li>
-                    <b>Sincronizar Agora & Emissão de DAS via ELLIZA:</b>
+                    <b>Sincronizar Agora & Emissão de DAS via Elliza:</b>
                     <p className="mt-1 text-slate-600">
                       O contador pode disparar a sincronização em lote sob demanda clicando em{' '}
                       <i>"Sincronizar agora"</i>. A emissão de guias DAS passa obrigatoriamente pela
-                      fila de aprovação da ELLIZA (
+                      fila de aprovação da Elliza (
                       <code className="bg-slate-100 px-1 rounded">elliza_aprovacoes</code>) antes da
                       gravação em <code className="bg-slate-100 px-1 rounded">guia_pagamentos</code>
                       .
@@ -2080,7 +2080,7 @@ export default function PopTreinamentoPage() {
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Procedimentos rápidos para importação S-2200, baixa assistida, monitor de CNDs e
-                    governança da ELLIZA.
+                    governança da Elliza.
                   </CardDescription>
                 </div>
                 <Badge className="bg-slate-800 text-white">Plataforma Contábil SaaS v0.0.106</Badge>
@@ -2111,7 +2111,7 @@ export default function PopTreinamentoPage() {
                     <span>Painel Status de Autonomia (/elliza)</span>
                   </div>
                   <p className="text-slate-600 leading-relaxed">
-                    <b>Onde:</b> Menu ELLIZA → <i>Status de Autonomia</i>.
+                    <b>Onde:</b> Menu Elliza → <i>Status de Autonomia</i>.
                   </p>
                   <p className="text-slate-600 leading-relaxed">
                     Acompanhamento em tempo real das credenciais Evolution API e certificados A1 com
@@ -2158,7 +2158,7 @@ export default function PopTreinamentoPage() {
                   </p>
                 </div>
 
-                {/* 5. Identidade Operacional da ELLIZA */}
+                {/* 5. Identidade Operacional da Elliza */}
                 <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-slate-900">
                     <UserCheck className="h-4 w-4 text-[#0FA3A3]" />
@@ -2169,7 +2169,7 @@ export default function PopTreinamentoPage() {
                     <code className="bg-white px-1 rounded">/usuarios</code>).
                   </p>
                   <p className="text-slate-600 leading-relaxed">
-                    A ELLIZA não ocupa vaga de usuário nem recebe convites de login. Seu registro
+                    A Elliza não ocupa vaga de usuário nem recebe convites de login. Seu registro
                     vive na coleção <code className="bg-slate-100 px-1 rounded">elliza_perfil</code>{' '}
                     e seus logs de rotinas 24/7 são auditados isoladamente por tenant.
                   </p>

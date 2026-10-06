@@ -41,7 +41,7 @@ export interface SopEtapaTemplate {
   criterio_erro: string
   proxima_etapa_nome?: string
   requer_aprovacao: boolean
-  responsavel_tipo?: 'ELISA' | 'Humano'
+  responsavel_tipo?: 'Elliza' | 'Humano'
 }
 
 export interface SopRecord {
@@ -134,7 +134,7 @@ export interface ProcessoEtapaRecord {
   titulo: string
   descricao?: string
   status: ProcessoEstado
-  responsavel_tipo?: 'ELISA' | 'Humano'
+  responsavel_tipo?: 'Elliza' | 'Humano'
   responsavel_usuario_id?: string
   entrada?: string
   acao?: string
@@ -372,7 +372,7 @@ export const elisaOpsService = {
       etapa_atual_nome: primeiraEtapa ? primeiraEtapa.titulo : 'Início',
       total_etapas: totalEtapas,
       progresso_percentual: 0,
-      agente_responsavel: sop.agente_nome || 'ELISA',
+      agente_responsavel: sop.agente_nome || 'Elliza',
       prazo: prazo || new Date(Date.now() + 7 * 86400000).toISOString(),
       proxima_acao: primeiraEtapa ? primeiraEtapa.acao : 'Iniciar execução',
       criterio_sucesso_atual: primeiraEtapa
@@ -392,7 +392,7 @@ export const elisaOpsService = {
         titulo: et.titulo,
         descricao: et.descricao,
         status: statusEtapa,
-        responsavel_tipo: et.responsavel_tipo || 'ELISA',
+        responsavel_tipo: et.responsavel_tipo || 'Elliza',
         entrada: et.entrada,
         acao: et.acao,
         criterio_sucesso: et.criterio_sucesso,
@@ -403,7 +403,7 @@ export const elisaOpsService = {
       etapasCriadas.push(rec)
     }
 
-    // 3. Criar Job na Fila da ELISA para a Etapa 1
+    // 3. Criar Job na Fila da Elliza para a Etapa 1
     const jobCodigo = `JOB-${competencia.replace('/', '')}-${proc.id.slice(0, 5).toUpperCase()}-01`
     await pb.collection('elisa_jobs').create<ElisaJobRecord>({
       tenant_id: tenantId,
@@ -420,7 +420,7 @@ export const elisaOpsService = {
       prioridade,
       prazo: proc.prazo,
       status: 'ENFILEIRADO',
-      agente_responsavel: 'ELISA',
+      agente_responsavel: 'Elliza',
       nivel_autonomia: sop.nivel_autonomia,
       necessita_aprovacao: primeiraEtapa?.requer_aprovacao || false,
     })
@@ -435,7 +435,7 @@ export const elisaOpsService = {
         sop: sop.codigo,
         competencia,
         total_etapas: totalEtapas,
-        agente: 'ELISA',
+        agente: 'Elliza',
       }),
     })
 
@@ -466,7 +466,7 @@ export const elisaOpsService = {
     return pb.collection('processo_etapas').update<ProcessoEtapaRecord>(id, data)
   },
 
-  // === FILA DA ELISA (JOBS) ===
+  // === FILA DA ELLIZA (JOBS) ===
   async listJobs(
     tenantId: string,
     filtros?: {
@@ -634,7 +634,7 @@ export const elisaOpsService = {
         decisao_necessaria_humana: '',
       })
 
-      // Se devolveu para a ELISA, reativa o job
+      // Se devolveu para a Elliza, reativa o job
       if (decisao === 'DEVOLVER_ELISA' && pend.job_id) {
         await pb.collection('elisa_jobs').update(pend.job_id, {
           status: 'ENFILEIRADO',
@@ -646,7 +646,7 @@ export const elisaOpsService = {
     return updated
   },
 
-  // === EXECUÇÃO DETERMINÍSTICA: EXECUTAR PRÓXIMA AÇÃO DA ELISA ===
+  // === EXECUÇÃO DETERMINÍSTICA: EXECUTAR PRÓXIMA AÇÃO DA ELLIZA ===
   async executarProximaAcaoElisa(params: {
     tenantId: string
     processoId: string
@@ -711,7 +711,7 @@ export const elisaOpsService = {
       })
       await pb.collection('processos_operacionais').update(processoId, {
         status: 'AGUARDANDO_APROVACAO',
-        decisao_necessaria_humana: `Etapa ${etapaAtual.ordem}: "${etapaAtual.titulo}" preparada pela ELISA. Requer aprovação técnica do Contador.`,
+        decisao_necessaria_humana: `Etapa ${etapaAtual.ordem}: "${etapaAtual.titulo}" preparada pela Elliza. Requer aprovação técnica do Contador.`,
       })
       if (jobId) {
         await pb.collection('elisa_jobs').update(jobId, {
@@ -730,7 +730,7 @@ export const elisaOpsService = {
         titulo: `Aprovação Necessária: ${etapaAtual.titulo}`,
         por_que_parou:
           'Etapa parametrizada com Nível 3 (Aprovação Obrigatória por conformidade legal/CFC).',
-        o_que_foi_executado: `ELISA executou a pré-análise e preparou os dados para "${etapaAtual.acao}".`,
+        o_que_foi_executado: `Elliza executou a pré-análise e preparou os dados para "${etapaAtual.acao}".`,
         o_que_falta: 'Validação e assinatura digital/chancela do Contador.',
         decisao_necessaria: 'Conferir dados e aprovar para transmissão final.',
         status: 'aberta',
@@ -743,7 +743,7 @@ export const elisaOpsService = {
       }
     }
 
-    // 3. Execução Determinística da Etapa pela ELISA
+    // 3. Execução Determinística da Etapa pela Elliza
     // Atualiza status para EM_EXECUCAO
     await pb.collection('processo_etapas').update(etapaAtual.id, {
       status: 'EM_EXECUCAO',
@@ -767,7 +767,7 @@ export const elisaOpsService = {
     const hashEvidencia = `sha256-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 8)}`
 
     // Critério de Sucesso Validado:
-    const resultadoSucesso = `Critério de sucesso validado com exatidão pela ELISA: ${etapaAtual.criterio_sucesso || 'Dados consistentes e sem divergências identificadas.'}`
+    const resultadoSucesso = `Critério de sucesso validado com exatidão pela Elliza: ${etapaAtual.criterio_sucesso || 'Dados consistentes e sem divergências identificadas.'}`
 
     // 4. Registrar Evidência na Coleção elisa_evidencias
     const evidencia = await pb.collection('elisa_evidencias').create<ElisaEvidenciaRecord>({
@@ -778,11 +778,11 @@ export const elisaOpsService = {
       empresa_id: empresaId,
       tipo: 'protocolo',
       titulo: `Evidência de Execução — Etapa ${etapaAtual.ordem}: ${etapaAtual.titulo}`,
-      descricao: `Ação realizada pela ELISA: "${etapaAtual.acao}". Critério de sucesso: "${etapaAtual.criterio_sucesso}".`,
+      descricao: `Ação realizada pela Elliza: "${etapaAtual.acao}". Critério de sucesso: "${etapaAtual.criterio_sucesso}".`,
       protocolo_numero: numeroOperacao,
       numero_operacao: numeroOperacao,
       hash_sha256: hashEvidencia,
-      executado_por: 'ELISA (Agente Visual de Interface)',
+      executado_por: 'Elliza (Agente Visual de Interface)',
       dados_tecnicos_json: {
         tempo_segundos: tempoSegundos,
         competencia: processo.competencia,
@@ -824,7 +824,7 @@ export const elisaOpsService = {
         criterio_sucesso_atual: proximaEtapa.criterio_sucesso,
       })
 
-      // Atualizar ou criar Job da ELISA para a próxima etapa
+      // Atualizar ou criar Job da Elliza para a próxima etapa
       if (jobId) {
         await pb.collection('elisa_jobs').update(jobId, {
           etapa_id: proximaEtapa.id,
@@ -850,7 +850,7 @@ export const elisaOpsService = {
       if (jobId) {
         await pb.collection('elisa_jobs').update(jobId, {
           status: 'CONCLUIDO',
-          resultado: 'Todas as etapas foram concluídas com sucesso pela ELISA.',
+          resultado: 'Todas as etapas foram concluídas com sucesso pela Elliza.',
           data_fim_execucao: fimExecucao.toISOString(),
         })
       }

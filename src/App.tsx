@@ -81,7 +81,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
 
-            {/* Nova Arquitetura Operacional ELISA */}
+            {/* Nova Arquitetura Operacional Elliza */}
             <Route path="/elisa-fila" element={<ElisaFilaPage />} />
             <Route path="/processos" element={<ProcessosSopsPage />} />
             <Route path="/processos/:id" element={<ProcessoDetailExecucaoPage />} />

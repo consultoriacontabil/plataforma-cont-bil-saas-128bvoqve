@@ -141,7 +141,7 @@ export default function Layout() {
   const getPageTitle = () => {
     const path = location.pathname
     if (path.startsWith('/dashboard') || path === '/') return 'Rumo | Central de Operações'
-    if (path.startsWith('/elisa-fila')) return 'Fila Operacional da ELISA'
+    if (path.startsWith('/elisa-fila')) return 'Fila Operacional da Elliza'
     if (path.startsWith('/processos/')) return 'Execução de Processo (Checklist Executável)'
     if (path.startsWith('/processos')) return 'Processos & SOPs Executáveis'
     if (path.startsWith('/empresas/nova')) return 'Nova Empresa'
@@ -182,7 +182,7 @@ export default function Layout() {
     if (path.startsWith('/auditoria')) return 'Trilha de Auditoria'
     if (path.startsWith('/backup') || path.startsWith('/configuracoes/backup'))
       return 'Sistema de Backup Independente'
-    if (path.startsWith('/elliza')) return 'ELLIZA (Hiperautomação 24/7)'
+    if (path.startsWith('/elliza')) return 'Elliza (Hiperautomação 24/7)'
     if (path.startsWith('/rumo-agent')) return 'Rumo Agent (IA)'
     if (path.startsWith('/perfil')) return 'Minha Conta'
     return 'Rumo Contábil'
@@ -288,7 +288,7 @@ export default function Layout() {
           icon: LayoutDashboard,
           badge: 'OPERACIONAL',
         },
-        { label: 'Fila da ELISA', to: '/elisa-fila', icon: Bot, badge: 'ROBÔ' },
+        { label: 'Fila da Elliza', to: '/elisa-fila', icon: Bot, badge: 'ROBÔ' },
         { label: 'Processos & SOPs', to: '/processos', icon: GitPullRequest, badge: 'SOPs' },
       ],
     },
@@ -382,9 +382,9 @@ export default function Layout() {
     {
       group: 'GESTÃO & INTEGRAÇÕES',
       items: [
-        { label: 'ELLIZA (24/7)', to: '/elliza', icon: Bot, badge: '24/7' },
+        { label: 'Elliza (24/7)', to: '/elliza', icon: Bot, badge: '24/7' },
         { label: 'Manual de Ativação', to: '/manual', icon: BookOpen, badge: 'GUIA' },
-        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'ELLIZA' },
+        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'Elliza' },
         { label: 'Extensão WhatsApp', to: '/extensao', icon: Sparkles, badge: 'NOVO' },
         { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
         { label: 'Relatórios', to: '/relatorios', icon: Layers },
@@ -493,7 +493,7 @@ export default function Layout() {
           ))}
         </div>
 
-        {/* Footer Sidebar Entry: ELLIZA 24/7 highlight */}
+        {/* Footer Sidebar Entry: Elliza 24/7 highlight */}
         <div className="border-t border-[#123B6D]/60 p-3 space-y-2">
           <NavLink
             to="/elliza"
@@ -506,7 +506,7 @@ export default function Layout() {
                 collapsed && 'justify-center p-2',
               )
             }
-            title={collapsed ? 'ELLIZA 24/7' : undefined}
+            title={collapsed ? 'Elliza 24/7' : undefined}
           >
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0FA3A3]/20 text-[#0FA3A3] group-hover:bg-[#0FA3A3]/30">
@@ -514,7 +514,7 @@ export default function Layout() {
               </div>
               {!collapsed && (
                 <div className="flex flex-col text-left">
-                  <span className="font-semibold text-white">ELLIZA</span>
+                  <span className="font-semibold text-white">Elliza</span>
                   <span className="text-[11px] text-[#94A3B8]">Hiperautomação 24/7</span>
                 </div>
               )}
@@ -600,7 +600,7 @@ export default function Layout() {
                 >
                   <div className="flex items-center gap-3">
                     <Bot className="h-5 w-5 text-[#0FA3A3]" />
-                    <span>ELLIZA 24/7</span>
+                    <span>Elliza 24/7</span>
                   </div>
                   <Badge className="bg-[#0FA3A3] text-white text-[10px]">24/7</Badge>
                 </NavLink>

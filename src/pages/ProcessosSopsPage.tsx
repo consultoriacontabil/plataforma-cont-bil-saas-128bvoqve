@@ -126,7 +126,7 @@ export default function ProcessosSopsPage() {
 
       toast({
         title: 'Processo Instanciado com Sucesso!',
-        description: `${res.processo.titulo} enfileirado na Fila da ELISA com ${res.etapas.length} etapas.`,
+        description: `${res.processo.titulo} enfileirado na Fila da Elliza com ${res.etapas.length} etapas.`,
       })
       setModalNovoProcessoAberta(false)
       loadData()
@@ -182,12 +182,12 @@ export default function ProcessosSopsPage() {
               className="h-9 text-xs bg-[#0FA3A3] hover:bg-[#0c8282] text-white gap-1.5 font-semibold"
             >
               <Bot className="h-4 w-4" />
-              <span>Ver Fila da ELISA</span>
+              <span>Ver Fila da Elliza</span>
             </Button>
           </Link>
           <Link to="/pop-treinamento">
             <Button variant="outline" size="sm" className="h-9 text-xs border-slate-300">
-              POPs Oficiais (POP-ELLIZA-2026.3)
+              POPs Oficiais (POP-Elliza-2026.3)
             </Button>
           </Link>
         </div>
@@ -284,7 +284,7 @@ export default function ProcessosSopsPage() {
                   <div className="pt-3 border-t border-slate-100 mt-3 flex items-center justify-between gap-2">
                     <span className="text-[10px] text-slate-400">
                       Agente:{' '}
-                      <strong className="text-slate-700">{sop.agente_nome || 'ELISA'}</strong>
+                      <strong className="text-slate-700">{sop.agente_nome || 'Elliza'}</strong>
                     </span>
 
                     <Button
@@ -440,8 +440,8 @@ export default function ProcessosSopsPage() {
             </div>
 
             <div className="rounded-xl bg-teal-50 border border-teal-200 p-3 text-xs text-teal-900 leading-relaxed">
-              <strong>Automação ELISA:</strong> Ao confirmar, a Rumo criará o processo, gerará as
-              etapas no checklist e colocará o primeiro Job na Fila da ELISA ordenado por
+              <strong>Automação Elliza:</strong> Ao confirmar, a Rumo criará o processo, gerará as
+              etapas no checklist e colocará o primeiro Job na Fila da Elliza ordenado por
               prioridade.
             </div>
           </div>

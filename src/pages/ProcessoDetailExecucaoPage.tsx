@@ -117,12 +117,12 @@ export default function ProcessoDetailExecucaoPage() {
     )
   }, [etapas])
 
-  // EXECUTAR PRÓXIMA AÇÃO DA ELISA
+  // EXECUTAR PRÓXIMA AÇÃO DA ELLIZA
   const handleExecutarProximaAcao = async () => {
     if (!processo || !tenant?.id) return
     setExecutando(true)
     toast({
-      title: '🤖 ELISA Iniciando Execução',
+      title: '🤖 Elliza Iniciando Execução',
       description: `Disparando próxima ação da etapa: "${processo.proxima_acao}"...`,
     })
 
@@ -173,7 +173,7 @@ export default function ProcessoDetailExecucaoPage() {
       })
       toast({
         title: 'Etapa Aprovada!',
-        description: `A etapa "${aprovandoEtapa.titulo}" foi chancelada e a ELISA pode prosseguir com a execução.`,
+        description: `A etapa "${aprovandoEtapa.titulo}" foi chancelada e a Elliza pode prosseguir com a execução.`,
       })
       setModalAprovacaoAberta(false)
       setAprovandoEtapa(null)
@@ -226,7 +226,7 @@ export default function ProcessoDetailExecucaoPage() {
         <div className="flex items-center gap-2">
           <Link to="/elisa-fila">
             <Button variant="outline" size="sm" className="h-8 text-xs border-slate-300">
-              Ver na Fila da ELISA
+              Ver na Fila da Elliza
             </Button>
           </Link>
           <Button
@@ -241,7 +241,7 @@ export default function ProcessoDetailExecucaoPage() {
         </div>
       </div>
 
-      {/* CONTEXTO DA EXECUÇÃO OBRIGATÓRIO (Item 7 da Arquitetura ELISA) */}
+      {/* CONTEXTO DA EXECUÇÃO OBRIGATÓRIO (Item 7 da Arquitetura Elliza) */}
       <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
@@ -321,13 +321,13 @@ export default function ProcessoDetailExecucaoPage() {
             </span>
             <span className="font-bold text-slate-900 flex items-center gap-1">
               <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
-              {processo.agente_responsavel || 'ELISA'}
+              {processo.agente_responsavel || 'Elliza'}
             </span>
           </div>
         </div>
       </Card>
 
-      {/* BLOCO "🤖 AÇÕES DA ELISA" (Item 5 da Arquitetura ELISA) */}
+      {/* BLOCO "🤖 AÇÕES DA ELLIZA" (Item 5 da Arquitetura Elliza) */}
       <Card className="rounded-2xl border-2 border-teal-500/40 bg-gradient-to-br from-teal-50/50 via-white to-cyan-50/30 p-5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-teal-100 pb-4">
           <div className="flex items-start gap-3">
@@ -337,14 +337,14 @@ export default function ProcessoDetailExecucaoPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black text-slate-900">
-                  🤖 Ações da ELISA — Piloto Automático Determinístico
+                  🤖 Ações da Elliza — Piloto Automático Determinístico
                 </h3>
                 <Badge className="bg-teal-100 text-teal-800 text-[10px] font-bold">
                   Status: {processo.status}
                 </Badge>
               </div>
               <p className="text-xs text-slate-600 mt-0.5">
-                O sistema define o processo. A ELISA executa a próxima etapa. O sistema valida os
+                O sistema define o processo. A Elliza executa a próxima etapa. O sistema valida os
                 critérios de sucesso e grava evidência com protocolo.
               </p>
             </div>
@@ -364,7 +364,7 @@ export default function ProcessoDetailExecucaoPage() {
           )}
         </div>
 
-        {/* Grid de Detalhamento da Ação Atual da ELISA */}
+        {/* Grid de Detalhamento da Ação Atual da Elliza */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-4 text-xs">
           <div className="rounded-xl bg-white border border-slate-200 p-3 shadow-2xs">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">
@@ -456,7 +456,7 @@ export default function ProcessoDetailExecucaoPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA 1: CHECKLIST EXECUTÁVEL (Item 3 da Arquitetura ELISA) */}
+        {/* ABA 1: CHECKLIST EXECUTÁVEL (Item 3 da Arquitetura Elliza) */}
         <TabsContent value="checklist" className="space-y-3">
           <div className="space-y-3">
             {etapas.map((et) => {
@@ -505,7 +505,7 @@ export default function ProcessoDetailExecucaoPage() {
                         </Badge>
 
                         <Badge variant="outline" className="text-[10px] text-slate-600 bg-slate-50">
-                          Responsável: {et.responsavel_tipo || 'ELISA'}
+                          Responsável: {et.responsavel_tipo || 'Elliza'}
                         </Badge>
 
                         {et.requer_aprovacao && (
@@ -611,7 +611,7 @@ export default function ProcessoDetailExecucaoPage() {
           </div>
         </TabsContent>
 
-        {/* ABA 2: EVIDÊNCIAS AUDITÁVEIS (Item 11 da Arquitetura ELISA) */}
+        {/* ABA 2: EVIDÊNCIAS AUDITÁVEIS (Item 11 da Arquitetura Elliza) */}
         <TabsContent value="evidencias" className="space-y-3">
           {evidencias.length === 0 ? (
             <Card className="rounded-2xl border border-dashed border-slate-300 p-8 text-center bg-slate-50">
@@ -620,7 +620,7 @@ export default function ProcessoDetailExecucaoPage() {
                 Nenhuma evidência registrada ainda
               </h4>
               <p className="text-xs text-slate-500 mt-1">
-                Conforme a ELISA for executando as etapas do checklist, protocolos e comprovantes
+                Conforme a Elliza for executando as etapas do checklist, protocolos e comprovantes
                 serão gravados aqui.
               </p>
             </Card>
@@ -670,7 +670,7 @@ export default function ProcessoDetailExecucaoPage() {
                 Sem pendências para este processo
               </h4>
               <p className="text-xs text-slate-500 mt-1">
-                A execução pela ELISA segue sem interrupções não previstas.
+                A execução pela Elliza segue sem interrupções não previstas.
               </p>
             </Card>
           ) : (
@@ -718,7 +718,7 @@ export default function ProcessoDetailExecucaoPage() {
 
           <div className="space-y-3 py-2">
             <p className="text-xs text-slate-700 leading-relaxed">
-              Você está aprovando formalmente os cálculos e minutas gerados pela ELISA para a etapa
+              Você está aprovando formalmente os cálculos e minutas gerados pela Elliza para a etapa
               selecionada. Esta ação será auditada com o seu perfil habilitado.
             </p>
 
@@ -747,7 +747,7 @@ export default function ProcessoDetailExecucaoPage() {
               disabled={salvandoAprovacao}
               className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold"
             >
-              {salvandoAprovacao ? 'Chancelando...' : 'Confirmar e Liberar para ELISA'}
+              {salvandoAprovacao ? 'Chancelando...' : 'Confirmar e Liberar para Elliza'}
             </Button>
           </DialogFooter>
         </DialogContent>
