@@ -88,20 +88,42 @@ export function FluxoVinculadoSection({
   const isPropostaEnviada = statusProposta === 'enviado'
 
   // Link público para solicitação de documentos ao cliente
-  const linkPublicoCliente = contrato.expand?.fluxo_abertura_id?.token
-    ? `${window.location.origin}/abertura/${contrato.expand.fluxo_abertura_id.token}`
-    : contrato.pedido_documento_id
-      ? `${window.location.origin}/pedidos-cliente/${contrato.pedido_documento_id}`
-      : `${window.location.origin}/documentos-pedido/${contrato.id}`
+  const tokenAbertura = contrato.expand?.fluxo_abertura_id?.token
+  const tokenPedido = contrato.expand?.pedido_documento_id?.token_publico
 
-  const handleCopiarLink = () => {
-    navigator.clipboard.writeText(linkPublicoCliente)
-    setCopiedLink(true)
-    setTimeout(() => setCopiedLink(false), 2500)
+  const linkPublicoValido =
+    typeof window !== 'undefined'
+      ? tokenAbertura
+        ? `${window.location.origin}/abertura/${tokenAbertura}`
+        : tokenPedido
+          ? `${window.location.origin}/pedidos-documentos/${tokenPedido}`
+          : null
+      : null
+
+  const handleAbrirECopiarLink = async () => {
+    if (!linkPublicoValido) {
+      toast({
+        title: 'Link indisponível',
+        description:
+          'Não há fluxo de abertura nem pedido de documentos com token público vinculado a este contrato.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(linkPublicoValido)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2500)
+    } catch (errClipboard) {
+      console.warn('Não foi possível copiar para a área de transferência:', errClipboard)
+    }
+
+    window.open(linkPublicoValido, '_blank', 'noopener,noreferrer')
     toast({
-      title: 'Link copiado!',
+      title: 'Link aberto e copiado!',
       description:
-        'Link público para envio de documentos pelo cliente copiado para a área de transferência.',
+        'A página de solicitação de documentos foi aberta em nova aba e o link foi copiado para a área de transferência.',
     })
   }
 
@@ -294,19 +316,35 @@ export function FluxoVinculadoSection({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopiarLink}
-              className="h-8 text-xs font-medium rounded-xl border-teal-200 text-teal-800 hover:bg-teal-100/60 gap-1.5"
-            >
-              {copiedLink ? (
-                <Check className="h-3.5 w-3.5 text-teal-600" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-              <span>{copiedLink ? 'Link Copiado!' : 'Link de Documentos p/ Cliente'}</span>
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAbrirECopiarLink}
+                      disabled={!linkPublicoValido}
+                      className="h-8 text-xs font-medium rounded-xl border-teal-200 text-teal-800 hover:bg-teal-100/60 gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {copiedLink ? (
+                        <Check className="h-3.5 w-3.5 text-teal-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {copiedLink ? 'Link Aberto e Copiado!' : 'Link de Documentos p/ Cliente'}
+                      </span>
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {linkPublicoValido
+                    ? 'Abre a página em nova aba e copia o link público para o cliente'
+                    : 'Nenhum fluxo de abertura com token ou pedido de documentos com token público vinculado'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {!contrato.elliza_processo_id ? (
               <Button
@@ -485,15 +523,29 @@ export function FluxoVinculadoSection({
 
             {/* Ações Rápidas da Trilha Documental */}
             <div className="flex items-center gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopiarLink}
-                className="flex-1 h-8 text-xs font-medium rounded-xl border-slate-200 gap-1.5 text-slate-700"
-              >
-                <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
-                <span>Solicitar por Link ao Cliente</span>
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAbrirECopiarLink}
+                        disabled={!linkPublicoValido}
+                        className="w-full h-8 text-xs font-medium rounded-xl border-slate-200 gap-1.5 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Solicitar por Link ao Cliente</span>
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {linkPublicoValido
+                      ? 'Abre a página em nova aba e copia o link público para o cliente'
+                      : 'Nenhum fluxo de abertura com token ou pedido de documentos com token público vinculado'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               <Button
                 variant="outline"
