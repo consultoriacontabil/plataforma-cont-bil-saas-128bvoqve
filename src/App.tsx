@@ -68,6 +68,10 @@ export default function App() {
           <Route path="/verificar-assinatura" element={<VerificarAssinaturaPage />} />
           <Route path="/abertura/:token" element={<AberturaClientePublicoPage />} />
           <Route path="/pedidos-documentos/:token" element={<PedidosClientePublicoPage />} />
+          <Route
+            path="/pedidos-documentos/:token_publico"
+            element={<PedidosClientePublicoPage />}
+          />
           <Route path="/portal-empregado" element={<PortalEmpregadoPage />} />
 
           {/* Protected Application Routes wrapped by Layout */}

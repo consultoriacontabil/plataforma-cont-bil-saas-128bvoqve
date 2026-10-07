@@ -27,7 +27,7 @@ cronAdd('elliza_legislativo_monitor', '0 8 * * *', () => {
     }
 
     // 2. Buscar tenants ativos
-    const tenants = app.findRecordsByFilter('tenants', 'status = "ativo"', 'created', 50)
+    const tenants = app.findRecordsByFilter('tenants', 'ativo = true', 'created', 50)
     console.log(`[ELLIZA-POP09] Tenants encontrados para monitoramento: ${tenants.length}`)
 
     for (let t = 0; t < tenants.length; t++) {

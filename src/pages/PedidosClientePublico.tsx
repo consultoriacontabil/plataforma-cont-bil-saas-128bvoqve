@@ -39,10 +39,10 @@ import { useToast } from '@/hooks/use-toast'
 import { maskCnpj } from '@/lib/formatters'
 
 export default function PedidosClientePublicoPage() {
-  const { token } = useParams<{ token: string }>()
+  const { token, token_publico } = useParams<{ token?: string; token_publico?: string }>()
   const [searchParams] = useSearchParams()
-  const tokenQuery = searchParams.get('token')
-  const tokenFinal = token || tokenQuery || ''
+  const tokenQuery = searchParams.get('token') || searchParams.get('token_publico')
+  const tokenFinal = token || token_publico || tokenQuery || ''
 
   const { toast } = useToast()
 
