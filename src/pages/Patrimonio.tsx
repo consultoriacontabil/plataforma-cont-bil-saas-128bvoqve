@@ -777,9 +777,9 @@ export default function PatrimonioPage() {
       <Card
         id="rpa-grid-patrimonio"
         data-total-rows={ativos.length}
-        data-total-aquisicao={totais.aquisicao.toFixed(2)}
-        data-total-depreciado={totais.depreciado.toFixed(2)}
-        data-total-liquido={totais.liquido.toFixed(2)}
+        data-total-aquisicao={totalizadores.custoTotal.toFixed(2)}
+        data-total-depreciado={totalizadores.depreciacaoAcumulada.toFixed(2)}
+        data-total-liquido={totalizadores.valorLiquido.toFixed(2)}
         className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden"
       >
         <div className="overflow-x-auto">
