@@ -773,8 +773,15 @@ export default function PatrimonioPage() {
         </CardContent>
       </Card>
 
-      {/* Tabela de Bens Patrimoniais */}
-      <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden">
+      {/* Tabela de Bens Patrimoniais com telemetria RPA v1.0 */}
+      <Card
+        id="rpa-grid-patrimonio"
+        data-total-rows={ativos.length}
+        data-total-aquisicao={totais.aquisicao.toFixed(2)}
+        data-total-depreciado={totais.depreciado.toFixed(2)}
+        data-total-liquido={totais.liquido.toFixed(2)}
+        className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden"
+      >
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] uppercase font-bold text-[10px] tracking-wider">

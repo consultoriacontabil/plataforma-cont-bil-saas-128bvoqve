@@ -1054,6 +1054,22 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                     </tr>
 
                     <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">8.1 Grid Patrimônio</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-grid-patrimonio</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-total-aquisicao=&quot;...&quot;
+                        <br />
+                        data-total-liquido=&quot;...&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Tabela de bens patrimoniais imobilizados com totais calculados e telemetria
+                        determinística.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
                       <td className="py-2.5 px-3 font-bold text-slate-900">
                         9. Ficha Cadastral da Empresa
                       </td>
