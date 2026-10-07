@@ -21,6 +21,13 @@ import {
   ChevronRight,
   ShieldAlert,
   Laptop,
+  CheckSquare,
+  Square,
+  Lock,
+  ListFilter,
+  XCircle,
+  Check,
+  X,
 } from 'lucide-react'
 import { PainelAgenteExterno } from '@/components/PainelAgenteExterno'
 import { useAuth } from '@/contexts/AuthContext'
@@ -37,6 +44,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Select,
   SelectContent,
@@ -72,14 +81,36 @@ export default function ElisaFilaPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Filtros
+  // Filtros - Fila Geral
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [filtroArea, setFiltroArea] = useState<string>('todas')
   const [filtroPrioridade, setFiltroPrioridade] = useState<string>('todas')
   const [filtroEmpresaId, setFiltroEmpresaId] = useState<string>('todas')
   const [buscaTexto, setBuscaTexto] = useState<string>('')
 
-  // Modal Modo Humano / Resolução de Pendência
+  // Filtros - Modo Humano (Classificação por Tipo, Parada, Empresa, Urgência)
+  const [filtroHumanoTipoPop, setFiltroHumanoTipoPop] = useState<string>('todos')
+  const [filtroHumanoParada, setFiltroHumanoParada] = useState<string>('todas')
+  const [filtroHumanoEmpresaId, setFiltroHumanoEmpresaId] = useState<string>('todas')
+  const [filtroHumanoUrgencia, setFiltroHumanoUrgencia] = useState<string>('todas')
+  const [filtroHumanoStatus, setFiltroHumanoStatus] = useState<string>('aberta')
+  const [buscaHumanoTexto, setBuscaHumanoTexto] = useState<string>('')
+
+  // Seleção e Aprovação em Lote (Modo Humano)
+  const [itensSelecionadosIds, setItensSelecionadosIds] = useState<string[]>([])
+  const [modalLoteAberta, setModalLoteAberta] = useState(false)
+  const [decisaoLoteTipo, setDecisaoLoteTipo] = useState<'APROVAR' | 'REJEITAR' | 'DEVOLVER_ELISA'>(
+    'APROVAR',
+  )
+  const [justificativaLote, setJustificativaLote] = useState('')
+  const [processandoLote, setProcessandoLote] = useState(false)
+  const [resultadoLote, setResultadoLote] = useState<{
+    total: number
+    sucessos: { id: string; titulo: string }[]
+    falhas: { id: string; titulo: string; erro: string }[]
+  } | null>(null)
+
+  // Modal Modo Humano / Resolução Individual de Pendência
   const [pendenciaSelecionada, setPendenciaSelecionada] = useState<ProcessoPendenciaRecord | null>(
     null,
   )
@@ -130,7 +161,7 @@ export default function ElisaFilaPage() {
   useRealtime('processo_pendencias', () => loadData())
   useRealtime('processos_operacionais', () => loadData())
 
-  // Filtragem de texto no cliente
+  // Filtragem de texto no cliente - Fila Geral
   const jobsFiltrados = useMemo(() => {
     if (!buscaTexto.trim()) return jobs
     const t = buscaTexto.toLowerCase()
@@ -148,6 +179,324 @@ export default function ElisaFilaPage() {
       )
     })
   }, [jobs, buscaTexto])
+
+  // Helper de inferência de Tipo de POP / Processo da pendência
+  const getPendenciaTipoPop = useCallback((p: ProcessoPendenciaRecord): string => {
+    const texto =
+      `${p.titulo} ${p.expand?.processo_id?.titulo || ''} ${p.expand?.processo_id?.codigo_sop || ''} ${p.por_que_parou || ''} ${p.o_que_foi_executado || ''}`.toLowerCase()
+    if (
+      texto.includes('folha') ||
+      texto.includes('esocial') ||
+      texto.includes('pró-labore') ||
+      texto.includes('pro-labore') ||
+      texto.includes('pop-02') ||
+      texto.includes('pop-dp-01') ||
+      texto.includes('societário') ||
+      texto.includes('societario')
+    ) {
+      return 'folha_dp'
+    }
+    if (
+      texto.includes('pagar') ||
+      texto.includes('pop-07') ||
+      texto.includes('contas a pagar') ||
+      texto.includes('boleto')
+    ) {
+      return 'contas_pagar'
+    }
+    if (texto.includes('defis') || texto.includes('pop-11')) {
+      return 'defis'
+    }
+    if (texto.includes('sped') || texto.includes('pop-05') || texto.includes('pop-12')) {
+      return 'sped_fiscal'
+    }
+    if (
+      texto.includes('nfse') ||
+      texto.includes('nfs-e') ||
+      texto.includes('whatsapp') ||
+      texto.includes('pop-03')
+    ) {
+      return 'nfse_whatsapp'
+    }
+    if (
+      texto.includes('nfe.io') ||
+      texto.includes('nfeio') ||
+      texto.includes('pop-10') ||
+      texto.includes('xml')
+    ) {
+      return 'nfe_io'
+    }
+    if (
+      texto.includes('legislativo') ||
+      texto.includes('alíquota') ||
+      texto.includes('aliquota') ||
+      texto.includes('pop-09')
+    ) {
+      return 'legislativo'
+    }
+    if (
+      texto.includes('fechamento contábil') ||
+      texto.includes('balancete') ||
+      texto.includes('fct-04')
+    ) {
+      return 'fechamento_contabil'
+    }
+    if (texto.includes('cartão') || texto.includes('cartao') || texto.includes('pop-06')) {
+      return 'cartoes'
+    }
+    if (texto.includes('receber') || texto.includes('pop-08')) {
+      return 'contas_receber'
+    }
+    return 'outros'
+  }, [])
+
+  // Helper de inferência de Categoria de Parada
+  const getPendenciaTipoParada = useCallback((p: ProcessoPendenciaRecord): string => {
+    const statusProc = p.expand?.processo_id?.status || ''
+    const texto =
+      `${p.titulo} ${p.por_que_parou || ''} ${p.decisao_necessaria || ''} ${statusProc}`.toLowerCase()
+
+    if (
+      statusProc === 'AGUARDANDO_DOCUMENTO' ||
+      statusProc === 'AGUARDANDO_CLIENTE' ||
+      texto.includes('aguardando_cliente') ||
+      texto.includes('aguardando_documento') ||
+      texto.includes('parada honesta') ||
+      texto.includes('jucepar') ||
+      texto.includes('olsen') ||
+      texto.includes('faltam extratos') ||
+      texto.includes('solicitar ao cliente')
+    ) {
+      return 'aguardando_documento'
+    }
+
+    if (
+      statusProc === 'BLOQUEADO' ||
+      statusProc === 'ERRO' ||
+      texto.includes('bloqueado') ||
+      texto.includes('divergência') ||
+      texto.includes('divergencia') ||
+      texto.includes('erro')
+    ) {
+      return 'bloqueado_erro'
+    }
+
+    if (
+      texto.includes('lote') ||
+      texto.includes('pop-07') ||
+      texto.includes('estruturada') ||
+      texto.includes('conciliação') ||
+      texto.includes('conciliacao')
+    ) {
+      return 'pendencia_estruturada'
+    }
+
+    return 'nivel_3_aprovacao'
+  }, [])
+
+  // Helper de inferência de Urgência / Prazo
+  const getPendenciaUrgencia = useCallback((p: ProcessoPendenciaRecord): PrioridadeOperacional => {
+    return p.expand?.processo_id?.prioridade || 'media'
+  }, [])
+
+  // Helper rigoroso de Elegibilidade para Aprovação em Lote:
+  // Regra de Ouro: Itens com pendência documental do cliente/órgão (Olsen/Graciani aguardando JUCEPAR,
+  // AGUARDANDO_CLIENTE, AGUARDANDO_DOCUMENTO ou bloqueados por erro estrutural) NÃO podem ser aprovados em lote.
+  const checarElegibilidadeLote = useCallback(
+    (p: ProcessoPendenciaRecord): { elegivel: boolean; motivo?: string } => {
+      if (p.status !== 'aberta') {
+        return { elegivel: false, motivo: 'Esta pendência já foi resolvida ou finalizada.' }
+      }
+
+      const statusProc = p.expand?.processo_id?.status || ''
+      const texto =
+        `${p.titulo} ${p.por_que_parou || ''} ${p.o_que_falta || ''} ${p.decisao_necessaria || ''}`.toLowerCase()
+
+      // Regra 1: Parada honesta por falta de documento / JUCEPAR / Olsen
+      if (
+        statusProc === 'AGUARDANDO_DOCUMENTO' ||
+        statusProc === 'AGUARDANDO_CLIENTE' ||
+        texto.includes('jucepar') ||
+        texto.includes('olsen') ||
+        texto.includes('parada honesta') ||
+        texto.includes('consolidação contratual') ||
+        texto.includes('aguardando saneamento documental')
+      ) {
+        return {
+          elegivel: false,
+          motivo:
+            'Exige decisão específica do contador (Aguardando consolidação/documento do cliente/JUCEPAR). Não elegível para lote.',
+        }
+      }
+
+      // Regra 2: Processo Bloqueado ou com Erro Grave
+      if (statusProc === 'BLOQUEADO' || statusProc === 'ERRO') {
+        return {
+          elegivel: false,
+          motivo: 'Processo bloqueado ou com erro impeditivo. Requer análise manual individual.',
+        }
+      }
+
+      // Elegível para lote: aprovação Nível 3, chancelas fiscais/contábeis e lotes autorizados
+      return { elegivel: true }
+    },
+    [],
+  )
+
+  // Filtragem e Classificação no Modo Humano
+  const pendenciasFiltradas = useMemo(() => {
+    return pendencias.filter((p) => {
+      // Filtro Status (aberta / resolvida / todas)
+      if (filtroHumanoStatus !== 'todas' && p.status !== filtroHumanoStatus) {
+        return false
+      }
+
+      // Filtro Empresa
+      if (filtroHumanoEmpresaId !== 'todas' && p.empresa_id !== filtroHumanoEmpresaId) {
+        return false
+      }
+
+      // Filtro Tipo / POP
+      if (filtroHumanoTipoPop !== 'todos') {
+        const tipoPop = getPendenciaTipoPop(p)
+        if (tipoPop !== filtroHumanoTipoPop) return false
+      }
+
+      // Filtro Parada
+      if (filtroHumanoParada !== 'todas') {
+        const tipoParada = getPendenciaTipoParada(p)
+        if (tipoParada !== filtroHumanoParada) return false
+      }
+
+      // Filtro Urgência
+      if (filtroHumanoUrgencia !== 'todas') {
+        const urg = getPendenciaUrgencia(p)
+        if (urg !== filtroHumanoUrgencia) return false
+      }
+
+      // Busca textual
+      if (buscaHumanoTexto.trim()) {
+        const t = buscaHumanoTexto.toLowerCase()
+        const empNome =
+          p.expand?.empresa_id?.razao_social || p.expand?.empresa_id?.nome_fantasia || ''
+        const match =
+          p.titulo.toLowerCase().includes(t) ||
+          (p.por_que_parou || '').toLowerCase().includes(t) ||
+          (p.decisao_necessaria || '').toLowerCase().includes(t) ||
+          empNome.toLowerCase().includes(t)
+        if (!match) return false
+      }
+
+      return true
+    })
+  }, [
+    pendencias,
+    filtroHumanoStatus,
+    filtroHumanoEmpresaId,
+    filtroHumanoTipoPop,
+    filtroHumanoParada,
+    filtroHumanoUrgencia,
+    buscaHumanoTexto,
+    getPendenciaTipoPop,
+    getPendenciaTipoParada,
+    getPendenciaUrgencia,
+  ])
+
+  // Pendências visíveis que são elegíveis para lote
+  const pendenciasElegiveisVisiveis = useMemo(() => {
+    return pendenciasFiltradas.filter((p) => checarElegibilidadeLote(p).elegivel)
+  }, [pendenciasFiltradas, checarElegibilidadeLote])
+
+  // Total selecionados
+  const totalSelecionados = itensSelecionadosIds.length
+  const todosElegiveisSelecionados =
+    pendenciasElegiveisVisiveis.length > 0 &&
+    pendenciasElegiveisVisiveis.every((p) => itensSelecionadosIds.includes(p.id))
+
+  const alternarSelecaoTodos = () => {
+    if (todosElegiveisSelecionados) {
+      // Desmarcar todos os visíveis
+      const idsVisiveis = new Set(pendenciasElegiveisVisiveis.map((p) => p.id))
+      setItensSelecionadosIds((prev) => prev.filter((id) => !idsVisiveis.has(id)))
+    } else {
+      // Marcar todos os elegíveis visíveis
+      const novosIds = Array.from(
+        new Set([...itensSelecionadosIds, ...pendenciasElegiveisVisiveis.map((p) => p.id)]),
+      )
+      setItensSelecionadosIds(novosIds)
+    }
+  }
+
+  const alternarSelecaoItem = (id: string) => {
+    setItensSelecionadosIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    )
+  }
+
+  // Itens selecionados completos
+  const pendenciasSelecionadasParaLote = useMemo(() => {
+    return pendencias.filter((p) => itensSelecionadosIds.includes(p.id))
+  }, [pendencias, itensSelecionadosIds])
+
+  // Abrir modal de Lote com ação pré-selecionada
+  const abrirModalLote = (acao: 'APROVAR' | 'REJEITAR' | 'DEVOLVER_ELISA') => {
+    setDecisaoLoteTipo(acao)
+    setJustificativaLote(
+      acao === 'APROVAR'
+        ? 'Aprovação técnica em lote realizada pelo Contador Responsável. Critérios de conformidade e evidências verificados.'
+        : acao === 'DEVOLVER_ELISA'
+          ? 'Devolvido em lote para continuidade do fluxo operacional automatizado pela Elliza.'
+          : 'Rejeitado em lote pelo Contador Responsável após revisão contábil.',
+    )
+    setResultadoLote(null)
+    setModalLoteAberta(true)
+  }
+
+  // Execução do lote
+  const handleExecutarLote = async () => {
+    if (!tenant?.id) return
+    if (!justificativaLote.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Justificativa Obrigatória',
+        description: 'Informe uma justificativa contábil auditável para a operação em lote.',
+      })
+      return
+    }
+
+    setProcessandoLote(true)
+    try {
+      const res = await elisaOpsService.resolverPendenciasEmLote({
+        tenantId: tenant.id,
+        usuarioId: user?.id,
+        decisao: decisaoLoteTipo,
+        justificativa: justificativaLote,
+        pendencias: pendenciasSelecionadasParaLote,
+      })
+
+      setResultadoLote(res)
+      toast({
+        title: `Lote Processado: ${res.sucessos.length} de ${res.total} Concluídos`,
+        description:
+          res.falhas.length === 0
+            ? 'Todos os itens foram processados e auditados com sucesso!'
+            : `Houve ${res.falhas.length} falha(s). Verifique o resumo do lote.`,
+      })
+
+      // Limpar seleção dos que deram certo
+      const idsSucesso = new Set(res.sucessos.map((s) => s.id))
+      setItensSelecionadosIds((prev) => prev.filter((id) => !idsSucesso.has(id)))
+      loadData()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro no processamento em lote',
+        description: String(err),
+      })
+    } finally {
+      setProcessandoLote(false)
+    }
+  }
 
   // Disparo de Execução da Próxima Ação
   const handleExecutarJob = async (job: ElisaJobRecord) => {
@@ -636,109 +985,473 @@ export default function ElisaFilaPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA 2: MODO HUMANO (INTERVENÇÃO DO CONTADOR) */}
+        {/* ABA 2: MODO HUMANO (PAINEL DE SUPERVISÃO E DECISÃO HUMANA) */}
         <TabsContent value="pendencias" className="space-y-4">
           <Card className="rounded-2xl border-amber-200 bg-amber-50/50 p-4 shadow-2xs">
             <div className="flex items-start gap-3">
               <ShieldAlert className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-base font-bold text-amber-950">
-                  Painel de Supervisão e Decisão Humana
-                </h3>
-                <p className="text-xs text-amber-900/80 leading-relaxed mt-0.5">
-                  Toda vez que a Elliza encontra uma inconsistência (ex.: lançamento bancário sem
-                  classificação, divergência de saldo ou etapa que exige aprovação legal de nível
-                  3), a etapa é pausada de forma segura e encaminhada para este painel. A Elliza
-                  nunca toma decisões críticas por adivinhação.
+              <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h3 className="text-base font-bold text-amber-950">
+                    Painel de Supervisão e Decisão Humana
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-amber-600 text-white text-xs font-bold">
+                      {pendencias.filter((p) => p.status === 'aberta').length} Abertas
+                    </Badge>
+                    <Badge variant="outline" className="text-amber-900 border-amber-300 text-xs">
+                      {pendenciasElegiveisVisiveis.length} Elegíveis p/ Lote
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-xs text-amber-900/80 leading-relaxed mt-1">
+                  Toda vez que a Elliza encontra uma inconsistência ou etapa parametrizada com Nível
+                  3 (ex.: Folha, Apuração Fiscal, SPED, DEFIS, NFS-e, Lote de Contas a Pagar), ela
+                  pausa de forma segura e submete para este painel. Selecione itens elegíveis na
+                  fila para aprovação ou despacho em lote com salvaguarda e auditoria CFC por item.
                 </p>
               </div>
             </div>
           </Card>
 
-          {pendencias.length === 0 ? (
+          {/* BARRA DE CLASSIFICAÇÃO POR TIPO, PARADA, EMPRESA E URGÊNCIA */}
+          <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                  <ListFilter className="h-4 w-4 text-[#0FA3A3]" />
+                  <span>Classificação & Filtros da Fila Humana</span>
+                  <span className="text-slate-400 font-normal">
+                    ({pendenciasFiltradas.length} de {pendencias.length} exibidos)
+                  </span>
+                </div>
+                {(filtroHumanoTipoPop !== 'todos' ||
+                  filtroHumanoParada !== 'todas' ||
+                  filtroHumanoEmpresaId !== 'todas' ||
+                  filtroHumanoUrgencia !== 'todas' ||
+                  filtroHumanoStatus !== 'aberta' ||
+                  buscaHumanoTexto) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFiltroHumanoTipoPop('todos')
+                      setFiltroHumanoParada('todas')
+                      setFiltroHumanoEmpresaId('todas')
+                      setFiltroHumanoUrgencia('todas')
+                      setFiltroHumanoStatus('aberta')
+                      setBuscaHumanoTexto('')
+                    }}
+                    className="h-7 text-xs text-slate-500 hover:text-slate-900 px-2"
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    Limpar Filtros
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {/* 1. Busca textual */}
+                <div className="relative lg:col-span-2">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                    placeholder="Buscar pendência, processo, motivo..."
+                    value={buscaHumanoTexto}
+                    onChange={(e) => setBuscaHumanoTexto(e.target.value)}
+                    className="pl-8 h-9 text-xs"
+                  />
+                </div>
+
+                {/* 2. Classificação por Tipo / POP */}
+                <div>
+                  <Select value={filtroHumanoTipoPop} onValueChange={setFiltroHumanoTipoPop}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Tipo de Processo/POP" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os Processos / POPs</SelectItem>
+                      <SelectItem value="folha_dp">Folha / eSocial / Pró-labore</SelectItem>
+                      <SelectItem value="contas_pagar">Contas a Pagar (POP-07)</SelectItem>
+                      <SelectItem value="sped_fiscal">SPED Fiscal / PVA</SelectItem>
+                      <SelectItem value="defis">DEFIS Simples Nacional</SelectItem>
+                      <SelectItem value="nfse_whatsapp">NFS-e & WhatsApp</SelectItem>
+                      <SelectItem value="nfe_io">NFE.io / XMLs Fiscais</SelectItem>
+                      <SelectItem value="legislativo">Monitoramento Legislativo</SelectItem>
+                      <SelectItem value="fechamento_contabil">Fechamento Contábil</SelectItem>
+                      <SelectItem value="cartoes">Cartões e Adquirentes</SelectItem>
+                      <SelectItem value="contas_receber">Contas a Receber</SelectItem>
+                      <SelectItem value="outros">Outros Processos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 3. Classificação por Tipo de Parada */}
+                <div>
+                  <Select value={filtroHumanoParada} onValueChange={setFiltroHumanoParada}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Tipo de Parada" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as Paradas</SelectItem>
+                      <SelectItem value="nivel_3_aprovacao">
+                        Aguardando Aprovação Nível 3
+                      </SelectItem>
+                      <SelectItem value="pendencia_estruturada">
+                        Pendência Estruturada (Lote)
+                      </SelectItem>
+                      <SelectItem value="aguardando_documento">
+                        Aguardando Documento / Cliente
+                      </SelectItem>
+                      <SelectItem value="bloqueado_erro">Bloqueado / Erro de Regra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 4. Classificação por Empresa / Cliente */}
+                <div>
+                  <Select value={filtroHumanoEmpresaId} onValueChange={setFiltroHumanoEmpresaId}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Empresa / Cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as Empresas</SelectItem>
+                      {empresas.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.nome_fantasia || emp.razao_social}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 5. Classificação por Urgência / Prazo */}
+                <div>
+                  <Select value={filtroHumanoUrgencia} onValueChange={setFiltroHumanoUrgencia}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Urgência / Prazo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as Urgências</SelectItem>
+                      <SelectItem value="urgente">Urgente</SelectItem>
+                      <SelectItem value="alta">Alta</SelectItem>
+                      <SelectItem value="media">Média</SelectItem>
+                      <SelectItem value="baixa">Baixa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Status da Pendência (Abertas / Resolvidas / Todas) */}
+              <div className="flex items-center gap-2 pt-1 text-xs">
+                <span className="text-slate-500 font-medium">Situação:</span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={filtroHumanoStatus === 'aberta' ? 'default' : 'outline'}
+                    onClick={() => setFiltroHumanoStatus('aberta')}
+                    className={`h-7 text-xs px-2.5 ${
+                      filtroHumanoStatus === 'aberta'
+                        ? 'bg-amber-600 text-white hover:bg-amber-700'
+                        : ''
+                    }`}
+                  >
+                    Abertas ({pendencias.filter((p) => p.status === 'aberta').length})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={filtroHumanoStatus === 'resolvida' ? 'default' : 'outline'}
+                    onClick={() => setFiltroHumanoStatus('resolvida')}
+                    className="h-7 text-xs px-2.5"
+                  >
+                    Resolvidas ({pendencias.filter((p) => p.status === 'resolvida').length})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={filtroHumanoStatus === 'todas' ? 'default' : 'outline'}
+                    onClick={() => setFiltroHumanoStatus('todas')}
+                    className="h-7 text-xs px-2.5"
+                  >
+                    Histórico Completo ({pendencias.length})
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* BARRA DE AÇÃO EM LOTE COM SELEÇÃO MULTIPLA E SALVAGUARDAS */}
+          <Card className="rounded-2xl border-slate-200 bg-slate-50/90 p-3.5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="select-all-human"
+                    checked={pendenciasElegiveisVisiveis.length > 0 && todosElegiveisSelecionados}
+                    disabled={pendenciasElegiveisVisiveis.length === 0}
+                    onCheckedChange={alternarSelecaoTodos}
+                  />
+                  <label
+                    htmlFor="select-all-human"
+                    className="text-xs font-bold text-slate-800 cursor-pointer select-none"
+                  >
+                    Selecionar todos os elegíveis visíveis
+                  </label>
+                </div>
+
+                <Badge
+                  variant="outline"
+                  className={`text-xs font-semibold ${
+                    totalSelecionados > 0
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-white text-slate-600 border-slate-300'
+                  }`}
+                >
+                  {totalSelecionados} selecionado{totalSelecionados === 1 ? '' : 's'}
+                </Badge>
+
+                {totalSelecionados > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setItensSelecionadosIds([])}
+                    className="h-7 text-xs text-slate-500 hover:text-slate-800 px-2"
+                  >
+                    Desmarcar todos
+                  </Button>
+                )}
+              </div>
+
+              {/* Botões de Ação em Lote */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  disabled={totalSelecionados === 0}
+                  onClick={() => abrirModalLote('APROVAR')}
+                  className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-xs"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Aprovar em Lote ({totalSelecionados})</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={totalSelecionados === 0}
+                  onClick={() => abrirModalLote('DEVOLVER_ELISA')}
+                  className="h-8 text-xs text-[#0FA3A3] border-teal-300 hover:bg-teal-50 gap-1.5"
+                >
+                  <Bot className="h-4 w-4" />
+                  <span>Devolver p/ Elliza ({totalSelecionados})</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={totalSelecionados === 0}
+                  onClick={() => abrirModalLote('REJEITAR')}
+                  className="h-8 text-xs text-red-600 border-red-300 hover:bg-red-50 gap-1.5"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Rejeitar em Lote ({totalSelecionados})</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Aviso da Regra de Ouro da Plataforma Rumo */}
+            <div className="mt-2.5 pt-2 border-t border-slate-200/70 flex items-center gap-2 text-[11px] text-slate-600">
+              <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>
+                <strong>Regra de Ouro:</strong> Itens com pendência documental do cliente (ex.:
+                Olsen/Graciani aguardando JUCEPAR ou status AGUARDANDO_CLIENTE) ou processos
+                bloqueados por erro ficam <em>desabilitados para lote</em> com tooltip explicativo,
+                exigindo análise individual do Contador CRC.
+              </span>
+            </div>
+          </Card>
+
+          {/* LISTA / CARDS DAS PENDÊNCIAS COM CHECKBOXES E SALVAGUARDAS */}
+          {pendenciasFiltradas.length === 0 ? (
             <Card className="rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-slate-50">
               <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
               <h4 className="font-bold text-slate-800 text-sm">
-                Nenhuma pendência retida no Modo Humano
+                Nenhuma pendência encontrada com os filtros aplicados
               </h4>
               <p className="text-xs text-slate-500 mt-1">
-                Todas as operações da Elliza estão fluindo normalmente sem retenções críticas.
+                Ajuste os filtros de tipo de processo, empresa ou urgência para visualizar outras
+                tarefas.
               </p>
             </Card>
           ) : (
             <div className="space-y-3">
-              {pendencias.map((pend) => {
+              {pendenciasFiltradas.map((pend) => {
                 const empNome =
                   pend.expand?.empresa_id?.nome_fantasia ||
                   pend.expand?.empresa_id?.razao_social ||
                   'Empresa'
+                const empCnpj = pend.expand?.empresa_id?.cnpj
+                  ? maskCnpj(pend.expand.empresa_id.cnpj)
+                  : ''
                 const isAberta = pend.status === 'aberta'
+                const elegibilidade = checarElegibilidadeLote(pend)
+                const isSelecionado = itensSelecionadosIds.includes(pend.id)
+                const tipoPop = getPendenciaTipoPop(pend)
+                const tipoParada = getPendenciaTipoParada(pend)
+                const urgencia = getPendenciaUrgencia(pend)
 
                 return (
                   <Card
                     key={pend.id}
                     className={`rounded-2xl border p-4 transition-all shadow-2xs ${
-                      isAberta
-                        ? 'border-amber-300 bg-white hover:border-amber-400'
-                        : 'border-slate-200 bg-slate-50'
+                      isSelecionado
+                        ? 'border-[#0FA3A3] ring-1 ring-[#0FA3A3] bg-teal-50/20'
+                        : isAberta
+                          ? 'border-amber-300 bg-white hover:border-amber-400'
+                          : 'border-slate-200 bg-slate-50/80'
                     }`}
                   >
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                      <div className="space-y-2 max-w-3xl">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            className={
-                              isAberta
-                                ? 'bg-amber-600 text-white text-xs'
-                                : 'bg-slate-600 text-white text-xs'
-                            }
-                          >
-                            {pend.status.toUpperCase()}
-                          </Badge>
-                          <span className="font-bold text-slate-900 text-sm">{pend.titulo}</span>
-                          <span className="text-xs text-slate-500">•</span>
-                          <span className="text-xs font-semibold text-slate-700">{empNome}</span>
+                      {/* Checkbox e Conteúdo Principal */}
+                      <div className="flex items-start gap-3 max-w-4xl flex-1">
+                        {/* Checkbox com Salvaguarda / Tooltip */}
+                        <div className="pt-0.5 shrink-0">
+                          {elegibilidade.elegivel ? (
+                            <Checkbox
+                              checked={isSelecionado}
+                              onCheckedChange={() => alternarSelecaoItem(pend.id)}
+                              aria-label={`Selecionar ${pend.titulo}`}
+                            />
+                          ) : (
+                            <TooltipProvider delayDuration={150}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="cursor-not-allowed">
+                                    <Checkbox
+                                      disabled
+                                      checked={false}
+                                      className="opacity-40 cursor-not-allowed border-dashed"
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs bg-slate-900 text-white p-2">
+                                  <div className="font-bold text-amber-300 mb-0.5 flex items-center gap-1">
+                                    <Lock className="h-3 w-3" />
+                                    <span>Ineligível para Lote</span>
+                                  </div>
+                                  <p>{elegibilidade.motivo}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </div>
 
-                        {/* 4 Perguntas Fundamentais do Modo Humano */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
-                            <span className="font-bold text-red-900 block">
-                              1. Por que a Elliza parou?
+                        <div className="space-y-2 flex-1">
+                          {/* Badges de Classificação */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge
+                              className={
+                                isAberta
+                                  ? 'bg-amber-600 text-white text-xs'
+                                  : 'bg-slate-600 text-white text-xs'
+                              }
+                            >
+                              {pend.status.toUpperCase()}
+                            </Badge>
+
+                            {/* Badge do Tipo / POP */}
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-slate-50 text-slate-700 border-slate-300 font-semibold"
+                            >
+                              {tipoPop === 'folha_dp' && 'Folha / eSocial (POP-02 / POP-DP-01)'}
+                              {tipoPop === 'contas_pagar' && 'Contas a Pagar (POP-07)'}
+                              {tipoPop === 'sped_fiscal' && 'SPED Fiscal (POP-05)'}
+                              {tipoPop === 'defis' && 'DEFIS Anual (POP-11)'}
+                              {tipoPop === 'nfse_whatsapp' && 'NFS-e WhatsApp (POP-03)'}
+                              {tipoPop === 'nfe_io' && 'NFE.io / XMLs (POP-10)'}
+                              {tipoPop === 'legislativo' && 'Monitoramento Legislativo (POP-09)'}
+                              {tipoPop === 'fechamento_contabil' && 'Fechamento Contábil (FCT-04)'}
+                              {tipoPop === 'cartoes' && 'Cartões / Adquirentes (POP-06)'}
+                              {tipoPop === 'contas_receber' && 'Contas a Receber (POP-08)'}
+                              {tipoPop === 'outros' && 'Processo Operacional'}
+                            </Badge>
+
+                            {/* Badge de Elegibilidade */}
+                            {elegibilidade.elegivel ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-bold">
+                                Elegível p/ Lote
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold flex items-center gap-1"
+                              >
+                                <Lock className="h-2.5 w-2.5" />
+                                <span>Decisão Individual</span>
+                              </Badge>
+                            )}
+
+                            {/* Urgência */}
+                            {renderBadgePrioridade(urgencia)}
+
+                            <span className="text-xs text-slate-400">•</span>
+                            <span className="text-xs font-semibold text-slate-700">
+                              {empNome}{' '}
+                              {empCnpj && (
+                                <span className="font-mono text-slate-400">({empCnpj})</span>
+                              )}
                             </span>
-                            <span className="text-red-800">{pend.por_que_parou}</span>
                           </div>
 
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
-                            <span className="font-bold text-blue-900 block">
-                              2. O que foi executado?
-                            </span>
-                            <span className="text-blue-800">{pend.o_que_foi_executado}</span>
+                          {/* Título */}
+                          <h4 className="font-bold text-slate-900 text-sm leading-snug">
+                            {pend.titulo}
+                          </h4>
+
+                          {/* 4 Perguntas Fundamentais do Modo Humano */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
+                              <span className="font-bold text-red-900 block">
+                                1. Por que a Elliza parou?
+                              </span>
+                              <span className="text-red-800">{pend.por_que_parou}</span>
+                            </div>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                              <span className="font-bold text-blue-900 block">
+                                2. O que foi executado?
+                              </span>
+                              <span className="text-blue-800">{pend.o_que_foi_executado}</span>
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                              <span className="font-bold text-amber-900 block">
+                                3. O que falta?
+                              </span>
+                              <span className="text-amber-800">{pend.o_que_falta}</span>
+                            </div>
+
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
+                              <span className="font-bold text-purple-900 block">
+                                4. Decisão necessária:
+                              </span>
+                              <span className="text-purple-800 font-semibold">
+                                {pend.decisao_necessaria}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                            <span className="font-bold text-amber-900 block">3. O que falta?</span>
-                            <span className="text-amber-800">{pend.o_que_falta}</span>
-                          </div>
-
-                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
-                            <span className="font-bold text-purple-900 block">
-                              4. Decisão necessária:
-                            </span>
-                            <span className="text-purple-800 font-semibold">
-                              {pend.decisao_necessaria}
-                            </span>
-                          </div>
+                          {pend.resolucao_descricao && (
+                            <div className="mt-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
+                              <strong>Resolução Registrada:</strong> {pend.resolucao_descricao}
+                            </div>
+                          )}
                         </div>
-
-                        {pend.resolucao_descricao && (
-                          <div className="mt-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
-                            <strong>Resolução Registrada:</strong> {pend.resolucao_descricao}
-                          </div>
-                        )}
                       </div>
 
-                      <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0">
+                      {/* Botões de Ação Individual */}
+                      <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0 md:min-w-[130px]">
                         {isAberta && (
                           <Button
                             size="sm"
@@ -889,6 +1602,200 @@ export default function ElisaFilaPage() {
             >
               {salvandoDecisao ? 'Gravando Decisão...' : 'Confirmar Decisão Técnica'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE PROCESSAMENTO / APROVAÇÃO EM LOTE */}
+      <Dialog
+        open={modalLoteAberta}
+        onOpenChange={(open) => !processandoLote && setModalLoteAberta(open)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+              {decisaoLoteTipo === 'APROVAR' && (
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              )}
+              {decisaoLoteTipo === 'DEVOLVER_ELISA' && <Bot className="h-5 w-5 text-[#0FA3A3]" />}
+              {decisaoLoteTipo === 'REJEITAR' && <AlertTriangle className="h-5 w-5 text-red-600" />}
+              <span>
+                {decisaoLoteTipo === 'APROVAR' && 'Aprovação em Lote — Modo Humano'}
+                {decisaoLoteTipo === 'DEVOLVER_ELISA' && 'Devolução em Lote para a Elliza'}
+                {decisaoLoteTipo === 'REJEITAR' && 'Rejeição em Lote — Modo Humano'}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Execução em lote de {pendenciasSelecionadasParaLote.length} processo(s) selecionado(s)
+              com salvaguarda de auditoria contábil.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!resultadoLote ? (
+            <div className="space-y-4 py-2">
+              {/* Resumo dos itens que serão afetados */}
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    Processos Selecionados ({pendenciasSelecionadasParaLote.length}):
+                  </span>
+                  <Badge variant="outline" className="text-[11px] bg-white">
+                    Todos com Critérios Validados
+                  </Badge>
+                </div>
+
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100">
+                  {pendenciasSelecionadasParaLote.map((item, idx) => {
+                    const emp =
+                      item.expand?.empresa_id?.nome_fantasia ||
+                      item.expand?.empresa_id?.razao_social ||
+                      'Empresa'
+                    return (
+                      <div
+                        key={item.id}
+                        className="pt-1.5 first:pt-0 flex items-center justify-between text-xs text-slate-700"
+                      >
+                        <div className="truncate max-w-[380px]">
+                          <span className="font-semibold text-slate-900">
+                            {idx + 1}. {item.titulo}
+                          </span>
+                          <span className="text-[11px] text-slate-500 block truncate">
+                            {emp} • {item.decisao_necessaria}
+                          </span>
+                        </div>
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] shrink-0 font-mono">
+                          Nível 3 Aprovável
+                        </Badge>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Justificativa técnica obrigatória */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-800">
+                  Despacho Técnico / Justificativa do Lote (Auditável pelo CFC):
+                </label>
+                <Textarea
+                  placeholder="Informe a fundamentação contábil para o despacho em lote..."
+                  value={justificativaLote}
+                  onChange={(e) => setJustificativaLote(e.target.value)}
+                  className="text-xs min-h-[90px]"
+                />
+                <span className="text-[10px] text-slate-500 block">
+                  A justificativa será gravada individualmente em cada pendência e consolidada no
+                  log de auditoria do sistema.
+                </span>
+              </div>
+            </div>
+          ) : (
+            /* RESUMO DO PROCESSAMENTO DO LOTE */
+            <div className="space-y-4 py-2">
+              <div
+                className={`rounded-xl border p-4 ${
+                  resultadoLote.falhas.length === 0
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                    : 'bg-amber-50 border-amber-200 text-amber-950'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {resultadoLote.falhas.length === 0 ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  )}
+                  <h4 className="font-bold text-sm">Resumo da Execução do Lote</h4>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-white/80 rounded-lg p-2 border border-slate-200/60">
+                    <span className="text-slate-500 block">Total</span>
+                    <strong className="text-slate-900 text-base">{resultadoLote.total}</strong>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-2 border border-emerald-200/60">
+                    <span className="text-emerald-700 block">Sucesso</span>
+                    <strong className="text-emerald-700 text-base">
+                      {resultadoLote.sucessos.length}
+                    </strong>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-2 border border-red-200/60">
+                    <span className="text-red-700 block">Falhas</span>
+                    <strong className="text-red-700 text-base">
+                      {resultadoLote.falhas.length}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de Falhas (se houver) */}
+              {resultadoLote.falhas.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-xs font-bold text-red-900">
+                    Itens que não puderam ser processados:
+                  </h5>
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 text-xs">
+                    {resultadoLote.falhas.map((f) => (
+                      <div
+                        key={f.id}
+                        className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800"
+                      >
+                        <span className="font-bold block">{f.titulo}</span>
+                        <span className="text-[11px] text-red-600">{f.erro}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            {!resultadoLote ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={processandoLote}
+                  onClick={() => setModalLoteAberta(false)}
+                  className="text-xs"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={processandoLote}
+                  onClick={handleExecutarLote}
+                  className={`text-xs font-bold text-white ${
+                    decisaoLoteTipo === 'APROVAR'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : decisaoLoteTipo === 'DEVOLVER_ELISA'
+                        ? 'bg-[#0FA3A3] hover:bg-[#0c8282]'
+                        : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {processandoLote
+                    ? 'Processando em Lote...'
+                    : `Confirmar ${
+                        decisaoLoteTipo === 'APROVAR'
+                          ? 'Aprovação'
+                          : decisaoLoteTipo === 'DEVOLVER_ELISA'
+                            ? 'Devolução'
+                            : 'Rejeição'
+                      } de ${pendenciasSelecionadasParaLote.length} Item(ns)`}
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setModalLoteAberta(false)
+                  setResultadoLote(null)
+                }}
+                className="text-xs bg-slate-900 text-white"
+              >
+                Concluir e Fechar Resumo
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -998,7 +998,7 @@ export default function Layout() {
             <p>© 2025 Rumo Consultoria Contábil. Todos os direitos reservados.</p>
             <div className="flex items-center gap-3">
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-[#1A2333]">
-                v0.0.97
+                v0.0.129
               </span>
               <span className="text-[11px] text-[#94A3B8]">Plataforma Segura SSL</span>
             </div>

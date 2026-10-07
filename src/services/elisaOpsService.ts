@@ -676,6 +676,7 @@ export const elisaOpsService = {
     decisao: 'APROVAR' | 'REJEITAR' | 'CORRIGIR' | 'DEVOLVER_ELISA',
     resolucao: string,
     usuarioId?: string,
+    tenantId?: string,
   ): Promise<ProcessoPendenciaRecord> {
     const pend = await pb.collection('processo_pendencias').getOne<ProcessoPendenciaRecord>(id)
     const novoStatus =
@@ -716,7 +717,91 @@ export const elisaOpsService = {
       }
     }
 
+    // Registrar no audit_log para rastreabilidade CFC
+    const tid = tenantId || pend.tenant_id
+    if (tid) {
+      try {
+        await pb.collection('audit_log').create({
+          tenant_id: tid,
+          acao: `PENDENCIA_${decisao}`,
+          entidade_tipo: 'processo_pendencias',
+          entidade_id: pend.id,
+          usuario_id: usuarioId,
+          detalhes: JSON.stringify({
+            titulo: pend.titulo,
+            processo_id: pend.processo_id,
+            empresa_id: pend.empresa_id,
+            decisao,
+            justificativa: resolucao,
+            resolvido_em: new Date().toISOString(),
+          }),
+        })
+      } catch (err) {
+        console.warn('[elisaOpsService.resolverPendencia] Falha ao registrar audit_log:', err)
+      }
+    }
+
     return updated
+  },
+
+  // === RESOLUÇÃO EM LOTE DO MODO HUMANO ===
+  async resolverPendenciasEmLote(params: {
+    tenantId: string
+    usuarioId?: string
+    decisao: 'APROVAR' | 'REJEITAR' | 'DEVOLVER_ELISA'
+    justificativa: string
+    pendencias: ProcessoPendenciaRecord[]
+  }): Promise<{
+    total: number
+    sucessos: { id: string; titulo: string }[]
+    falhas: { id: string; titulo: string; erro: string }[]
+  }> {
+    const { tenantId, usuarioId, decisao, justificativa, pendencias } = params
+    const sucessos: { id: string; titulo: string }[] = []
+    const falhas: { id: string; titulo: string; erro: string }[] = []
+
+    for (const p of pendencias) {
+      try {
+        await elisaOpsService.resolverPendencia(p.id, decisao, justificativa, usuarioId, tenantId)
+        sucessos.push({ id: p.id, titulo: p.titulo })
+      } catch (err: any) {
+        console.error(`[resolverPendenciasEmLote] Falha na pendência ${p.id}:`, err)
+        falhas.push({
+          id: p.id,
+          titulo: p.titulo,
+          erro: err?.message || String(err),
+        })
+      }
+    }
+
+    // Registrar resumo do lote no audit_log
+    try {
+      await pb.collection('audit_log').create({
+        tenant_id: tenantId,
+        acao: `LOTE_PENDENCIAS_${decisao}`,
+        entidade_tipo: 'processo_pendencias',
+        entidade_id: tenantId,
+        usuario_id: usuarioId,
+        detalhes: JSON.stringify({
+          decisao,
+          total_processado: pendencias.length,
+          total_sucessos: sucessos.length,
+          total_falhas: falhas.length,
+          itens_sucesso: sucessos.map((s) => s.id),
+          itens_falha: falhas,
+          justificativa,
+          data_execucao: new Date().toISOString(),
+        }),
+      })
+    } catch {
+      /* audit log fail-safe */
+    }
+
+    return {
+      total: pendencias.length,
+      sucessos,
+      falhas,
+    }
   },
 
   // === EXECUÇÃO DETERMINÍSTICA: EXECUTAR PRÓXIMA AÇÃO DA ELLIZA ===
