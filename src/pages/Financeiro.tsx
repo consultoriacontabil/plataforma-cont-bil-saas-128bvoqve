@@ -1116,7 +1116,12 @@ export default function FinanceiroPage() {
 
           <div className="rounded-3xl border border-[#E2E8F0] bg-white shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table
+                id="rpa-grid-conciliacao"
+                data-total-rows={extratos.length}
+                data-pendencias-count={extratos.filter((e) => e.status !== 'conciliado').length}
+                className="w-full text-left text-xs"
+              >
                 <thead className="bg-[#F8FAFC] text-[#64748B] font-semibold border-b border-[#E2E8F0]">
                   <tr>
                     <th className="py-3.5 px-4">Data Extrato</th>

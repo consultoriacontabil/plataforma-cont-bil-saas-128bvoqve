@@ -871,56 +871,294 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
               </div>
             </div>
 
-            {/* Código Python de Exemplo */}
-            <div className="space-y-1.5">
+            {/* SEÇÃO: CONTRATO DE TELEMETRIA VISUAL (TRILHA RPA v1.0) */}
+            <div className="space-y-3 pt-2 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm text-slate-900">
+                      Contrato de Telemetria Visual (Trilha RPA v1.0)
+                    </span>
+                    <Badge className="bg-[#0FA3A3] text-white text-[10px] font-bold">
+                      Versão 1.0 (Congelada)
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Contrato determinístico de seletores, data-attributes e comportamentos esperados
+                    pelo robô (Playwright / Computer Use).
+                  </p>
+                </div>
+              </div>
+
+              {/* Nota de Governança de Contrato */}
+              <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3 text-xs text-teal-950">
+                <strong>Nota de Governança:</strong> Estes atributos e IDs são um{' '}
+                <span className="underline font-semibold">contrato versionado</span>. Mudanças
+                futuras nos seletores exigem atualização prévia nesta aba e versionamento semântico
+                (v1.1 / v2.0) para não quebrar robôs em produção em VMs externas.
+              </div>
+
+              {/* Tabela do Contrato: 8 Linhas */}
+              <div className="rounded-xl border border-slate-200 overflow-x-auto bg-white shadow-2xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Elemento</th>
+                      <th className="py-2.5 px-3">ID / Seletor</th>
+                      <th className="py-2.5 px-3">Atributos Contratados</th>
+                      <th className="py-2.5 px-3">Comportamento Esperado pelo Robô</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px]">
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        1. Etapas do Processo
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-step-{'{ordem}'}</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-step-code=&quot;FCT-04-E03&quot;
+                        <br />
+                        data-step-status=&quot;pending|running|done|error&quot;
+                        <br />
+                        data-job-id=&quot;...&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Identifica o card da etapa atual. Status mapeado:
+                        ENFILEIRADO/AGUARDANDO→pending, EM_EXECUCAO→running, CONCLUIDO→done,
+                        AGUARDANDO_APROVACAO/BLOQUEADO→error.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">2. Botão de Execução</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-btn-executar</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-action-code=&quot;...&quot;
+                        <br />
+                        data-rpa-action=&quot;executar-proxima-etapa&quot;
+                        <br />
+                        data-enabled-reason=&quot;...&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Gatilho da esteira. Se desabilitado, inspeciona{' '}
+                        <code>data-enabled-reason</code> para saber motivo (ex.: Aprovação CRC,
+                        Execução em andamento).
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">3. Grid Balancete</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-grid-balancete</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-total-debito=&quot;0.00&quot;
+                        <br />
+                        data-total-credito=&quot;0.00&quot;
+                        <br />
+                        data-diferenca=&quot;0.00&quot;
+                        <br />
+                        data-rpa-equilibrado=&quot;true|false&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Leitura determinística dos saldos do balancete sem scraping de texto. Robô
+                        checa <code>data-rpa-equilibrado=&quot;true&quot;</code> antes de emitir
+                        encerramento.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">4. Grid Lançamentos</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-grid-lancamentos</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-total-debito=&quot;0.00&quot;
+                        <br />
+                        data-total-credito=&quot;0.00&quot;
+                        <br />
+                        data-diferenca=&quot;0.00&quot;
+                        <br />
+                        data-rpa-equilibrado=&quot;true|false&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Totais oficiais dos lançamentos contábeis. Partida dobrada validada quando{' '}
+                        <code>data-diferenca=&quot;0.00&quot;</code>.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">5. Grid Conciliação</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-grid-conciliacao</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-pendencias-count=&quot;N&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Batimento de extrato bancário. Conciliação plena confirmada quando{' '}
+                        <code>data-pendencias-count=&quot;0&quot;</code>.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">6. Log Operacional</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-log-container</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-log-visibility=&quot;visible|hidden&quot;
+                        <br />
+                        data-log-count=&quot;N&quot;
+                        <br />
+                        Filhos: data-log-level=&quot;info|warn|error&quot;
+                        <br />
+                        data-log-timestamp=&quot;...&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Container sempre presente no DOM. Robô usa <code>
+                          wait_for_selector
+                        </code>{' '}
+                        para rastrear evidências e erros registrados na esteira.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        7. Indicador de Conclusão
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-status-conclusao</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-rpa-state=&quot;success|error|open&quot;
+                        <br />
+                        data-rpa-resultado=&quot;...&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Sinalizador inequívoco. Concluído→success, Aguardando
+                        aprovação/bloqueado→error, senão→open. Resume o resultado da última ação.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">8. Botão Depreciação</td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">
+                        #rpa-btn-rodar-depreciacao
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-rpa-action=&quot;processar-depreciacao&quot;
+                        <br />
+                        data-competencia=&quot;MM/AAAA&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Dispara o cálculo automático de depreciação linear contábil da competência
+                        selecionada no Patrimônio.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Código Python de Exemplo (Playwright + Telemetria Trilha RPA v1.0) */}
+            <div className="space-y-1.5 pt-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-xs text-slate-800">
-                  Script Python de Demonstração (Playwright + Computer Use):
+                  Script Python de Demonstração (Playwright + Telemetria Trilha RPA v1.0):
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    copiarTexto(`# Script de integração com a Fila da Elliza (Python + Playwright)
+                    copiarTexto(`# ==============================================================================
+# Script de Automação Playwright com Telemetria Trilha RPA v1.0
+# Integração: Fila da Elliza + Leitura Determinística da Plataforma Contábil
+# ==============================================================================
+
+import asyncio
+from playwright.async_api import async_playwright
 import requests
 import hashlib
-import time
 
-BASE_URL = "https://SEU_DOMINIO/backend/v1/elliza-agente"
+BASE_URL = "https://SEU_DOMINIO"
+API_BASE = f"{BASE_URL}/backend/v1/elliza-agente"
 API_KEY = "elliza_agt_live_99482fbc71a340e58832a884ef"
 HEADERS = {"X-Elliza-Api-Key": API_KEY, "Content-Type": "application/json"}
 
-# 1. Buscar Tarefas Aprovadas no Modo Humano
-res = requests.get(f"{BASE_URL}/tarefas-aprovadas", headers=HEADERS)
-tarefas = res.json().get("tarefas", [])
+async def executar_fechamento_rpa():
+    # 1. Buscar Tarefas Aprovadas na Fila da Elliza
+    res = requests.get(f"{API_BASE}/tarefas-aprovadas", headers=HEADERS)
+    tarefas = res.json().get("tarefas", [])
+    if not tarefas:
+        print("Nenhuma tarefa aprovada pendente de execução.")
+        return
 
-for job in tarefas:
+    job = tarefas[0]
     job_id = job["job_id"]
-    print(f"Executando Job: {job['job_codigo']} - {job['processo']['titulo']}")
+    processo_id = job.get("processo_id") or job["processo"]["id"]
+    print(f"Iniciando Job {job['job_codigo']} do Processo {processo_id}...")
 
-    # 2. Registrar início da execução
-    requests.post(f"{BASE_URL}/tarefas/{job_id}/iniciar", headers=HEADERS)
+    # Registrar início da execução na API
+    requests.post(f"{API_BASE}/tarefas/{job_id}/iniciar", headers=HEADERS)
 
-    # 3. Execução Playwright de tela (exemplo no portal e-CAC / PGDAS-D)
-    # ... código do Playwright ...
-    protocolo_gerado = "PROT-PGDASD-2026-994812"
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
 
-    # 4. Enviar Evidência com Hash SHA-256
-    hash_sha256 = hashlib.sha256(b"screenshot_bytes").hexdigest()
-    requests.post(f"{BASE_URL}/tarefas/{job_id}/evidencias", headers=HEADERS, json={
-        "titulo": f"Comprovante DAS {job['competencia']}",
-        "tipo": "screenshot",
-        "protocolo_numero": protocolo_gerado,
-        "hash_sha256": hash_sha256,
-        "salvar_no_ged": True
-    })
+        # 2. Navegar para a página de execução do processo
+        await page.goto(f"{BASE_URL}/processos/{processo_id}")
+        await page.wait_for_selector("#rpa-status-conclusao")
 
-    # 5. Concluir com validação de critério de sucesso
-    requests.post(f"{BASE_URL}/tarefas/{job_id}/concluir", headers=HEADERS, json={
-        "resultado": f"DAS emitido com êxito. Protocolo: {protocolo_gerado}",
-        "criterio_sucesso_validado": True,
-        "tempo_execucao_segundos": 24
-    })
+        # 3. Leitura da Telemetria das Etapas (data-step-status)
+        etapa_1 = await page.wait_for_selector("#rpa-step-1")
+        status_e1 = await etapa_1.get_attribute("data-step-status")
+        code_e1 = await etapa_1.get_attribute("data-step-code")
+        print(f"Etapa 1 ({code_e1}) status atual: {status_e1}")
+
+        # 4. Executar próxima etapa caso habilitada
+        btn_exec = await page.wait_for_selector("#rpa-btn-executar")
+        is_disabled = await btn_exec.is_disabled()
+        if not is_disabled:
+            action_code = await btn_exec.get_attribute("data-action-code")
+            print(f"Disparando ação: {action_code}")
+            await btn_exec.click()
+            await page.wait_for_timeout(3000)
+        else:
+            motivo = await btn_exec.get_attribute("data-enabled-reason")
+            print(f"Botão de execução retido. Motivo: {motivo}")
+
+        # 5. Validação da Telemetria do Balancete (data-diferenca e data-rpa-equilibrado)
+        await page.goto(f"{BASE_URL}/balancete")
+        grid_balancete = await page.wait_for_selector("#rpa-grid-balancete")
+        dif = await grid_balancete.get_attribute("data-diferenca")
+        equilibrado = await grid_balancete.get_attribute("data-rpa-equilibrado")
+        total_rows = await grid_balancete.get_attribute("data-total-rows")
+        print(f"Balancete: {total_rows} linhas, Diferença: R$ {dif}, Equilibrado: {equilibrado}")
+
+        if equilibrado != "true":
+            raise ValueError(f"Balancete divergente! Diferença detectada: R$ {dif}")
+
+        # 6. Gravar Screenshot Auditável e Hash SHA-256
+        screenshot_bytes = await page.screenshot()
+        hash_sha256 = hashlib.sha256(screenshot_bytes).hexdigest()
+
+        requests.post(f"{API_BASE}/tarefas/{job_id}/evidencias", headers=HEADERS, json={
+            "titulo": f"Balancete Equilibrado ({dif})",
+            "tipo": "screenshot",
+            "protocolo_numero": f"BAL-{processo_id[:8]}",
+            "hash_sha256": hash_sha256,
+            "salvar_no_ged": True
+        })
+
+        # 7. Concluir Tarefa na Fila da Elliza
+        requests.post(f"{API_BASE}/tarefas/{job_id}/concluir", headers=HEADERS, json={
+            "resultado": f"Validação concluída com sucesso. Balancete fechado com diferença R$ {dif}.",
+            "criterio_sucesso_validado": True,
+            "tempo_execucao_segundos": 18
+        })
+
+        await browser.close()
+        print("Execução finalizada com êxito.")
+
+if __name__ == "__main__":
+    asyncio.run(executar_fechamento_rpa())
 `)
                   }
                   className="h-7 text-xs gap-1.5"
@@ -935,27 +1173,19 @@ for job in tarefas:
               </div>
 
               <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto leading-relaxed">
-                <pre>{`# 1. Buscar tarefas aprovadas
-res = requests.get(f"{BASE_URL}/tarefas-aprovadas", headers=HEADERS)
-tarefas = res.json().get("tarefas", [])
+                <pre>{`# Exemplo Playwright: leitura de telemetria Trilha RPA v1.0
+etapa = await page.wait_for_selector("#rpa-step-1")
+status = await etapa.get_attribute("data-step-status")  # pending|running|done|error
 
-# 2. Iniciar execução
-requests.post(f"{BASE_URL}/tarefas/{job_id}/iniciar", headers=HEADERS)
+# Validação do Balancete por data-attributes (sem scraping frágil de HTML)
+balancete = await page.wait_for_selector("#rpa-grid-balancete")
+diferenca = await balancete.get_attribute("data-diferenca")            # "0.00"
+equilibrado = await balancete.get_attribute("data-rpa-equilibrado")    # "true"
 
-# 3. Enviar Evidência Auditável (Screenshot + Protocolo + Hash)
-requests.post(f"{BASE_URL}/tarefas/{job_id}/evidencias", headers=HEADERS, json={
-    "titulo": "Comprovante DAS 09/2026",
-    "tipo": "screenshot",
-    "protocolo_numero": "PROT-994812",
-    "hash_sha256": sha256_da_imagem,
-    "salvar_no_ged": True
-})
-
-# 4. Concluir validando o critério de sucesso
-requests.post(f"{BASE_URL}/tarefas/{job_id}/concluir", headers=HEADERS, json={
-    "resultado": "Guia emitida sem divergências.",
-    "criterio_sucesso_validado": True
-})`}</pre>
+# Disparo da próxima ação pelo botão de contrato
+btn_exec = await page.wait_for_selector("#rpa-btn-executar")
+if not await btn_exec.is_disabled():
+    await btn_exec.click()`}</pre>
               </div>
             </div>
           </Card>

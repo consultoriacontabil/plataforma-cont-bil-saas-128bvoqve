@@ -501,10 +501,18 @@ export default function BalancetePage() {
         </CardContent>
       </Card>
 
-      {/* Visão de Balancete de Verificação Hierárquico */}
+      {/* Visão de Balancete de Verificação Hierárquico (CONTRATO Trilha RPA v1.0) */}
       <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table
+            id="rpa-grid-balancete"
+            data-total-rows={itens.length}
+            data-total-debito={totalDebitos.toFixed(2)}
+            data-total-credito={totalCreditos.toFixed(2)}
+            data-diferenca={diferenca.toFixed(2)}
+            data-rpa-equilibrado={fechado ? 'true' : 'false'}
+            className="w-full text-left text-xs"
+          >
             <thead className="border-b border-[#E2E8F0] bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
               <tr>
                 <th className="py-3 px-4 w-[160px]">Código Contábil</th>

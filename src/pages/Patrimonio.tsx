@@ -557,6 +557,9 @@ export default function PatrimonioPage() {
           {canEdit && (
             <>
               <Button
+                id="rpa-btn-rodar-depreciacao"
+                data-rpa-action="processar-depreciacao"
+                data-competencia={deprecCompetencia}
                 onClick={() => setIsDepreciarOpen(true)}
                 variant="outline"
                 className="gap-2 rounded-xl text-xs font-semibold h-10 border-[#0FA3A3] text-[#0FA3A3] bg-teal-50/50 hover:bg-teal-100/50 shadow-xs"
@@ -1236,6 +1239,9 @@ export default function PatrimonioPage() {
               Cancelar
             </Button>
             <Button
+              id="rpa-btn-confirmar-depreciacao"
+              data-rpa-action="processar-depreciacao"
+              data-competencia={deprecCompetencia}
               onClick={handleProcessarDepreciacao}
               disabled={processingDeprec}
               className="h-9 text-xs rounded-xl bg-[#0FA3A3] text-white hover:bg-[#0C8585]"

@@ -611,10 +611,18 @@ export default function LancamentosContabeisPage() {
         </CardContent>
       </Card>
 
-      {/* Tabela de Lançamentos */}
+      {/* Tabela de Lançamentos (CONTRATO Trilha RPA v1.0) */}
       <Card className="rounded-2xl border-[#E2E8F0] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table
+            id="rpa-grid-lancamentos"
+            data-total-rows={totalItems}
+            data-total-debito={totalizadores.deb.toFixed(2)}
+            data-total-credito={totalizadores.cred.toFixed(2)}
+            data-diferenca={totalizadores.dif.toFixed(2)}
+            data-rpa-equilibrado={totalizadores.fechado ? 'true' : 'false'}
+            className="w-full text-left text-xs"
+          >
             <thead className="border-b border-[#E2E8F0] bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
               <tr>
                 <th className="py-3 px-4">Data / Comp.</th>

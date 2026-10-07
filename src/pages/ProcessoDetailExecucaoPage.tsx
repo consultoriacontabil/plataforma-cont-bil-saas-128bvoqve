@@ -350,18 +350,30 @@ export default function ProcessoDetailExecucaoPage() {
             </div>
           </div>
 
-          {/* BOTÃO PRINCIPAL OBRIGATÓRIO: [ EXECUTAR PRÓXIMA AÇÃO ] */}
-          {!isProcessoConcluido && (
-            <Button
-              size="lg"
-              disabled={executando}
-              onClick={handleExecutarProximaAcao}
-              className="h-11 px-6 bg-[#0FA3A3] hover:bg-[#0c8282] text-white font-extrabold text-xs shadow-md gap-2 rounded-xl"
-            >
-              <PlayCircle className={`h-4 w-4 ${executando ? 'animate-spin' : ''}`} />
-              <span>{executando ? 'EXECUTANDO AÇÃO...' : '[ EXECUTAR PRÓXIMA AÇÃO ]'}</span>
-            </Button>
-          )}
+          {/* BOTÃO PRINCIPAL OBRIGATÓRIO: [ EXECUTAR PRÓXIMA AÇÃO ] (CONTRATO RPA v1.0) */}
+          <Button
+            id="rpa-btn-executar"
+            data-action-code={processo.proxima_acao || 'NENHUMA'}
+            data-rpa-action="executar-proxima-etapa"
+            {...(executando || isProcessoConcluido || isProcessoAguardandoAprovacao
+              ? {
+                  'data-enabled-reason': executando
+                    ? 'Execução em andamento'
+                    : isProcessoConcluido
+                      ? 'Processo já concluído com sucesso'
+                      : 'Aguardando aprovação técnica CRC do Contador',
+                }
+              : {})}
+            size="lg"
+            disabled={executando || isProcessoConcluido}
+            onClick={handleExecutarProximaAcao}
+            className={`h-11 px-6 bg-[#0FA3A3] hover:bg-[#0c8282] text-white font-extrabold text-xs shadow-md gap-2 rounded-xl ${
+              isProcessoConcluido ? 'hidden' : ''
+            }`}
+          >
+            <PlayCircle className={`h-4 w-4 ${executando ? 'animate-spin' : ''}`} />
+            <span>{executando ? 'EXECUTANDO AÇÃO...' : '[ EXECUTAR PRÓXIMA AÇÃO ]'}</span>
+          </Button>
         </div>
 
         {/* Grid de Detalhamento da Ação Atual da Elliza */}
@@ -464,10 +476,28 @@ export default function ProcessoDetailExecucaoPage() {
               const isExecutandoEtapa = et.status === 'EM_EXECUCAO'
               const isAguardandoAprov = et.status === 'AGUARDANDO_APROVACAO'
               const isAprovada = et.status === 'APROVADO'
+              const isBloqueado = et.status === 'BLOQUEADO'
+
+              // CONTRATO Trilha RPA v1.0
+              // stepCode: SOP + ordem (ex: FCT-04-E03)
+              const sopPrefix = processo.codigo_sop || 'FCT-04'
+              const stepCode = `${sopPrefix}-E${String(et.ordem).padStart(2, '0')}`
+              // Mapeamento status: ENFILEIRADO/AGUARDANDO→pending, EM_EXECUCAO→running, CONCLUIDO→done, AGUARDANDO_APROVACAO/BLOQUEADO→error
+              const stepStatus = isConcluida
+                ? 'done'
+                : isExecutandoEtapa
+                  ? 'running'
+                  : isAguardandoAprov || isBloqueado
+                    ? 'error'
+                    : 'pending'
 
               return (
                 <Card
                   key={et.id}
+                  id={`rpa-step-${et.ordem}`}
+                  data-step-code={stepCode}
+                  data-step-status={stepStatus}
+                  data-job-id={processo.id}
                   className={`rounded-2xl border transition-all p-4 ${
                     isConcluida
                       ? 'bg-emerald-50/40 border-emerald-200'
@@ -702,6 +732,131 @@ export default function ProcessoDetailExecucaoPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* =========================================================================
+          TELEMETRIA RPA v1.0: ELEMENTOS DE ESTADO E LOG SEMPRE PRESENTES NO DOM
+          (O robô Playwright/Computer Use consulta via wait_for_selector)
+         ========================================================================= */}
+
+      {/* Indicador Inequívoco de Conclusão: id="rpa-status-conclusao" */}
+      {(() => {
+        const rpaState = isProcessoConcluido
+          ? 'success'
+          : isProcessoAguardandoAprovacao || processo.status === 'BLOQUEADO'
+            ? 'error'
+            : 'open'
+        const rpaResultado =
+          processo.resultado_ultima_acao ||
+          processo.proxima_acao ||
+          (isProcessoConcluido
+            ? 'Processo concluído com êxito'
+            : isProcessoAguardandoAprovacao
+              ? 'Aguardando aprovação técnica CRC do Contador'
+              : 'Em andamento')
+        return (
+          <div
+            id="rpa-status-conclusao"
+            data-rpa-state={rpaState}
+            data-rpa-resultado={rpaResultado}
+            className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs flex items-center justify-between gap-3"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-700">Telemetria de Conclusão RPA:</span>
+              <Badge
+                className={`text-[10px] font-bold uppercase ${
+                  rpaState === 'success'
+                    ? 'bg-emerald-600 text-white'
+                    : rpaState === 'error'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-blue-600 text-white'
+                }`}
+              >
+                Estado: {rpaState}
+              </Badge>
+              <span className="text-slate-600 truncate max-w-md font-mono text-[11px]">
+                {rpaResultado}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">
+              Job: {processo.id} • Etapa: {processo.etapa_atual_numero || 1}/
+              {processo.total_etapas || etapas.length}
+            </span>
+          </div>
+        )
+      })()}
+
+      {/* Log Operacional: id="rpa-log-container" (sempre presente no DOM) */}
+      <div
+        id="rpa-log-container"
+        data-log-visibility="visible"
+        data-log-count={evidencias.length}
+        className="rounded-xl border border-slate-200 bg-white p-3 text-xs space-y-2"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <span className="font-bold text-slate-800 flex items-center gap-1.5">
+            <History className="h-3.5 w-3.5 text-[#0FA3A3]" />
+            <span>Trilha de Logs Operacionais & Evidências ({evidencias.length})</span>
+          </span>
+          <span className="text-[10px] text-slate-400 font-mono">Contrato RPA v1.0</span>
+        </div>
+        {evidencias.length === 0 ? (
+          <div
+            data-log-level="info"
+            data-log-timestamp={processo.updated || processo.created || new Date().toISOString()}
+            className="text-[11px] text-slate-500 italic py-1 font-mono"
+          >
+            [INFO] {processo.proxima_acao || 'Aguardando início da esteira de fechamento.'}
+          </div>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px]">
+            {evidencias.map((ev) => {
+              const tipoStr = String(ev.tipo).toLowerCase()
+              const textoGeral =
+                `${ev.titulo} ${ev.resultado_obtido || ''} ${ev.descricao || ''}`.toLowerCase()
+              const isError =
+                tipoStr.includes('erro') ||
+                tipoStr.includes('falha') ||
+                textoGeral.includes('erro') ||
+                textoGeral.includes('falha') ||
+                textoGeral.includes('rejeit')
+              const isWarn =
+                tipoStr.includes('diverg') ||
+                tipoStr.includes('alerta') ||
+                textoGeral.includes('diverg') ||
+                textoGeral.includes('atencao') ||
+                textoGeral.includes('pendenc')
+              const logLevel: 'info' | 'warn' | 'error' = isError
+                ? 'error'
+                : isWarn
+                  ? 'warn'
+                  : 'info'
+              return (
+                <div
+                  key={ev.id}
+                  data-log-level={logLevel}
+                  data-log-timestamp={ev.created}
+                  className={`p-1.5 rounded border text-[11px] flex items-center justify-between gap-2 ${
+                    logLevel === 'error'
+                      ? 'bg-red-50 text-red-900 border-red-200'
+                      : logLevel === 'warn'
+                        ? 'bg-amber-50 text-amber-900 border-amber-200'
+                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <span className="truncate">
+                    [{logLevel.toUpperCase()}] {ev.titulo}:{' '}
+                    {ev.resultado_obtido || ev.descricao || 'Registrado'}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-slate-400">
+                    {formatDatePtBr(ev.created)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* MODAL DE CHANCELA / APROVAÇÃO TÉCNICA */}
       <Dialog open={modalAprovacaoAberta} onOpenChange={setModalAprovacaoAberta}>
