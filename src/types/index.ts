@@ -82,6 +82,32 @@ export interface Empresa extends RecordModel {
   autorizacao_acesso_ecac?: 'ativa' | 'em_analise' | 'vencida' | 'nao_solicitada'
   autorizacao_acesso_atualizada_em?: string
   autorizacao_acesso_observacao?: string
+  // Campos Ficha Cadastral Completa
+  tag?: string
+  codigo_interno?: string
+  percentual_contratual?: number
+  codigo_externo?: string
+  razao_social_2?: string
+  razao_social_3?: string
+  nire?: string
+  cemail?: string
+  naf_ecnpj?: string
+  area_ocupada_m2?: string
+  atuacao?: string
+  unidade?: string
+  unidade_auxiliar?: string
+  atividade_descricao?: string
+  segmento?: string
+  subsegmento?: string
+  natureza_juridica?: string
+  capital_social?: number
+  cnae_principal?: string
+  cnaes_secundarios?: string
+  fator_r_optante?: boolean
+  fator_r_alteracao_automatica_prolabore?: boolean
+  anexo_simples?: string
+  tipo_de_nota?: string
+  servicos_config_json?: any
 }
 
 export type ExclusaoBackupStatus = 'retido' | 'purgado' | 'restaurado'
@@ -815,6 +841,37 @@ export interface SocioRecord extends RecordModel {
   status: SocioStatus
   funcionario_vinculado?: string
   observacoes?: string
+  // Campos Ficha Cadastral Completa
+  data_nascimento?: string
+  rg?: string
+  data_expedicao_rg?: string
+  orgao_expedicao_rg?: string
+  uf_expedicao_rg?: string
+  naturalidade?: string
+  uf_nascimento?: string
+  estado_civil?: string
+  regime_bens?: string
+  titulo_eleitor?: string
+  recibo_irpf?: string
+  registro_spc?: string
+  nacionalidade?: string
+  cep_endereco?: string
+  logradouro_endereco?: string
+  numero_endereco?: string
+  complemento_endereco?: string
+  bairro_endereco?: string
+  cidade_endereco?: string
+  uf_endereco?: string
+  serie_gv_scr?: string
+  serie_gvr_scr?: string
+  senha_govbr?: string
+  documentos_socios_json?: Array<{
+    id?: string
+    nome: string
+    tipo?: string
+    data_upload?: string
+    url?: string
+  }>
   expand?: {
     empresa?: Empresa
     funcionario_vinculado?: Funcionario

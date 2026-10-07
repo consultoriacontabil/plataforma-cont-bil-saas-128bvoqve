@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T11:51:59.038Z",
+  "generatedAt": "2026-10-07T16:12:25.660Z",
   "collections": [
     {
       "name": "users",
@@ -382,6 +382,156 @@
         {
           "name": "autorizacao_acesso_observacao",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tag",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_interno",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "percentual_contratual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_externo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "razao_social_2",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "razao_social_3",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nire",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cemail",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "naf_ecnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "area_ocupada_m2",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "atuacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unidade_auxiliar",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "atividade_descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "segmento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "subsegmento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "natureza_juridica",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "capital_social",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnae_principal",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnaes_secundarios",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fator_r_optante",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fator_r_alteracao_automatica_prolabore",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "anexo_simples",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_de_nota",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "servicos_config_json",
+          "type": "json",
           "required": false,
           "system": false
         }
@@ -12995,6 +13145,150 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "data_nascimento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rg",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_expedicao_rg",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "orgao_expedicao_rg",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "uf_expedicao_rg",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "naturalidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "uf_nascimento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estado_civil",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regime_bens",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "titulo_eleitor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recibo_irpf",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "registro_spc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nacionalidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cep_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "logradouro_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "complemento_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bairro_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cidade_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "uf_endereco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "serie_gv_scr",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "serie_gvr_scr",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "senha_govbr",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "documentos_socios_json",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

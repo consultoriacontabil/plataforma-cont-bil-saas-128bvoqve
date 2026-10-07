@@ -1052,6 +1052,43 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                         selecionada no Patrimônio.
                       </td>
                     </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        9. Ficha Cadastral da Empresa
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-empresa-ficha</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-rpa-field=&quot;{'{nome_do_campo}'}&quot;
+                        <br />
+                        data-rpa-value=&quot;{'{valor}'}&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Container da Ficha Cadastral Completa (/empresas/:id). Cada campo de
+                        Identificação, Localização e Parametrização expõe{' '}
+                        <code>data-rpa-field</code> e <code>data-rpa-value</code> com valor real ou
+                        &quot;—&quot; caso ausente.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        10. Grid QSA (Societário)
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">#rpa-grid-qsa</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-socio-cpf=&quot;...&quot;
+                        <br />
+                        data-socio-participacao=&quot;50.00%&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Grid determinístico do Quadro de Sócios e Administradores. Por linha/sócio:
+                        CPF, percentual de quotas, RG, data de nascimento, naturalidade e endereço
+                        completo.
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

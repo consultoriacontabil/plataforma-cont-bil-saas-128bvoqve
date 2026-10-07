@@ -35,6 +35,7 @@ import { ProcessoMigracaoDetalheCard } from '@/components/ProcessoMigracaoDetalh
 import { ModalNovoProcessoMigracao } from '@/components/ModalNovoProcessoMigracao'
 import { ModalSalvarCertificado } from '@/components/ModalSalvarCertificado'
 import { ModalUploadDocumentoEmpresa } from '@/components/ModalUploadDocumentoEmpresa'
+import { FichaCadastralEmpresa } from '@/components/FichaCadastralEmpresa'
 import { empresasMigracoesOnboardingService } from '@/services/empresasMigracoesOnboardingService'
 import type { EmpresaMigracaoOnboardingRecord, MigracaoTipo, ObrigacaoRecord } from '@/types'
 import {
@@ -273,6 +274,17 @@ export default function EmpresaDetail() {
 
         <div className="flex items-center gap-2">
           <Button
+            onClick={() => {
+              setSearchParams({ tab: 'ficha_cadastral' }, { replace: true })
+            }}
+            variant="outline"
+            className="h-9 gap-2 rounded-xl text-xs font-semibold border-teal-300 text-teal-800 hover:bg-teal-50"
+          >
+            <FileText className="h-3.5 w-3.5 text-[#0FA3A3]" />
+            <span>Ficha Cadastral Completa</span>
+          </Button>
+
+          <Button
             onClick={() => navigate(`/empresas/${empresa.id}/editar`)}
             variant="outline"
             className="h-9 gap-2 rounded-xl text-xs font-semibold"
@@ -319,6 +331,19 @@ export default function EmpresaDetail() {
         className="space-y-6"
       >
         <TabsList className="bg-slate-100 p-1.5 rounded-xl h-auto w-full justify-start flex-wrap gap-1">
+          <TabsTrigger
+            value="ficha_cadastral"
+            className="rounded-lg text-xs font-bold gap-2 text-teal-900 data-[state=active]:bg-teal-600 data-[state=active]:text-white"
+          >
+            <Building2 className="h-4 w-4" />
+            <span>Ficha Cadastral</span>
+            <Badge
+              variant="outline"
+              className="text-[9px] font-mono px-1 py-0 uppercase border-current"
+            >
+              RPA
+            </Badge>
+          </TabsTrigger>
           <TabsTrigger value="visao_geral" className="rounded-lg text-xs font-semibold gap-2">
             <Building2 className="h-4 w-4" />
             <span>Visão Geral</span>
@@ -401,6 +426,26 @@ export default function EmpresaDetail() {
             <span>Integrações</span>
           </TabsTrigger>
         </TabsList>
+        {/* Tab 0: Ficha Cadastral Completa (Layout Consulta de Empresa) */}
+        <TabsContent value="ficha_cadastral" className="space-y-6">
+          {tenant?.id && empresa && (
+            <FichaCadastralEmpresa
+              empresa={empresa}
+              tenantId={tenant.id}
+              canEdit={
+                member?.perfil === 'administrador' ||
+                member?.perfil === 'contador' ||
+                isGestorEmpresas ||
+                (user?.role as string) === 'administrador' ||
+                (user?.role as string) === 'contador'
+              }
+              onEmpresaAtualizada={(atualizada) => {
+                setEmpresa(atualizada)
+              }}
+            />
+          )}
+        </TabsContent>
+
         {/* Tab 1: Visão Geral */}
         <TabsContent value="visao_geral" className="space-y-6">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
