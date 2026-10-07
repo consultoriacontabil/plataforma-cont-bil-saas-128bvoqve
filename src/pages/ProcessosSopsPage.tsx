@@ -61,6 +61,7 @@ export default function ProcessosSopsPage() {
 
   // Filtros
   const [areaFiltro, setAreaFiltro] = useState<string>('todas')
+  const [versaoFiltro, setVersaoFiltro] = useState<string>('2026.4')
   const [buscaTexto, setBuscaTexto] = useState<string>('')
 
   // Modal Novo Processo a partir de SOP
@@ -74,7 +75,7 @@ export default function ProcessosSopsPage() {
     if (!tenant?.id) return
     try {
       const [sopsRes, procRes, empRes] = await Promise.all([
-        elisaOpsService.listSops(tenant.id, areaFiltro),
+        elisaOpsService.listSops(tenant.id, areaFiltro, versaoFiltro),
         elisaOpsService.listProcessos(tenant.id),
         empresasService.list(tenant.id),
       ])
@@ -94,7 +95,7 @@ export default function ProcessosSopsPage() {
     } finally {
       setLoading(false)
     }
-  }, [tenant?.id, areaFiltro, empresaIdSelecionada, toast])
+  }, [tenant?.id, areaFiltro, versaoFiltro, empresaIdSelecionada, toast])
 
   useEffect(() => {
     loadData()
@@ -187,7 +188,7 @@ export default function ProcessosSopsPage() {
           </Link>
           <Link to="/pop-treinamento">
             <Button variant="outline" size="sm" className="h-9 text-xs border-slate-300">
-              POPs Oficiais (POP-Elliza-2026.3)
+              POPs Oficiais (POP-Elliza-2026.4)
             </Button>
           </Link>
         </div>
@@ -232,6 +233,19 @@ export default function ProcessosSopsPage() {
                     <SelectItem value="societario">Societário</SelectItem>
                     <SelectItem value="atendimento">Atendimento</SelectItem>
                     <SelectItem value="geral">Geral / Administrativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full sm:w-44">
+                <Select value={versaoFiltro} onValueChange={setVersaoFiltro}>
+                  <SelectTrigger className="h-9 text-xs font-semibold">
+                    <SelectValue placeholder="Versão SOP" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2026.4">v2026.4 (Vigente)</SelectItem>
+                    <SelectItem value="2026.3">v2026.3 (Histórica)</SelectItem>
+                    <SelectItem value="todas">Todas as Versões</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

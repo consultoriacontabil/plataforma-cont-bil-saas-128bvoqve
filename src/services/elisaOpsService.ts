@@ -343,13 +343,20 @@ export interface ProcessoPendenciaRecord {
 
 export const elisaOpsService = {
   // === SOPS ===
-  async listSops(tenantId: string, area?: string): Promise<SopRecord[]> {
+  async listSops(
+    tenantId: string,
+    area?: string,
+    versaoFiltro?: string | 'todas',
+  ): Promise<SopRecord[]> {
     let filter = `tenant_id = "${tenantId}"`
     if (area && area !== 'todas') filter += ` && area = "${area}"`
+    if (versaoFiltro && versaoFiltro !== 'todas') {
+      filter += ` && versao = "${versaoFiltro}"`
+    }
     try {
       return await pb.collection('sops').getFullList<SopRecord>({
         filter,
-        sort: 'codigo',
+        sort: '-versao,codigo',
       })
     } catch (err) {
       console.error('[elisaOpsService.listSops] Erro:', err)
