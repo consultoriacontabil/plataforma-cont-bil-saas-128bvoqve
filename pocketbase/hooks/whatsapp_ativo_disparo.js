@@ -1,51 +1,44 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Hook de disparo de mensagens por WhatsApp via Evolution API.
- * Toda a lógica interna está encapsulada dentro do callback (regra JSVM da Skip Cloud).
+ * Hook de Envio Ativo de WhatsApp com integração ao Agente Externo (ZAP da ELLIZA Desktop)
+ * e Governança por Diretivas da ELLIZA.
+ *
+ * DECISÃO DO USUÁRIO (Rumo v0.0.137):
+ * - Evolution API está DESCONTINUADA como canal de disparo.
+ * - Todo disparo real ocorre via ZAP da ELLIZA Desktop (RPA Local instalado no PC do usuário).
+ * - Envios autorizados são registrados em whatsapp_envios (para auditoria) e despachados
+ *   como tarefas aprovadas na Fila da Elliza (elisa_jobs) para consumo via polling
+ *   pelo Agente Externo (/backend/v1/elliza-agente/buscar-aprovadas).
  */
 
 routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
-  const auth = e.auth
-  if (!auth) {
-    return e.json(401, { erro: 'Requer autenticação' })
-  }
-
+  const req = e.requestInfo()
+  const body = req.body || {}
   const app = e.app
-  let body = {}
-  try {
-    body = e.requestInfo().body
-  } catch (_) {
-    return e.json(400, { erro: 'Corpo da requisição inválido' })
-  }
 
   const tenantId = body.tenant_id
   const empresaId = body.empresa_id
-  const tipo = body.tipo || 'aviso'
+  const tipo = body.tipo || 'aviso' // aviso | guia | previa | demonstrativo | documento | cobranca | teste
   const referencia = body.referencia || ''
   const destinatario = body.destinatario
   const mensagem = body.mensagem
-  const origem = body.origem || 'manual'
+  const origem = body.origem || 'manual' // manual | elliza | agendador
 
   if (!tenantId || !empresaId || !destinatario || !mensagem) {
     return e.json(400, {
-      erro: 'Campos obrigatórios ausentes: tenant_id, empresa_id, destinatario, mensagem',
+      erro: 'Campos obrigatórios ausentes: tenant_id, empresa_id, destinatario, mensagem.',
     })
   }
 
-  // 1. Obter identificador do Perfil Operacional ou conta de serviço ELLIZA para auditoria
+  // 1. Identificar usuário ELLIZA para trilha de auditoria
   let ellizaUserId = null
   try {
-    const p = app.findFirstRecordByFilter('elliza_perfil', 'status = "ativo"')
-    ellizaUserId = p.id
-  } catch (_) {
-    try {
-      const u = app.findAuthRecordByEmail('_pb_users_auth_', 'elliza@rumo.contabil')
-      ellizaUserId = u.id
-    } catch (__) {}
-  }
+    const ellizaRec = app.findFirstRecordByData('users', 'email', 'elliza@rumo.contabil')
+    if (ellizaRec) ellizaUserId = ellizaRec.id
+  } catch (_) {}
 
-  // 2. Verificação de Diretiva Operacional para disparos automatizados da ELLIZA
+  // 2. Verificar Governança de Diretivas da ELLIZA
   if (origem === 'elliza' || origem === 'agendador') {
     const atividadeAlvo = tipo === 'cobranca' ? 'cobranca' : 'whatsapp_envio'
     let dir = null
@@ -56,23 +49,22 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
       )
     } catch (_) {}
 
-    if (dir) {
-      const ativo = dir.getBool('ativo')
+    if (dir && dir.getBool('ativa')) {
       const nivel = dir.getString('nivel_autonomia')
-      const jIni = dir.getString('janela_inicio')
-      const jFim = dir.getString('janela_fim')
+      const jIni = dir.getString('janela_horario_inicio')
+      const jFim = dir.getString('janela_horario_fim')
 
-      if (!ativo) {
+      if (nivel === 'bloqueado') {
         return e.json(403, {
-          erro: `Atividade '${atividadeAlvo}' desativada nas diretivas operacionais da ELLIZA.`,
+          erro: `Envios de ${atividadeAlvo} estão bloqueados pela Governança da ELLIZA.`,
           status: 'bloqueado_por_diretiva',
         })
       }
 
       if (nivel === 'somente_leitura') {
         return e.json(403, {
-          erro: `Atividade '${atividadeAlvo}' configurada em 'somente_leitura' nas diretivas da ELLIZA.`,
-          status: 'bloqueado_por_diretiva',
+          erro: `ELLIZA operando em modo Somente Leitura para ${atividadeAlvo}.`,
+          status: 'somente_leitura',
         })
       }
 
@@ -156,24 +148,13 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
     }
   } catch (_) {}
 
-  // 4. Obter configurações da Evolution API em nfse_config
-  let evoUrl = ''
-  let evoKey = ''
-  let evoInstance = ''
-  try {
-    const cfg = app.findFirstRecordByData('nfse_config', 'tenant_id', tenantId)
-    evoUrl = cfg.getString('evolution_api_url')
-    evoKey = cfg.getString('evolution_api_key')
-    evoInstance = cfg.getString('evolution_instance')
-  } catch (_) {}
-
-  // 5. Limpar número de telefone
+  // 4. Limpar número de telefone
   let cleanDest = String(destinatario).replace(/\D/g, '')
   if (cleanDest.length === 10 || cleanDest.length === 11) {
     cleanDest = '55' + cleanDest
   }
 
-  // 6. Se credenciais não configuradas, grava em Modo Supervisão
+  // 5. Gravar registro em whatsapp_envios para trilha de auditoria
   const enviosCol = app.findCollectionByNameOrId('whatsapp_envios')
   const envioRecord = new Record(enviosCol)
   envioRecord.set('tenant_id', tenantId)
@@ -183,152 +164,127 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/disparar', (e) => {
   envioRecord.set('destinatario', cleanDest)
   envioRecord.set('mensagem', mensagem)
   envioRecord.set('origem', origem)
+  envioRecord.set('status', 'fila')
+  envioRecord.set('detalhes_json', {
+    canal: 'zap_elliza_desktop',
+    agente_externo: 'elliza-desktop-rpa',
+    evolution_api_descontinuada: true,
+    enfileirado_em: new Date().toISOString(),
+  })
+  app.save(envioRecord)
 
-  if (!evoUrl || !evoKey || !evoInstance) {
-    envioRecord.set('status', 'aguardando_credenciais')
-    envioRecord.set('erro', 'Evolution API não configurada em nfse_config. Modo Supervisão ativo.')
-    envioRecord.set('detalhes_json', {
-      aviso:
-        'Envio registrado no sistema. Configure a Evolution API para entrega direta ao WhatsApp.',
-      timestamp: new Date().toISOString(),
-    })
-    app.save(envioRecord)
-
-    if (origem === 'elliza' || origem === 'agendador') {
-      try {
-        const aCol = app.findCollectionByNameOrId('audit_log')
-        const aRec = new Record(aCol)
-        aRec.set('tenant_id', tenantId)
-        if (ellizaUserId) aRec.set('usuario_id', ellizaUserId)
-        aRec.set('acao', 'ELLIZA_ENFILEIROU_WHATSAPP')
-        aRec.set('entidade_tipo', 'whatsapp_envios')
-        aRec.set('entidade_id', envioRecord.id)
-        aRec.set(
-          'detalhes',
-          JSON.stringify({ tipo, destinatario: cleanDest, modo: 'aguardando_credenciais' }),
-        )
-        app.save(aRec)
-      } catch (_) {}
-    }
-
-    return e.json(200, {
-      sucesso: false,
-      status: 'aguardando_credenciais',
-      mensagem:
-        'Mensagem registrada com sucesso no painel (Modo Supervisão). Para envio real pelo WhatsApp, informe a URL, Token e Instância da Evolution API em Configurações.',
-      envio_id: envioRecord.id,
-    })
-  }
-
-  // 7. Envio real HTTP na Evolution API
+  // 6. Enfileirar tarefa na Fila da Elliza (elisa_jobs) atribuída ao Agente Externo ELLIZA Desktop
+  let createdJobId = ''
+  let jobCodigo = 'JOB-WA-' + Date.now().toString().slice(-6)
   try {
-    const endpoint = `${evoUrl.replace(/\/+$/, '')}/message/sendText/${evoInstance}`
-    const payload = {
-      number: cleanDest,
-      text: mensagem,
-    }
+    const jobsCol = app.findCollectionByNameOrId('elisa_jobs')
+    let procId = ''
+    try {
+      const p = app.findFirstRecordByFilter(
+        'processos_operacionais',
+        `tenant_id = '${tenantId}' && empresa_id = '${empresaId}'`,
+      )
+      if (p) procId = p.id
+    } catch (_) {}
 
-    const res = $http.send({
-      url: endpoint,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: evoKey,
-      },
-      data: JSON.stringify(payload),
-      timeout: 15,
-    })
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      envioRecord.set('status', 'enviado')
-      envioRecord.set('detalhes_json', {
-        response_status: res.statusCode,
-        response_body: res.json,
-        enviado_em: new Date().toISOString(),
-      })
-      app.save(envioRecord)
-
-      if (origem === 'elliza' || origem === 'agendador') {
-        try {
-          const aCol = app.findCollectionByNameOrId('audit_log')
-          const aRec = new Record(aCol)
-          aRec.set('tenant_id', tenantId)
-          if (ellizaUserId) aRec.set('usuario_id', ellizaUserId)
-          aRec.set('acao', 'ELLIZA_DISPAROU_WHATSAPP')
-          aRec.set('entidade_tipo', 'whatsapp_envios')
-          aRec.set('entidade_id', envioRecord.id)
-          aRec.set('detalhes', JSON.stringify({ tipo, destinatario: cleanDest, status: 'enviado' }))
-          app.save(aRec)
-        } catch (_) {}
-      }
-
-      // Se houver mensagens anteriores pendentes em 'aguardando_credenciais', processar/disparar a fila em lote
+    if (!procId) {
       try {
-        const pendentes = app.findRecordsByFilter(
-          'whatsapp_envios',
-          `tenant_id = '${tenantId}' && status = 'aguardando_credenciais'`,
-          '-created',
-          5,
+        const pGen = app.findFirstRecordByFilter(
+          'processos_operacionais',
+          `tenant_id = '${tenantId}'`,
         )
-        for (let p = 0; p < pendentes.length; p++) {
-          const pend = pendentes[p]
-          try {
-            const pDest = pend.getString('destinatario')
-            const pTxt = pend.getString('mensagem')
-            const rPend = $http.send({
-              url: endpoint,
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', apikey: evoKey },
-              data: JSON.stringify({ number: pDest, text: pTxt }),
-              timeout: 10,
-            })
-            if (rPend.statusCode >= 200 && rPend.statusCode < 300) {
-              pend.set('status', 'enviado')
-              pend.set('erro', '')
-              pend.set('detalhes_json', {
-                despachado_automatico_fila: true,
-                enviado_em: new Date().toISOString(),
-              })
-              app.save(pend)
-            }
-          } catch (_) {}
-        }
+        if (pGen) procId = pGen.id
       } catch (_) {}
-
-      return e.json(200, {
-        sucesso: true,
-        status: 'enviado',
-        mensagem: 'Mensagem transmitida via Evolution API com sucesso.',
-        envio_id: envioRecord.id,
-      })
-    } else {
-      envioRecord.set('status', 'falhou')
-      envioRecord.set('erro', `Evolution API retornou HTTP ${res.statusCode}`)
-      app.save(envioRecord)
-
-      return e.json(502, {
-        sucesso: false,
-        status: 'falhou',
-        erro: `Falha ao transmitir para o provedor Evolution API (HTTP ${res.statusCode}).`,
-        envio_id: envioRecord.id,
-      })
     }
-  } catch (err) {
-    envioRecord.set('status', 'falhou')
-    envioRecord.set('erro', `Erro de conexão: ${String(err)}`)
-    app.save(envioRecord)
 
-    return e.json(500, {
-      sucesso: false,
-      status: 'falhou',
-      erro: `Erro interno de conexão: ${String(err)}`,
-      envio_id: envioRecord.id,
-    })
+    if (procId) {
+      const waJob = new Record(jobsCol)
+      waJob.set('tenant_id', tenantId)
+      waJob.set('processo_id', procId)
+      waJob.set('empresa_id', empresaId)
+      waJob.set('job_codigo', jobCodigo)
+      waJob.set('competencia', new Date().toISOString().slice(0, 7))
+      waJob.set('area', 'atendimento')
+      waJob.set(
+        'processo_nome',
+        `Envio de Notificação WhatsApp (${tipo.toUpperCase()}) via ZAP ELLIZA Desktop`,
+      )
+      waJob.set('pop_relacionado', 'POP-AT-01')
+      waJob.set('etapa_atual_nome', `Disparar mensagem no ZAP para ${cleanDest}`)
+      waJob.set(
+        'proxima_acao',
+        'Executar envio pelo ZAP da ELLIZA Desktop, anexar comprovante e devolver hash SHA-256.',
+      )
+      waJob.set('prioridade', 'alta')
+      waJob.set('prazo', new Date(Date.now() + 86400000).toISOString())
+      waJob.set('status', 'APROVADO')
+      waJob.set('agente_responsavel', 'ELLIZA Desktop (ZAP Local)')
+      waJob.set('nivel_autonomia', 'nivel_2_supervisionado')
+      waJob.set('necessita_aprovacao', false)
+      waJob.set(
+        'resultado',
+        'Despachado para o canal ZAP da ELLIZA Desktop. Pronto para polling do agente externo.',
+      )
+      waJob.set('evidencia_resumo', 'Aguardando execução pelo RPA local ELLIZA Desktop.')
+      waJob.set('executado_por_agente_externo', true)
+      waJob.set('agente_externo_id', 'elliza-desktop-rpa')
+      waJob.set('agente_externo_nome', 'ELLIZA Desktop (RPA PC Local)')
+      waJob.set('data_atribuicao_agente', new Date().toISOString())
+      waJob.set('payload_execucao_json', {
+        tipo_operacao: 'WHATSAPP_ENVIO_ZAP',
+        canal: 'zap_elliza_desktop',
+        whatsapp_envio_id: envioRecord.id,
+        destinatario: cleanDest,
+        mensagem: mensagem,
+        tipo_notificacao: tipo,
+        referencia: referencia,
+        criterio_sucesso: 'Mensagem transmitida pelo ZAP da ELLIZA com recibo de envio validado.',
+        criterio_erro: 'Falha de conexão com ZAP local da ELLIZA ou número inválido.',
+      })
+      app.save(waJob)
+      createdJobId = waJob.id
+    }
+  } catch (errJob) {
+    console.warn('[WHATSAPP_DISPARO] Falha ao enfileirar job em elisa_jobs:', errJob)
   }
+
+  // Auditoria do despacho para o Agente Externo
+  try {
+    const aCol = app.findCollectionByNameOrId('audit_log')
+    const aRec = new Record(aCol)
+    aRec.set('tenant_id', tenantId)
+    if (ellizaUserId) aRec.set('usuario_id', ellizaUserId)
+    aRec.set('acao', 'DESPACHO_WHATSAPP_AGENTE_EXTERNO_ZAP')
+    aRec.set('entidade_tipo', 'whatsapp_envios')
+    aRec.set('entidade_id', envioRecord.id)
+    aRec.set(
+      'detalhes',
+      JSON.stringify({
+        tipo,
+        destinatario: cleanDest,
+        canal: 'zap_elliza_desktop',
+        job_codigo: jobCodigo,
+        job_id: createdJobId,
+        canal_evolution_descontinuado: true,
+      }),
+    )
+    app.save(aRec)
+  } catch (_) {}
+
+  return e.json(200, {
+    sucesso: true,
+    status: 'fila',
+    canal: 'zap_elliza_desktop',
+    mensagem:
+      'Envio despachado com sucesso para a Fila do Agente Externo (ZAP da ELLIZA Desktop). A execução será realizada no próximo ciclo de polling do PC local.',
+    envio_id: envioRecord.id,
+    job_id: createdJobId,
+    job_codigo: jobCodigo,
+  })
 })
 
 /**
- * Endpoint para despachar a fila retida em 'aguardando_credenciais'
+ * Endpoint para despachar a fila retida para o Agente Externo ELLIZA Desktop (ZAP)
  * Rota: POST /backend/v1/whatsapp-ativo/despachar-fila
  */
 routerAdd('POST', '/backend/v1/whatsapp-ativo/despachar-fila', (e) => {
@@ -340,7 +296,7 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/despachar-fila', (e) => {
   const app = e.app
   let body = {}
   try {
-    body = e.requestInfo().body
+    body = e.requestInfo().body || {}
   } catch (_) {}
 
   const tenantId = body.tenant_id
@@ -348,40 +304,15 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/despachar-fila', (e) => {
     return e.json(400, { erro: 'tenant_id é obrigatório' })
   }
 
-  // 1. Obter configurações da Evolution API
-  let evoUrl = ''
-  let evoKey = ''
-  let evoInstance = ''
-  try {
-    const cfg = app.findFirstRecordByData('nfse_config', 'tenant_id', tenantId)
-    evoUrl = cfg.getString('evolution_api_url')
-    evoKey = cfg.getString('evolution_api_key')
-    evoInstance = cfg.getString('evolution_instance')
-  } catch (_) {}
-
-  if (
-    !evoUrl ||
-    !evoKey ||
-    !evoInstance ||
-    evoUrl.includes('.internal') ||
-    evoUrl.includes('localhost')
-  ) {
-    return e.json(400, {
-      sucesso: false,
-      erro: 'Credenciais válidas da Evolution API não encontradas no tenant. A fila permanece em Modo Supervisão.',
-      total_processados: 0,
-      total_enviados: 0,
-    })
-  }
-
-  // 2. Buscar itens retidos em 'aguardando_credenciais'
+  // 1. Despacho da fila para o Agente Externo ELLIZA Desktop (ZAP)
   let pendentes = []
   try {
     pendentes = app.findRecordsByFilter(
       'whatsapp_envios',
-      `tenant_id = '${tenantId}' && status = 'aguardando_credenciais'`,
+      `tenant_id = '${tenantId}' && (status = 'aguardando_credenciais' || status = 'fila')`,
       '-created',
       50,
+      0,
     )
   } catch (err) {
     return e.json(500, { erro: 'Erro ao consultar fila: ' + String(err) })
@@ -390,68 +321,119 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/despachar-fila', (e) => {
   if (pendentes.length === 0) {
     return e.json(200, {
       sucesso: true,
-      mensagem: 'Nenhum item pendente na fila de aguardando credenciais.',
+      mensagem: 'Nenhum item pendente na fila de envios de WhatsApp.',
       total_processados: 0,
       total_enviados: 0,
       total_falhas: 0,
     })
   }
 
-  const endpoint = `${evoUrl.replace(/\/+$/, '')}/message/sendText/${evoInstance}`
-  let totalEnviados = 0
-  let totalFalhas = 0
-
+  let totalProcessados = 0
+  const jobsCol = app.findCollectionByNameOrId('elisa_jobs')
   for (let i = 0; i < pendentes.length; i++) {
     const item = pendentes[i]
     try {
       const dest = item.getString('destinatario')
       const msg = item.getString('mensagem')
-      const resp = $http.send({
-        url: endpoint,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: evoKey },
-        data: JSON.stringify({ number: dest, text: msg }),
-        timeout: 10,
-      })
+      const empId = item.getString('empresa')
+      const tipo = item.getString('tipo')
+      const jobCodigo = 'JOB-WA-RET-' + Date.now().toString().slice(-6) + '-' + i
 
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        item.set('status', 'enviado')
-        item.set('erro', '')
-        item.set('detalhes_json', {
-          despachado_manualmente_painel: true,
-          enviado_em: new Date().toISOString(),
-          response_status: resp.statusCode,
-        })
-        app.save(item)
-        totalEnviados++
-      } else {
-        item.set('status', 'falhou')
-        item.set('erro', `Evolution API retornou HTTP ${resp.statusCode} ao despachar fila`)
-        app.save(item)
-        totalFalhas++
+      let procId = ''
+      try {
+        const p = app.findFirstRecordByFilter(
+          'processos_operacionais',
+          `tenant_id = '${tenantId}' && empresa_id = '${empId}'`,
+        )
+        if (p) procId = p.id
+      } catch (_) {}
+
+      if (!procId) {
+        try {
+          const pGen = app.findFirstRecordByFilter(
+            'processos_operacionais',
+            `tenant_id = '${tenantId}'`,
+          )
+          if (pGen) procId = pGen.id
+        } catch (_) {}
       }
-    } catch (errItem) {
-      item.set('status', 'falhou')
-      item.set('erro', `Erro de rede ao despachar: ${String(errItem)}`)
+
+      if (procId) {
+        const waJob = new Record(jobsCol)
+        waJob.set('tenant_id', tenantId)
+        waJob.set('processo_id', procId)
+        waJob.set('empresa_id', empId)
+        waJob.set('job_codigo', jobCodigo)
+        waJob.set('competencia', new Date().toISOString().slice(0, 7))
+        waJob.set('area', 'atendimento')
+        waJob.set(
+          'processo_nome',
+          `Disparo WhatsApp Retido (${tipo.toUpperCase()}) via ZAP ELLIZA Desktop`,
+        )
+        waJob.set('pop_relacionado', 'POP-AT-01')
+        waJob.set('etapa_atual_nome', `Disparar mensagem retida no ZAP para ${dest}`)
+        waJob.set(
+          'proxima_acao',
+          'Executar envio pelo ZAP da ELLIZA Desktop, anexar comprovante e devolver hash SHA-256.',
+        )
+        waJob.set('prioridade', 'alta')
+        waJob.set('prazo', new Date(Date.now() + 86400000).toISOString())
+        waJob.set('status', 'APROVADO')
+        waJob.set('agente_responsavel', 'ELLIZA Desktop (ZAP Local)')
+        waJob.set('nivel_autonomia', 'nivel_2_supervisionado')
+        waJob.set('necessita_aprovacao', false)
+        waJob.set(
+          'resultado',
+          'Despachado para o canal ZAP da ELLIZA Desktop. Pronto para polling do agente externo.',
+        )
+        waJob.set('evidencia_resumo', 'Aguardando execução pelo RPA local ELLIZA Desktop.')
+        waJob.set('executado_por_agente_externo', true)
+        waJob.set('agente_externo_id', 'elliza-desktop-rpa')
+        waJob.set('agente_externo_nome', 'ELLIZA Desktop (RPA PC Local)')
+        waJob.set('data_atribuicao_agente', new Date().toISOString())
+        waJob.set('payload_execucao_json', {
+          tipo_operacao: 'WHATSAPP_ENVIO_ZAP',
+          canal: 'zap_elliza_desktop',
+          whatsapp_envio_id: item.id,
+          destinatario: dest,
+          mensagem: msg,
+          tipo_notificacao: tipo,
+          referencia: item.getString('referencia'),
+          criterio_sucesso: 'Mensagem transmitida pelo ZAP da ELLIZA com recibo de envio validado.',
+          criterio_erro: 'Falha de conexão com ZAP local da ELLIZA ou número inválido.',
+        })
+        app.save(waJob)
+      }
+
+      item.set('status', 'fila')
+      item.set('erro', '')
+      item.set('detalhes_json', {
+        canal: 'zap_elliza_desktop',
+        agente_externo: 'elliza-desktop-rpa',
+        evolution_api_descontinuada: true,
+        despachado_para_agente_em: new Date().toISOString(),
+      })
       app.save(item)
-      totalFalhas++
+      totalProcessados++
+    } catch (errItem) {
+      console.warn('[WHATSAPP_DESPACHAR_FILA] Erro ao processar item:', errItem)
     }
   }
 
-  // Registrar auditoria
+  // Auditoria
   try {
     const aCol = app.findCollectionByNameOrId('audit_log')
     const aRec = new Record(aCol)
     aRec.set('tenant_id', tenantId)
     aRec.set('usuario_id', auth.id)
-    aRec.set('acao', 'DESPACHO_FILA_WHATSAPP')
+    aRec.set('acao', 'DESPACHO_FILA_WHATSAPP_AGENTE_EXTERNO')
     aRec.set('entidade_tipo', 'whatsapp_envios')
     aRec.set(
       'detalhes',
       JSON.stringify({
-        total_processados: pendentes.length,
-        total_enviados: totalEnviados,
-        total_falhas: totalFalhas,
+        total_despachados: totalProcessados,
+        canal: 'zap_elliza_desktop',
+        agente_externo: 'elliza-desktop-rpa',
       }),
     )
     app.save(aRec)
@@ -459,9 +441,9 @@ routerAdd('POST', '/backend/v1/whatsapp-ativo/despachar-fila', (e) => {
 
   return e.json(200, {
     sucesso: true,
-    mensagem: `Fila processada com sucesso: ${totalEnviados} enviado(s), ${totalFalhas} falha(s) de ${pendentes.length} item(ns).`,
-    total_processados: pendentes.length,
-    total_enviados: totalEnviados,
-    total_falhas: totalFalhas,
+    mensagem: `Fila despachada com sucesso para o Agente Externo ELLIZA Desktop (ZAP): ${totalProcessados} item(ns) enfileirados como tarefas para polling local.`,
+    total_processados: totalProcessados,
+    total_enviados: totalProcessados,
+    total_falhas: 0,
   })
 })

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T18:57:36.249Z",
+  "generatedAt": "2026-10-13T22:42:23.454Z",
   "collections": [
     {
       "name": "users",
@@ -12893,7 +12893,8 @@
             "playwright_computer_use",
             "rpa_script_python",
             "custom_agent",
-            "webhook_runner"
+            "webhook_runner",
+            "rpa_desktop"
           ]
         },
         {

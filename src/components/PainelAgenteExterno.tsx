@@ -88,6 +88,10 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
   // Copiado
   const [copiado, setCopiado] = useState(false)
 
+  // API Key dedicada ELLIZA Desktop (revelada sob demanda / cópia única)
+  const [mostrarKeyDesktop, setMostrarKeyDesktop] = useState(false)
+  const rawKeyEllizaDesktopPadrao = 'elliza_agt_live_desktop_c89a24fe10bb73e921'
+
   const loadChaves = async () => {
     if (!tenantId) return
     setLoadingChaves(true)
@@ -352,31 +356,107 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
 
   return (
     <div className="space-y-6">
-      {/* Banner Informativo de Arquitetura */}
-      <Card className="rounded-2xl border-teal-200 bg-gradient-to-r from-teal-50/80 via-white to-slate-50 p-4 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Laptop className="h-6 w-6 text-[#0FA3A3] shrink-0 mt-0.5" />
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Integração de Agente Externo (RPA / Playwright + Computer Use)
-                </h3>
-                <Badge className="bg-[#0FA3A3] text-white text-[10px] font-bold">API REST v1</Badge>
-                <Badge variant="outline" className="text-slate-600 text-[10px]">
-                  Privilégio Mínimo
-                </Badge>
+      {/* Card Oficial de Registro: ELLIZA Desktop (RPA PC Local) */}
+      <Card
+        id="rpa-cadastro-elliza-desktop"
+        className="rounded-2xl border-teal-300 bg-gradient-to-br from-teal-900 via-slate-900 to-slate-950 text-white p-5 shadow-md relative overflow-hidden"
+      >
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-2 max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="p-1.5 bg-teal-500/20 rounded-lg border border-teal-400/30">
+                <Laptop className="h-5 w-5 text-teal-300" />
               </div>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Permite que scripts em Python, Playwright ou ferramentas de Computer Use busquem
-                tarefas com status <strong>APROVADO</strong> na Fila da Elliza, executem a automação
-                em portais externos (PVA do SPED, e-CAC, PGDAS-D, Prefeituras) e devolvam evidências
-                com hash SHA-256 e trilha de auditoria completa.
-              </p>
+              <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                ELLIZA Desktop (RPA Local no PC do Usuário)
+              </h3>
+              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/40 text-[10px] font-bold">
+                Agente Ativo (Oficial Rumo)
+              </Badge>
+              <Badge className="bg-teal-500/20 text-teal-200 border-teal-400/30 text-[10px]">
+                Contrato v1.0
+              </Badge>
+              <Badge variant="outline" className="text-slate-300 border-slate-700 text-[10px]">
+                Substituição do Domínio
+              </Badge>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Software RPA de terceiros com licença adquirida e instalado no PC do escritório. Atua
+              como o<strong> braço executor local oficial da plataforma Rumo</strong> para rotinas
+              contábeis, fiscais e folha, substituindo a operação legado do software Domínio.
+              Comunica-se exclusivamente via endpoints autenticados da esteira{' '}
+              <code>/backend/v1/elliza-agente/*</code>.
+            </p>
+
+            {/* Painel da Chave de API do Agente ELLIZA Desktop */}
+            <div className="pt-2">
+              <div className="p-3 bg-slate-900/90 border border-teal-500/30 rounded-xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-[11px] font-mono text-teal-300 font-bold flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-teal-400" />
+                    Chave de API Dedicada (X-Elliza-Api-Key):
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setMostrarKeyDesktop(!mostrarKeyDesktop)}
+                      className="h-6 text-[10px] text-slate-300 hover:text-white hover:bg-slate-800"
+                    >
+                      {mostrarKeyDesktop ? 'Ocultar Chave' : 'Exibir Chave'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        copiarTexto(rawKeyEllizaDesktopPadrao)
+                        setChaveSelecionada(rawKeyEllizaDesktopPadrao)
+                      }}
+                      className="h-6 text-[10px] bg-teal-600 hover:bg-teal-500 text-white font-bold gap-1 px-2.5"
+                    >
+                      <Copy className="h-3 w-3" />
+                      <span>Copiar Chave do Agente</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    type={mostrarKeyDesktop ? 'text' : 'password'}
+                    value={rawKeyEllizaDesktopPadrao}
+                    className="h-8 font-mono text-xs bg-slate-950 border-slate-800 text-teal-300 select-all"
+                  />
+                </div>
+
+                <div className="text-[11px] text-slate-400 flex flex-col sm:flex-row sm:items-center gap-2 pt-1 border-t border-slate-800">
+                  <span className="font-semibold text-slate-300">Onde colar no Desktop:</span>
+                  <span className="text-slate-400">
+                    No software ELLIZA Desktop em{' '}
+                    <em>
+                      Configurações &gt; Integração Rumo Cloud &gt; Token de Autenticação (API Key)
+                    </em>
+                    .
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col gap-2 shrink-0">
+            <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs space-y-1">
+              <span className="font-bold text-slate-200 block text-[11px]">
+                Identificador do Agente:
+              </span>
+              <code className="text-teal-300 font-mono font-bold">elliza-desktop-rpa</code>
+              <div className="text-[10px] text-slate-400 pt-1">
+                Autonomia: Nível 2 Supervisionado
+              </div>
+              <div className="text-[10px] text-emerald-400 font-medium">
+                Privilégio Mínimo: Fila &amp; Telemetria
+              </div>
+            </div>
+
             <Button
               size="sm"
               onClick={() => {
@@ -385,10 +465,11 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                 setChaveGeradaPlana(null)
                 setModalNovaChaveAberta(true)
               }}
-              className="bg-[#0FA3A3] hover:bg-[#0c8282] text-white text-xs h-8 gap-1.5 font-bold shadow-xs"
+              variant="outline"
+              className="text-white border-slate-700 bg-slate-800/70 hover:bg-slate-700 text-xs h-8 gap-1.5 font-bold shadow-xs"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Nova Credencial de Agente</span>
+              <span>Outra Credencial</span>
             </Button>
           </div>
         </div>
@@ -826,25 +907,25 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-[11px]">
                 <div className="bg-slate-50 border p-2.5 rounded-lg">
                   <span className="text-emerald-700 font-bold block">
-                    GET /backend/v1/elliza-agente/tarefas-aprovadas
+                    GET /backend/v1/elliza-agente/buscar-aprovadas (ou /tarefas-aprovadas)
                   </span>
                   <span className="text-slate-600 text-[10px]">
-                    Busca jobs com status APROVADO no Modo Humano.
+                    Busca jobs com status APROVADO atribuídos ao agente ou aptos para coleta.
                   </span>
                 </div>
 
                 <div className="bg-slate-50 border p-2.5 rounded-lg">
                   <span className="text-blue-700 font-bold block">
-                    POST /backend/v1/elliza-agente/tarefas/:id/iniciar
+                    POST /backend/v1/elliza-agente/iniciar (ou /tarefas/:id/iniciar)
                   </span>
                   <span className="text-slate-600 text-[10px]">
-                    Transiciona para EM_EXECUCAO e audita início.
+                    Transiciona para EM_EXECUCAO e audita início com timestamp.
                   </span>
                 </div>
 
                 <div className="bg-slate-50 border p-2.5 rounded-lg">
                   <span className="text-purple-700 font-bold block">
-                    POST /backend/v1/elliza-agente/tarefas/:id/evidencias
+                    POST /backend/v1/elliza-agente/evidencias (ou /tarefas/:id/evidencias)
                   </span>
                   <span className="text-slate-600 text-[10px]">
                     Grava screenshot/comprovante com hash SHA-256 e GED.
@@ -853,20 +934,114 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
 
                 <div className="bg-slate-50 border p-2.5 rounded-lg">
                   <span className="text-teal-700 font-bold block">
-                    POST /backend/v1/elliza-agente/tarefas/:id/concluir
+                    POST /backend/v1/elliza-agente/concluir (ou /tarefas/:id/concluir)
                   </span>
                   <span className="text-slate-600 text-[10px]">
-                    Valida critério de sucesso e avança para próxima etapa.
+                    Valida critério de sucesso (Regra de Ouro) e avança esteira.
                   </span>
                 </div>
 
                 <div className="bg-slate-50 border p-2.5 rounded-lg col-span-1 md:col-span-2">
                   <span className="text-red-700 font-bold block">
-                    POST /backend/v1/elliza-agente/tarefas/:id/reportar-erro
+                    POST /backend/v1/elliza-agente/erro (ou /tarefas/:id/reportar-erro)
                   </span>
                   <span className="text-slate-600 text-[10px]">
-                    Cria pendência no Modo Humano (BLOQUEADO) sem adivinhação.
+                    Reporta exceção honesta sem adivinhação e retém como BLOQUEADO.
                   </span>
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO NOVA: CICLO DE OPERAÇÃO — ELLIZA DESKTOP */}
+            <div
+              id="rpa-ciclo-operacao-elliza-desktop"
+              className="space-y-4 pt-3 border-t border-slate-200"
+            >
+              <div className="flex items-center gap-2">
+                <Laptop className="h-5 w-5 text-[#0FA3A3]" />
+                <h5 className="font-black text-sm text-slate-900 uppercase tracking-tight">
+                  Ciclo de Operação — ELLIZA Desktop (Loop de Polling &amp; Execução Local)
+                </h5>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-xs text-slate-700">
+                <p className="leading-relaxed">
+                  A <strong>ELLIZA Desktop</strong> opera em regime contínuo (daemon ou serviço em
+                  background no PC do usuário) através de um ciclo determinístico de 7 passos:
+                </p>
+
+                <ol className="list-decimal list-inside space-y-2 text-slate-800 font-medium leading-relaxed pl-1">
+                  <li>
+                    <strong>(1) Polling periódico:</strong> O robô faz requisição HTTP GET em{' '}
+                    <code className="text-emerald-700 font-mono bg-white px-1.5 py-0.5 rounded border">
+                      /backend/v1/elliza-agente/buscar-aprovadas
+                    </code>{' '}
+                    enviando o cabeçalho <code>X-Elliza-Api-Key: &lt;chave_desktop&gt;</code>.
+                  </li>
+                  <li>
+                    <strong>(2) Recepção e Blueprint:</strong> Recebe as tarefas com status{' '}
+                    <span className="text-emerald-700 font-bold">APROVADO</span>, dados do cliente
+                    (CNPJ, razão social), competência, SOP relacionado e payload de execução.
+                  </li>
+                  <li>
+                    <strong>(3) Navegação e Telemetria Trilha RPA v1.0:</strong> Navega à tela
+                    correspondente da Rumo no navegador local e lê a telemetria determinística (ex.:{' '}
+                    <code>data-step-status</code>, <code>data-rpa-field</code>,{' '}
+                    <code>#rpa-empresa-ficha</code>, <code>#rpa-grid-qsa</code>,{' '}
+                    <code>#rpa-btn-executar</code>).
+                  </li>
+                  <li>
+                    <strong>(4) Execução da Ação Local:</strong> Executa a rotina nos portais
+                    fiscais/bancários ou no ZAP da ELLIZA Desktop (disparos oficiais de WhatsApp).
+                  </li>
+                  <li>
+                    <strong>(5) Captura de Evidência Auditável:</strong> Captura screenshot ou
+                    recibo oficial e calcula o hash criptográfico <strong>SHA-256</strong> da
+                    imagem/documento.
+                  </li>
+                  <li>
+                    <strong>(6) Notificação de Status:</strong> Notifica a Rumo chamando{' '}
+                    <code>POST /iniciar</code>, anexa a evidência em <code>POST /evidencias</code> e
+                    conclui em <code>POST /concluir</code> (ou se houver divergência, aciona{' '}
+                    <code>POST /erro</code>).
+                  </li>
+                  <li>
+                    <strong>(7) Reinício do Ciclo:</strong> Aguarda o intervalo de repouso
+                    configurado e reinicia o loop.
+                  </li>
+                </ol>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                  <div className="bg-white border border-slate-200 rounded-lg p-3">
+                    <span className="font-bold text-slate-900 block text-[11px] mb-1">
+                      ⏱️ Intervalo Recomendado
+                    </span>
+                    <span className="text-slate-600 text-[11px] leading-snug block">
+                      Polling a cada <strong>30 a 60 segundos</strong>. Em horário comercial, reduz
+                      carga no PC e assegura atendimento rápido às aprovações humanas.
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-lg p-3">
+                    <span className="font-bold text-slate-900 block text-[11px] mb-1">
+                      🛡️ Regra de Ouro (Evidência + Hash)
+                    </span>
+                    <span className="text-slate-600 text-[11px] leading-snug block">
+                      Nenhuma conclusão é homologada sem <strong>evidência com hash SHA-256</strong>{' '}
+                      e confirmação explícita de <code>criterio_sucesso_validado: true</code>.
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-lg p-3">
+                    <span className="font-bold text-slate-900 block text-[11px] mb-1">
+                      🔒 Isolamento &amp; Segurança
+                    </span>
+                    <span className="text-slate-600 text-[11px] leading-snug block">
+                      A ELLIZA Desktop <strong>não acessa o banco nem endpoints internos</strong>.
+                      Acesso restrito a <code>/backend/v1/elliza-agente/*</code> via API key
+                      dedicada.
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

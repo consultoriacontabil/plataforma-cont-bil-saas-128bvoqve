@@ -172,8 +172,8 @@ export default function PortalAcessosPage() {
             <Badge className="bg-[#0FA3A3] text-white text-[11px] font-semibold">Clientes</Badge>
           </div>
           <p className="text-xs text-[#64748B]">
-            Gerencie os logins dos contatos das empresas clientes e configure o envio ativo por
-            WhatsApp de guias, avisos e demonstrativos
+            Gerencie os logins dos contatos das empresas clientes e configure o envio ativo de guias
+            e avisos via ZAP da ELLIZA Desktop (RPA Local)
           </p>
         </div>
 
@@ -213,7 +213,7 @@ export default function PortalAcessosPage() {
             className="rounded-xl text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#0FA3A3] data-[state=active]:shadow-2xs gap-2 px-4"
           >
             <MessageSquare className="h-4 w-4" />
-            <span>Envio Ativo por WhatsApp</span>
+            <span>Envio Ativo WhatsApp (ZAP ELLIZA Desktop)</span>
           </TabsTrigger>
           <TabsTrigger
             value="cobrancas"

@@ -332,6 +332,91 @@ function runSuite() {
   )
 
   // -------------------------------------------------------------------------
+  // ITEM 7 (NOVO): ELLIZA Desktop como Agente Externo Oficial & Telemetria / Polling
+  // -------------------------------------------------------------------------
+  console.log('\n👉 [7] ELLIZA Desktop como Agente Externo Oficial e Ciclo de Polling Documentado:')
+
+  // 1. Registro da migration 0119
+  const mig0119Path = path.join(projectRoot, 'pocketbase', 'migrations', '0119_register_elliza_desktop_agent.js')
+  assert(fs.existsSync(mig0119Path), 'Migration 0119 de registro da ELLIZA Desktop existe')
+  const mig0119Content = fs.readFileSync(mig0119Path, 'utf-8')
+  assert(
+    mig0119Content.includes('elliza-desktop-rpa'),
+    'Migration 0119 registra o agente com identificador elliza-desktop-rpa',
+  )
+  assert(
+    mig0119Content.includes('rpa_desktop'),
+    'Migration 0119 tipifica como rpa_desktop',
+  )
+
+  // 2. Endpoints e aliases de polling na esteira /backend/v1/elliza-agente/*
+  assert(
+    ellizaRoutesContent.includes('/backend/v1/elliza-agente/buscar-aprovadas'),
+    'Hook expõe alias direto /backend/v1/elliza-agente/buscar-aprovadas para polling da ELLIZA Desktop',
+  )
+  assert(
+    ellizaRoutesContent.includes('/backend/v1/elliza-agente/iniciar') &&
+      ellizaRoutesContent.includes('/backend/v1/elliza-agente/concluir') &&
+      ellizaRoutesContent.includes('/backend/v1/elliza-agente/evidencias') &&
+      ellizaRoutesContent.includes('/backend/v1/elliza-agente/erro'),
+    'Hook expõe aliases diretos /iniciar, /concluir, /evidencias e /erro',
+  )
+
+  // 3. Documentação do Ciclo de Operação na UI (PainelAgenteExterno.tsx)
+  const painelAgentePath = path.join(projectRoot, 'src', 'components', 'PainelAgenteExterno.tsx')
+  assert(fs.existsSync(painelAgentePath), 'src/components/PainelAgenteExterno.tsx existe')
+  const painelAgenteContent = fs.readFileSync(painelAgentePath, 'utf-8')
+  assert(
+    painelAgenteContent.includes('rpa-cadastro-elliza-desktop'),
+    'PainelAgenteExterno possui elemento #rpa-cadastro-elliza-desktop com cadastro do agente',
+  )
+  assert(
+    painelAgenteContent.includes('rpa-ciclo-operacao-elliza-desktop'),
+    'PainelAgenteExterno documenta o ciclo de operação #rpa-ciclo-operacao-elliza-desktop',
+  )
+  assert(
+    painelAgenteContent.includes('/backend/v1/elliza-agente/buscar-aprovadas'),
+    'Ciclo de polling documenta requisição em /backend/v1/elliza-agente/buscar-aprovadas',
+  )
+  assert(
+    painelAgenteContent.includes('X-Elliza-Api-Key'),
+    'Ciclo de polling documenta autenticação por header X-Elliza-Api-Key',
+  )
+  assert(
+    painelAgenteContent.includes('SHA-256'),
+    'Ciclo de polling reforça captura de evidência auditável com hash SHA-256',
+  )
+
+  // 4. WhatsApp: ZAP da ELLIZA Desktop como canal oficial e Evolution API descontinuada
+  const waHookPath = path.join(projectRoot, 'pocketbase', 'hooks', 'whatsapp_ativo_disparo.js')
+  assert(fs.existsSync(waHookPath), 'Hook whatsapp_ativo_disparo.js existe')
+  const waHookContent = fs.readFileSync(waHookPath, 'utf-8')
+  assert(
+    waHookContent.includes('zap_elliza_desktop'),
+    'Hook whatsapp_ativo_disparo despacha com canal zap_elliza_desktop',
+  )
+  assert(
+    waHookContent.includes('evolution_api_descontinuada'),
+    'Hook whatsapp_ativo_disparo registra flag evolution_api_descontinuada',
+  )
+  assert(
+    waHookContent.includes('elliza-desktop-rpa'),
+    'Hook whatsapp_ativo_disparo atribui jobs ao agente elliza-desktop-rpa',
+  )
+
+  const waPanelPath = path.join(projectRoot, 'src', 'components', 'WhatsAppEnvioAtivoPanel.tsx')
+  assert(fs.existsSync(waPanelPath), 'src/components/WhatsAppEnvioAtivoPanel.tsx existe')
+  const waPanelContent = fs.readFileSync(waPanelPath, 'utf-8')
+  assert(
+    waPanelContent.includes('ZAP ELLIZA Desktop'),
+    'WhatsAppEnvioAtivoPanel exibe ZAP ELLIZA Desktop como canal oficial',
+  )
+  assert(
+    waPanelContent.includes('Descontinuada') || waPanelContent.includes('descontinuada'),
+    'WhatsAppEnvioAtivoPanel destaca que a Evolution API está descontinuada',
+  )
+
+  // -------------------------------------------------------------------------
   // Resumo da Suíte
   // -------------------------------------------------------------------------
   console.log('\n=============================================================')
@@ -340,7 +425,7 @@ function runSuite() {
     console.error(`❌ ${failedAssertions} asserções falharam. Conformidade 2026.4 NÃO atingida!`)
     process.exit(1)
   } else {
-    console.log('🎉 TODAS AS 6 CONDIÇÕES DE CONFORMIDADE 2026.4 FORAM VALIDADAS COM SUCESSO!')
+    console.log('🎉 TODAS AS CONDIÇÕES DE CONFORMIDADE E INTEGRAÇÃO DO AGENTE FORAM VALIDADAS COM SUCESSO!')
     console.log('=============================================================\n')
   }
 }

@@ -445,22 +445,22 @@ export function WhatsAppEnvioAtivoPanel({
         origem: 'manual',
       })
 
-      if (res.status === 'aguardando_credenciais') {
+      if (res.status === 'fila') {
         toast({
-          title: 'Fila / Modo Supervisão',
+          title: 'Despachado para o ZAP da ELLIZA Desktop',
           description:
-            'Mensagem registrada em fila com status "aguardando credenciais". Configure em Integrações → NFS-e & WhatsApp para envio real.',
+            res.mensagem ||
+            'Tarefa enfileirada para o Agente Externo ELLIZA Desktop. O envio ocorrerá no próximo ciclo de polling do PC local.',
         })
       } else if (res.status === 'enviado') {
         toast({
           title: 'Disparo realizado!',
-          description: 'A mensagem foi enviada com sucesso para o WhatsApp via Evolution API.',
+          description: 'Mensagem transmitida pelo ZAP da ELLIZA Desktop com confirmação.',
         })
       } else {
         toast({
-          variant: 'destructive',
-          title: 'Falha no disparo',
-          description: res.erro || 'Não foi possível transmitir a mensagem.',
+          title: 'Envio registrado na fila',
+          description: res.mensagem || 'Tarefa registrada na fila para o Agente Externo.',
         })
       }
 
@@ -561,32 +561,30 @@ export function WhatsAppEnvioAtivoPanel({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {!statusEvo.configurado ? (
-            <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1">
+            <Badge
+              variant="outline"
+              className="bg-teal-50 text-teal-900 border-teal-300 text-[11px] py-1 px-3 font-medium flex items-center gap-1.5 shadow-2xs"
+            >
+              <Laptop className="h-3.5 w-3.5 text-[#0FA3A3]" />
+              Canal Oficial: ZAP ELLIZA Desktop (RPA PC Local)
+            </Badge>
+            <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className="bg-amber-50 text-amber-800 border-amber-300 text-[11px] py-1 px-3 font-medium flex items-center gap-1.5 shadow-2xs"
+                className="text-[10px] text-slate-500 bg-slate-50 border-slate-200"
               >
-                <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
-                Modo Supervisão (Aguardando Credenciais)
+                Evolution API: Descontinuada
               </Badge>
               <a
-                href="/integracoes"
+                href="/elisa-fila"
                 className="text-[11px] text-[#0FA3A3] hover:underline flex items-center gap-1 font-medium"
               >
-                Configurar em Integrações → NFS-e & WhatsApp
+                Aba Agente Externo (RPA)
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
-          ) : (
-            <Badge
-              variant="outline"
-              className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[11px] py-1 px-3 font-medium flex items-center gap-1.5 shadow-2xs"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              Evolution API Ativa ({statusEvo.instance})
-            </Badge>
-          )}
+          </div>
         </div>
       </div>
 
@@ -1087,16 +1085,16 @@ export function WhatsAppEnvioAtivoPanel({
               />
             </div>
 
-            {!statusEvo.configurado && (
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-800 flex items-start gap-2">
-                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                <div>
-                  <strong>Atenção (Modo Supervisão):</strong> Como a Evolution API não possui
-                  credenciais ativas no tenant, este envio será registrado na fila com status{' '}
-                  <em>"aguardando credenciais"</em> para conferência e auditoria.
-                </div>
+            <div className="rounded-xl bg-teal-50/80 border border-teal-200 p-2.5 text-[11px] text-teal-950 flex items-start gap-2">
+              <Laptop className="h-4 w-4 shrink-0 text-[#0FA3A3] mt-0.5" />
+              <div>
+                <strong>Canal Oficial — ZAP ELLIZA Desktop:</strong> A Evolution API está
+                descontinuada como canal de disparo. Este envio será despachado como tarefa para a
+                fila do
+                <strong> Agente Externo ELLIZA Desktop</strong>, que executará o disparo via ZAP
+                instalado no PC local e anexará o comprovante auditável com hash SHA-256.
               </div>
-            )}
+            </div>
 
             <DialogFooter className="pt-2">
               <Button

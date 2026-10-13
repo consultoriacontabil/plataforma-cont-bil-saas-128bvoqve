@@ -7,11 +7,11 @@
  *
  * Rotas expostas:
  * 1. POST /backend/v1/elliza-agente/auth/validar
- * 2. GET  /backend/v1/elliza-agente/tarefas-aprovadas
- * 3. POST /backend/v1/elliza-agente/tarefas/:id/iniciar
- * 4. POST /backend/v1/elliza-agente/tarefas/:id/concluir
- * 5. POST /backend/v1/elliza-agente/tarefas/:id/evidencias
- * 6. POST /backend/v1/elliza-agente/tarefas/:id/reportar-erro
+ * 2. GET  /backend/v1/elliza-agente/tarefas-aprovadas & /buscar-aprovadas (alias)
+ * 3. POST /backend/v1/elliza-agente/tarefas/:id/iniciar & /iniciar (alias com query/body id)
+ * 4. POST /backend/v1/elliza-agente/tarefas/:id/concluir & /concluir
+ * 5. POST /backend/v1/elliza-agente/tarefas/:id/evidencias & /evidencias
+ * 6. POST /backend/v1/elliza-agente/tarefas/:id/reportar-erro & /erro
  */
 
 // 1. POST /backend/v1/elliza-agente/auth/validar
@@ -67,7 +67,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/auth/validar', function (e) {
   var ag = records[0]
 
   try {
-    var clientIp = req.remoteIp || req.headers['x-forwarded-for'] || ''
+    var clientIp = headers['x-forwarded-for'] || headers['x-real-ip'] || ''
     ag.set('ultimo_acesso_em', new Date().toISOString())
     if (clientIp) ag.set('ip_origem_recente', String(clientIp).slice(0, 60))
     app.save(ag)
@@ -260,6 +260,171 @@ routerAdd('GET', '/backend/v1/elliza-agente/tarefas-aprovadas', function (e) {
   })
 })
 
+// 2b. Alias GET /backend/v1/elliza-agente/buscar-aprovadas (contrato direto de polling do RPA desktop)
+routerAdd('GET', '/backend/v1/elliza-agente/buscar-aprovadas', function (e) {
+  var req = e.requestInfo()
+  var headers = req.headers || {}
+
+  var apiKey = ''
+  if (headers['x-elliza-api-key']) {
+    apiKey = String(headers['x-elliza-api-key']).trim()
+  } else if (headers['authorization']) {
+    var authHeader = String(headers['authorization']).trim()
+    if (authHeader.toLowerCase().indexOf('bearer ') === 0) {
+      apiKey = authHeader.slice(7).trim()
+    } else {
+      apiKey = authHeader
+    }
+  }
+
+  if (!apiKey) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Chave de API não fornecida no cabeçalho X-Elliza-Api-Key ou Authorization: Bearer <chave>',
+    })
+  }
+
+  var app = e.app || $app
+  var hash = $security.sha256(apiKey)
+
+  var records = []
+  try {
+    records = app.findRecordsByFilter(
+      'elliza_agente_externo_chaves',
+      "api_key_hash = '" + hash + "' && status = 'ativo'",
+      '',
+      1,
+      0,
+    )
+  } catch (err) {
+    return e.json(500, {
+      sucesso: false,
+      erro: 'Erro ao consultar chaves de agente: ' + String(err),
+    })
+  }
+
+  if (!records || records.length === 0) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Credenciais de agente externo inválidas ou revogadas.',
+    })
+  }
+
+  var agent = records[0]
+  var tenantId = agent.getString('tenant_id')
+  var agentIdent = agent.getString('identificador_agente')
+
+  var filter = "tenant_id = '" + tenantId + "' && status = 'APROVADO'"
+  var areasPermitidas = agent.get('limitar_areas_json') || []
+  if (Array.isArray(areasPermitidas) && areasPermitidas.length > 0) {
+    var areaParts = []
+    for (var i = 0; i < areasPermitidas.length; i++) {
+      areaParts.push("area = '" + areasPermitidas[i] + "'")
+    }
+    filter += ' && (' + areaParts.join(' || ') + ')'
+  }
+
+  filter += " && (agente_externo_id = '' || agente_externo_id = '" + agentIdent + "')"
+
+  var jobs = []
+  try {
+    jobs = app.findRecordsByFilter('elisa_jobs', filter, '-prioridade,prazo,-created', 50, 0)
+  } catch (err) {
+    return e.json(500, { sucesso: false, erro: 'Falha ao buscar jobs: ' + String(err) })
+  }
+
+  var tarefasEstruturadas = []
+  for (var j = 0; j < jobs.length; j++) {
+    var job = jobs[j]
+    var empId = job.getString('empresa_id')
+    var procId = job.getString('processo_id')
+    var etapaId = job.getString('etapa_id')
+
+    var empresaInfo = { id: empId, razao_social: '', nome_fantasia: '', cnpj: '' }
+    try {
+      var empRec = app.findRecordById('empresas', empId)
+      empresaInfo.razao_social = empRec.getString('razao_social')
+      empresaInfo.nome_fantasia = empRec.getString('nome_fantasia')
+      empresaInfo.cnpj = empRec.getString('cnpj')
+    } catch (_) {}
+
+    var processoInfo = { id: procId, titulo: '', codigo_sop: '', area: '', sop_id: '' }
+    try {
+      var procRec = app.findRecordById('processos_operacionais', procId)
+      processoInfo.titulo = procRec.getString('titulo')
+      processoInfo.codigo_sop = procRec.getString('codigo_sop')
+      processoInfo.area = procRec.getString('area')
+      processoInfo.sop_id = procRec.getString('sop_id')
+    } catch (_) {}
+
+    var etapaInfo = {
+      id: etapaId,
+      ordem: 0,
+      titulo: job.getString('etapa_atual_nome'),
+      acao: job.getString('proxima_acao'),
+      criterio_sucesso: '',
+      criterio_erro: '',
+      proxima_etapa_nome: '',
+    }
+
+    if (etapaId) {
+      try {
+        var etRec = app.findRecordById('processo_etapas', etapaId)
+        etapaInfo.ordem = etRec.getInt('ordem')
+        etapaInfo.titulo = etRec.getString('titulo') || etapaInfo.titulo
+        etapaInfo.acao = etRec.getString('acao') || etapaInfo.acao
+        etapaInfo.criterio_sucesso = etRec.getString('criterio_sucesso')
+        etapaInfo.criterio_erro = etRec.getString('criterio_erro')
+        etapaInfo.proxima_etapa_nome = etRec.getString('proxima_etapa_nome')
+      } catch (_) {}
+    }
+
+    var payload = job.get('payload_execucao_json') || {}
+    var criterioSucesso =
+      etapaInfo.criterio_sucesso ||
+      (payload && payload.criterio_sucesso) ||
+      'Operação validada sem divergências.'
+    var criterioErro =
+      etapaInfo.criterio_erro ||
+      (payload && payload.criterio_erro) ||
+      'Falha de comunicação ou rejeição de formulário no portal.'
+
+    tarefasEstruturadas.push({
+      job_id: job.id,
+      job_codigo: job.getString('job_codigo'),
+      cliente: empresaInfo,
+      competencia: job.getString('competencia'),
+      area: job.getString('area'),
+      processo: processoInfo,
+      pop_relacionado: job.getString('pop_relacionado') || processoInfo.codigo_sop,
+      etapa_atual: etapaInfo,
+      proxima_acao: job.getString('proxima_acao'),
+      criterio_sucesso: criterioSucesso,
+      criterio_erro: criterioErro,
+      o_que_fazer_em_caso_de_erro:
+        'Em caso de erro, chamar POST /tarefas/:id/reportar-erro ou POST /erro com detalhes estruturados. NUNCA adivinhar dados críticos.',
+      prazo: job.getString('prazo'),
+      prioridade: job.getString('prioridade'),
+      nivel_autonomia: job.getString('nivel_autonomia'),
+      status: job.getString('status'),
+      payload_execucao: payload,
+      atribuido_ao_agente: agentIdent,
+    })
+  }
+
+  try {
+    agent.set('ultima_busca_em', new Date().toISOString())
+    app.save(agent)
+  } catch (_) {}
+
+  return e.json(200, {
+    sucesso: true,
+    total_tarefas_aprovadas: tarefasEstruturadas.length,
+    agente: agentIdent,
+    tarefas: tarefasEstruturadas,
+  })
+})
+
 // 3. POST /backend/v1/elliza-agente/tarefas/:id/iniciar
 routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/iniciar', function (e) {
   var req = e.requestInfo()
@@ -313,7 +478,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/iniciar', function (e)
   var agent = records[0]
   var tenantId = agent.getString('tenant_id')
   var agentIdent = agent.getString('identificador_agente')
-  var jobId = req.params.id
+  var jobId = e.request.pathValue('id')
 
   var job = null
   try {
@@ -457,7 +622,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/concluir', function (e
   var agent = records[0]
   var tenantId = agent.getString('tenant_id')
   var agentIdent = agent.getString('identificador_agente')
-  var jobId = req.params.id
+  var jobId = e.request.pathValue('id')
 
   var body = {}
   try {
@@ -684,7 +849,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/evidencias', function 
   var agent = records[0]
   var tenantId = agent.getString('tenant_id')
   var agentIdent = agent.getString('identificador_agente')
-  var jobId = req.params.id
+  var jobId = e.request.pathValue('id')
 
   var job = null
   try {
@@ -845,6 +1010,314 @@ routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/evidencias', function 
   })
 })
 
+// 5b. Aliases simplificados diretos para /iniciar, /concluir, /evidencias, /erro recebendo job_id no body ou query
+routerAdd('POST', '/backend/v1/elliza-agente/iniciar', function (e) {
+  var req = e.requestInfo()
+  var body = req.body || {}
+  var queryObj = req.query || {}
+  var jobId = body.job_id || body.id || queryObj['job_id'] || queryObj['id']
+  if (!jobId) {
+    return e.json(400, { sucesso: false, erro: 'Parâmetro job_id obrigatório no body ou query.' })
+  }
+  var headers = req.headers || {}
+  var apiKey = headers['x-elliza-api-key'] || ''
+  if (!apiKey && headers['authorization']) {
+    var authHeader = String(headers['authorization']).trim()
+    if (authHeader.toLowerCase().indexOf('bearer ') === 0) {
+      apiKey = authHeader.slice(7).trim()
+    } else {
+      apiKey = authHeader
+    }
+  }
+  if (!apiKey) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Chave de API não fornecida no cabeçalho X-Elliza-Api-Key',
+    })
+  }
+  var app = e.app || $app
+  var hash = $security.sha256(String(apiKey).trim())
+  var records = []
+  try {
+    records = app.findRecordsByFilter(
+      'elliza_agente_externo_chaves',
+      "api_key_hash = '" + hash + "' && status = 'ativo'",
+      '',
+      1,
+      0,
+    )
+  } catch (err) {
+    return e.json(500, { sucesso: false, erro: 'Erro ao consultar chaves: ' + String(err) })
+  }
+  if (!records || records.length === 0) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Credenciais de agente externo inválidas ou revogadas.',
+    })
+  }
+  var agent = records[0]
+  var job = null
+  try {
+    job = app.findRecordById('elisa_jobs', jobId)
+  } catch (_) {
+    return e.json(404, { sucesso: false, erro: 'Job com ID ' + jobId + ' não encontrado.' })
+  }
+  if (job.getString('tenant_id') !== agent.getString('tenant_id')) {
+    return e.json(403, { sucesso: false, erro: 'Job pertence a outro escritório.' })
+  }
+  var nowIso = new Date().toISOString()
+  job.set('status', 'EM_EXECUCAO')
+  job.set('agente_responsavel', agent.getString('nome'))
+  job.set('executado_por_agente_externo', true)
+  job.set('agente_externo_id', agent.getString('identificador_agente'))
+  job.set('agente_externo_nome', agent.getString('nome'))
+  job.set('data_inicio_execucao', nowIso)
+  job.set('resultado', 'Em execução pelo Agente Externo (' + agent.getString('nome') + ')')
+  app.save(job)
+  return e.json(200, {
+    sucesso: true,
+    mensagem: 'Job iniciado com sucesso. Status alterado para EM_EXECUCAO.',
+    job_id: jobId,
+    job_codigo: job.getString('job_codigo'),
+    status: 'EM_EXECUCAO',
+    data_inicio_execucao: nowIso,
+  })
+})
+
+routerAdd('POST', '/backend/v1/elliza-agente/concluir', function (e) {
+  var req = e.requestInfo()
+  var body = req.body || {}
+  var queryObj = req.query || {}
+  var jobId = body.job_id || body.id || queryObj['job_id'] || queryObj['id']
+  if (!jobId) {
+    return e.json(400, { sucesso: false, erro: 'Parâmetro job_id obrigatório no body ou query.' })
+  }
+  var headers = req.headers || {}
+  var apiKey = headers['x-elliza-api-key'] || ''
+  if (!apiKey && headers['authorization']) {
+    var authHeader = String(headers['authorization']).trim()
+    if (authHeader.toLowerCase().indexOf('bearer ') === 0) {
+      apiKey = authHeader.slice(7).trim()
+    } else {
+      apiKey = authHeader
+    }
+  }
+  if (!apiKey) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Chave de API não fornecida no cabeçalho X-Elliza-Api-Key',
+    })
+  }
+  var app = e.app || $app
+  var hash = $security.sha256(String(apiKey).trim())
+  var records = []
+  try {
+    records = app.findRecordsByFilter(
+      'elliza_agente_externo_chaves',
+      "api_key_hash = '" + hash + "' && status = 'ativo'",
+      '',
+      1,
+      0,
+    )
+  } catch (err) {
+    return e.json(500, { sucesso: false, erro: 'Erro ao consultar chaves: ' + String(err) })
+  }
+  if (!records || records.length === 0) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Credenciais de agente externo inválidas ou revogadas.',
+    })
+  }
+  var agent = records[0]
+  var criterioSucessoValidado = Boolean(body.criterio_sucesso_validado)
+  if (!criterioSucessoValidado) {
+    return e.json(400, {
+      sucesso: false,
+      erro: 'Regra de Ouro: critério de sucesso deve ser explicitamente validado (criterio_sucesso_validado: true) para transição para CONCLUIDO.',
+    })
+  }
+  var job = null
+  try {
+    job = app.findRecordById('elisa_jobs', jobId)
+  } catch (_) {
+    return e.json(404, { sucesso: false, erro: 'Job com ID ' + jobId + ' não encontrado.' })
+  }
+  if (job.getString('tenant_id') !== agent.getString('tenant_id')) {
+    return e.json(403, { sucesso: false, erro: 'Job pertence a outro escritório.' })
+  }
+  var nowIso = new Date().toISOString()
+  var resultadoTexto = String(
+    body.resultado || 'Execução concluída com sucesso pelo agente externo.',
+  ).trim()
+  job.set('status', 'CONCLUIDO')
+  job.set('resultado', resultadoTexto)
+  job.set('data_fim_execucao', nowIso)
+  app.save(job)
+  var totalAtual = agent.getInt('total_tarefas_executadas') || 0
+  agent.set('total_tarefas_executadas', totalAtual + 1)
+  agent.set('ultima_execucao_em', nowIso)
+  app.save(agent)
+  return e.json(200, {
+    sucesso: true,
+    mensagem: 'Job concluído e validado com sucesso.',
+    job_id: jobId,
+    job_codigo: job.getString('job_codigo'),
+    status: 'CONCLUIDO',
+  })
+})
+
+routerAdd('POST', '/backend/v1/elliza-agente/erro', function (e) {
+  var req = e.requestInfo()
+  var body = req.body || {}
+  var queryObj = req.query || {}
+  var jobId = body.job_id || body.id || queryObj['job_id'] || queryObj['id']
+  if (!jobId) {
+    return e.json(400, { sucesso: false, erro: 'Parâmetro job_id obrigatório no body ou query.' })
+  }
+  var headers = req.headers || {}
+  var apiKey = headers['x-elliza-api-key'] || ''
+  if (!apiKey && headers['authorization']) {
+    var authHeader = String(headers['authorization']).trim()
+    if (authHeader.toLowerCase().indexOf('bearer ') === 0) {
+      apiKey = authHeader.slice(7).trim()
+    } else {
+      apiKey = authHeader
+    }
+  }
+  if (!apiKey) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Chave de API não fornecida no cabeçalho X-Elliza-Api-Key',
+    })
+  }
+  var app = e.app || $app
+  var hash = $security.sha256(String(apiKey).trim())
+  var records = []
+  try {
+    records = app.findRecordsByFilter(
+      'elliza_agente_externo_chaves',
+      "api_key_hash = '" + hash + "' && status = 'ativo'",
+      '',
+      1,
+      0,
+    )
+  } catch (err) {
+    return e.json(500, { sucesso: false, erro: 'Erro ao consultar chaves: ' + String(err) })
+  }
+  if (!records || records.length === 0) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Credenciais de agente externo inválidas ou revogadas.',
+    })
+  }
+  var agent = records[0]
+  var porQueParou = String(body.por_que_parou || '').trim()
+  var decisaoNecessaria = String(body.decisao_necessaria || '').trim()
+  if (!porQueParou || !decisaoNecessaria) {
+    return e.json(400, {
+      sucesso: false,
+      erro: 'Campos por_que_parou e decisao_necessaria são obrigatórios para reportar exceção honesta.',
+    })
+  }
+  var job = null
+  try {
+    job = app.findRecordById('elisa_jobs', jobId)
+  } catch (_) {
+    return e.json(404, { sucesso: false, erro: 'Job com ID ' + jobId + ' não encontrado.' })
+  }
+  if (job.getString('tenant_id') !== agent.getString('tenant_id')) {
+    return e.json(403, { sucesso: false, erro: 'Job pertence a outro escritório.' })
+  }
+  job.set('status', 'BLOQUEADO')
+  job.set('erro_mensagem', porQueParou)
+  job.set('resultado', 'Retido com segurança: ' + porQueParou)
+  app.save(job)
+  return e.json(201, {
+    sucesso: true,
+    mensagem: 'Exceção reportada com segurança. Status do job: BLOQUEADO.',
+    job_id: jobId,
+    job_status: 'BLOQUEADO',
+  })
+})
+
+routerAdd('POST', '/backend/v1/elliza-agente/evidencias', function (e) {
+  var req = e.requestInfo()
+  var body = req.body || {}
+  var queryObj = req.query || {}
+  var jobId = body.job_id || body.id || queryObj['job_id'] || queryObj['id']
+  if (!jobId) {
+    return e.json(400, { sucesso: false, erro: 'Parâmetro job_id obrigatório no body ou query.' })
+  }
+  var headers = req.headers || {}
+  var apiKey = headers['x-elliza-api-key'] || ''
+  if (!apiKey && headers['authorization']) {
+    var authHeader = String(headers['authorization']).trim()
+    if (authHeader.toLowerCase().indexOf('bearer ') === 0) {
+      apiKey = authHeader.slice(7).trim()
+    } else {
+      apiKey = authHeader
+    }
+  }
+  if (!apiKey) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Chave de API não fornecida no cabeçalho X-Elliza-Api-Key',
+    })
+  }
+  var app = e.app || $app
+  var hash = $security.sha256(String(apiKey).trim())
+  var records = []
+  try {
+    records = app.findRecordsByFilter(
+      'elliza_agente_externo_chaves',
+      "api_key_hash = '" + hash + "' && status = 'ativo'",
+      '',
+      1,
+      0,
+    )
+  } catch (err) {
+    return e.json(500, { sucesso: false, erro: 'Erro ao consultar chaves: ' + String(err) })
+  }
+  if (!records || records.length === 0) {
+    return e.json(401, {
+      sucesso: false,
+      erro: 'Credenciais de agente externo inválidas ou revogadas.',
+    })
+  }
+  var agent = records[0]
+  var job = null
+  try {
+    job = app.findRecordById('elisa_jobs', jobId)
+  } catch (_) {
+    return e.json(404, { sucesso: false, erro: 'Job com ID ' + jobId + ' não encontrado.' })
+  }
+  if (job.getString('tenant_id') !== agent.getString('tenant_id')) {
+    return e.json(403, { sucesso: false, erro: 'Job pertence a outro escritório.' })
+  }
+  var titulo = String(body.titulo || 'Evidência de Execução de Agente Externo').trim()
+  var hashSha256 = String(body.hash_sha256 || '').trim()
+  if (!hashSha256) {
+    hashSha256 = $security.sha256(
+      jobId + '|' + new Date().toISOString() + '|' + agent.getString('identificador_agente'),
+    )
+  }
+  var evidCol = app.findCollectionByNameOrId('elisa_evidencias')
+  var evRec = new Record(evidCol)
+  evRec.set('tenant_id', agent.getString('tenant_id'))
+  evRec.set('job_id', jobId)
+  evRec.set('tipo', 'screenshot')
+  evRec.set('titulo', titulo)
+  evRec.set('hash_sha256', hashSha256)
+  evRec.set('executado_por', agent.getString('nome'))
+  app.save(evRec)
+  return e.json(201, {
+    sucesso: true,
+    mensagem: 'Evidência auditável registrada com sucesso.',
+    evidencia_id: evRec.id,
+    hash_sha256: hashSha256,
+  })
+})
+
 // 6. POST /backend/v1/elliza-agente/tarefas/:id/reportar-erro
 routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/reportar-erro', function (e) {
   var req = e.requestInfo()
@@ -898,7 +1371,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/tarefas/{id}/reportar-erro', functi
   var agent = records[0]
   var tenantId = agent.getString('tenant_id')
   var agentIdent = agent.getString('identificador_agente')
-  var jobId = req.params.id
+  var jobId = e.request.pathValue('id')
 
   var body = {}
   try {
