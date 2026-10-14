@@ -345,15 +345,25 @@ export default function Documentos() {
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          id="rpa-grid-ged-documentos"
+          data-total-rows={filteredDocs.length}
+          data-rpa-status="loaded"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           {filteredDocs.map((doc) => {
             const fileUrl = doc.arquivo ? documentosService.getFileUrl(doc, doc.arquivo) : null
             return (
               <Card
                 key={doc.id}
+                id={`rpa-documento-${doc.id}`}
+                data-documento-id={doc.id}
+                data-documento-tipo={doc.tipo}
+                data-empresa-id={doc.empresa_id}
                 onClick={() => setSelectedDoc(doc)}
-                className="group rounded-2xl border-[#E2E8F0] shadow-xs hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer flex flex-col justify-between"
+                className="rounded-2xl border border-slate-200/80 bg-white hover:border-[#0FA3A3]/50 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
               >
+                {' '}
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 overflow-hidden">

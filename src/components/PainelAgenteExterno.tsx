@@ -17,6 +17,9 @@ import {
   Activity,
   Code2,
   Laptop,
+  BookOpen,
+  ScanLine,
+  ListChecks,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -476,10 +479,18 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
       </Card>
 
       <Tabs defaultValue="simulador" className="space-y-4">
-        <TabsList className="bg-slate-100 p-1 border border-slate-200">
+        <TabsList className="bg-slate-100 p-1 border border-slate-200 flex-wrap">
           <TabsTrigger value="simulador" className="text-xs font-semibold gap-1.5">
             <Activity className="h-3.5 w-3.5 text-[#0FA3A3]" />
             <span>Simulador do Ciclo Completo</span>
+          </TabsTrigger>
+          <TabsTrigger value="manual" className="text-xs font-semibold gap-1.5">
+            <BookOpen className="h-3.5 w-3.5 text-teal-600" />
+            <span>Manual de Operação (POP-EX-01)</span>
+          </TabsTrigger>
+          <TabsTrigger value="robo-scanner" className="text-xs font-semibold gap-1.5">
+            <ScanLine className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Robô 1 — Scanner → GED (POP-EX-02)</span>
           </TabsTrigger>
           <TabsTrigger value="credenciais" className="text-xs font-semibold gap-1.5">
             <KeyRound className="h-3.5 w-3.5 text-amber-600" />
@@ -788,6 +799,689 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* ABA NOVAL: MANUAL DE OPERAÇÃO RUMO (POP-EX-01) + CHECKLIST DE VALIDAÇÃO DO 1º CICLO */}
+        <TabsContent value="manual" className="space-y-6">
+          {/* Card com o Manual de Operação RUMO Integral */}
+          <Card
+            id="rpa-manual-operacao-rumo"
+            className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs space-y-6"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-teal-500/10 rounded-lg border border-teal-500/20 text-[#0FA3A3]">
+                    <BookOpen className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight">
+                    MANUAL DE OPERAÇÃO RUMO — AGENTE EXTERNO ELLIZA DESKTOP (RPA)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Versão do contrato: <strong className="text-slate-800">Trilha RPA v1.0</strong> ·
+                  Público:{' '}
+                  <code className="font-mono text-teal-700 font-bold">
+                    ELLIZA desktop (elliza-desktop-rpa)
+                  </code>{' '}
+                  · Base URL:{' '}
+                  <code className="font-mono text-slate-700">
+                    https://rumoconsultoriacontabil.com.br
+                  </code>{' '}
+                  · Catálogo 2026.4: <strong className="text-teal-700">POP-EX-01</strong>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge className="bg-teal-600 text-white font-bold text-[10px]">
+                  POP-EX-01 (Ativo)
+                </Badge>
+                <Badge variant="outline" className="text-slate-600 text-[10px]">
+                  Versão 2026.4
+                </Badge>
+              </div>
+            </div>
+
+            {/* Seção 1 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]">
+                  1
+                </span>
+                1. Identidade e privilégios
+              </h4>
+              <p className="text-xs text-slate-700 leading-relaxed pl-7">
+                Você é a <strong>ELLIZA desktop</strong>, executora local (RPA) da plataforma Rumo.
+                Privilégios mínimos por design: acesso <strong>APENAS</strong> aos endpoints{' '}
+                <code className="text-teal-700 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
+                  /backend/v1/elliza-agente/*
+                </code>
+                . Nunca acessar banco, painel de administração ou qualquer outra rota — tentativa é
+                rejeitada e registrada. Credencial: API key dedicada no header{' '}
+                <code className="font-mono text-slate-900 bg-slate-100 px-1 py-0.5 rounded">
+                  X-Elliza-Api-Key
+                </code>{' '}
+                (ou <code>Authorization: Bearer &lt;key&gt;</code>) em <strong>TODA</strong>{' '}
+                chamada. Onde configurar:{' '}
+                <em>Configurações → Integração Rumo Cloud → Token de Autenticação</em>.
+              </p>
+            </div>
+
+            {/* Seção 2 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]">
+                  2
+                </span>
+                2. O ciclo de operação (loop contínuo, intervalo 30–60s)
+              </h4>
+              <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700 leading-relaxed pl-7">
+                <li>
+                  <strong>Polling</strong> —{' '}
+                  <code className="font-mono text-emerald-700">
+                    GET /backend/v1/elliza-agente/buscar-aprovadas
+                  </code>{' '}
+                  → retorna as tarefas aprovadas no Nível 3 pela supervisão humana (ou vazio;
+                  aguarde e reinicie)
+                </li>
+                <li>
+                  <strong>Ler tarefa + contexto</strong> — cada tarefa traz <code>job_id</code>,{' '}
+                  <code>processo_id</code>, POP de referência e payload de execução
+                </li>
+                <li>
+                  <strong>Navegar à tela do processo e ler o estado</strong> pelos atributos de
+                  telemetria (seção 4) — nunca por texto visual
+                </li>
+                <li>
+                  <strong>Executar a ação no PC</strong> (RPA local, ZAP, OCR etc.)
+                </li>
+                <li>
+                  <strong>Capturar evidência</strong> — screenshot antes/depois + hash{' '}
+                  <strong>SHA-256</strong> do arquivo
+                </li>
+                <li>
+                  <strong>Reportar</strong> — <code>POST /iniciar</code> ao começar;{' '}
+                  <code>POST /concluir</code> ao terminar; <code>POST /erro</code> se falhar;
+                  evidências via <code>POST /evidencias</code>
+                </li>
+                <li>
+                  <strong>Reiniciar o polling</strong>
+                </li>
+              </ol>
+            </div>
+
+            {/* Seção 3 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-rose-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-white text-[10px]">
+                  3
+                </span>
+                3. Regra de Ouro (inegociável)
+              </h4>
+              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 text-xs text-rose-950 leading-relaxed ml-7">
+                <p>
+                  Nunca marcar etapa como concluída por inferência. Só há conclusão quando:{' '}
+                  <strong>(a)</strong> o indicador inequívoco da tela confirma (
+                  <code className="bg-white px-1 py-0.5 rounded border border-rose-200">
+                    #rpa-status-conclusao
+                  </code>{' '}
+                  com{' '}
+                  <code className="bg-white px-1 py-0.5 rounded border border-rose-200">
+                    data-rpa-state=&quot;success&quot;
+                  </code>
+                  ), E <strong>(b)</strong>{' '}
+                  <code className="bg-white px-1 py-0.5 rounded border border-rose-200 font-bold">
+                    criterio_sucesso_validado: true
+                  </code>{' '}
+                  é enviado no <code>/concluir</code> — sem ele a chamada retorna{' '}
+                  <strong>400</strong> e a etapa permanece em execução. Se houver dúvida,
+                  divergência ou dado faltando:{' '}
+                  <strong>pare honestamente e reporte via /erro</strong>. Nunca invente valor para
+                  fechar etapa.
+                </p>
+              </div>
+            </div>
+
+            {/* Seção 4 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]">
+                  4
+                </span>
+                4. Contrato de telemetria visual (Trilha RPA v1.0)
+              </h4>
+              <div className="ml-7 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b">
+                    <tr>
+                      <th className="py-2 px-3">Elemento</th>
+                      <th className="py-2 px-3">Seletor / Atributo</th>
+                      <th className="py-2 px-3">Uso Operacional</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-[11px]">
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Etapa de processo</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        [data-step-code] com data-step-status=&quot;pending|running|done|error&quot;
+                        e data-job-id
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">
+                        Decidir se executa e vincular à tarefa da API
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">
+                        Grid de lançamentos
+                      </td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-grid-lancamentos, #rpa-grid-balancete com data-total-rows,
+                        data-total-debito, data-total-credito, data-diferenca, data-rpa-equilibrado
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">
+                        Raspar sem perder linha; exigir data-diferenca=&quot;0.00&quot;
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Conciliação</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-grid-conciliacao com data-total-rows, data-pendencias-count
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">Ler pendências por atributo</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Botão de ação</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-btn-executar com data-action-code e data-enabled-reason
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">
+                        Só clicar quando habilitado; se desabilitado, ler o motivo
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Botão depreciação</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-btn-rodar-depreciacao com data-competencia
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">Módulo Patrimônio</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Log da aplicação</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-log-container com linhas data-log-level=&quot;info|warn|error&quot; e
+                        data-log-timestamp
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">Registrar erros como evidência</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Conclusão</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-status-conclusao com data-rpa-state=&quot;success|error|open&quot;
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">
+                        Único indicador válido de fim de rotina
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">Ficha da empresa</td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-empresa-ficha; campos com data-rpa-field / data-rpa-value; QSA em
+                        #rpa-grid-qsa com data-socio-cpf, data-socio-participacao
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">
+                        Fonte única de dados cadastrais e societários
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-semibold text-slate-900">
+                        Pedidos de Documentos / GED
+                      </td>
+                      <td className="py-2 px-3 font-mono text-teal-700">
+                        #rpa-grid-documentos com data-total-rows, data-pedido-id, data-rpa-status
+                      </td>
+                      <td className="py-2 px-3 text-slate-600">
+                        Leitura determinística de pedidos e documentos anexados
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-500 pl-7 italic">
+                Governança: seletores são contrato versionado; qualquer mudança passa pela aba
+                Agente Externo (RPA) em /elisa-fila — nunca presuma que um seletor antigo continua
+                válido.
+              </p>
+            </div>
+
+            {/* Seção 5 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]">
+                  5
+                </span>
+                5. Mapa de telas da plataforma
+              </h4>
+              <ul className="list-disc list-inside space-y-1.5 text-xs text-slate-700 pl-7 leading-relaxed">
+                <li>
+                  <code className="font-mono text-teal-700">/elisa-fila</code> | Fila de tarefas
+                  aprovadas + contrato | consultar; aba Agente Externo traz contrato e script Python
+                  de referência
+                </li>
+                <li>
+                  <code className="font-mono text-teal-700">/central-operacoes</code> | Operações e
+                  SOPs em execução | ver contexto do processo antes de executar
+                </li>
+                <li>
+                  <code className="font-mono text-teal-700">/empresas/:id</code> (aba Ficha
+                  Cadastral) | Identificação, Societário, Parametrização | LER dados via{' '}
+                  <code>data-rpa-field</code> para preencher portais externos
+                </li>
+                <li>
+                  <code className="font-mono text-teal-700">/processos/:id</code> | Etapas do
+                  processo com telemetria | executar etapas, ler status
+                </li>
+                <li>
+                  <code className="font-mono text-teal-700">/portal-acessos</code> | Autorizações
+                  (ex.: envio WhatsApp) | verificar autorização antes de qualquer envio
+                </li>
+                <li>
+                  <code className="font-mono text-teal-700">/pop-treinamento</code> | POPs vigentes
+                  (2026.4) | consultar regras do processo antes da 1ª execução
+                </li>
+              </ul>
+            </div>
+
+            {/* Seção 6 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]">
+                  6
+                </span>
+                6. Processos passo a passo
+              </h4>
+              <div className="space-y-2 pl-7 text-xs text-slate-700 leading-relaxed">
+                <p>
+                  <strong>6.1 Fechamento Contábil (POP-04, 16 etapas FCT-04):</strong> buscar tarefa
+                  → navegar ao processo → localizar etapa pelo <code>data-step-code</code> → validar{' '}
+                  <code>data-step-status=&quot;pending&quot;</code> → ler grid do balancete e
+                  conferir <code>data-diferenca=&quot;0.00&quot;</code> → executar a ação (
+                  <code>data-action-code</code>) → aguardar{' '}
+                  <code>#rpa-status-conclusao[data-rpa-state=&quot;success&quot;]</code> → /concluir
+                  com evidência.
+                </p>
+                <p>
+                  <strong>6.2 Conciliação Bancária/Cartões (POP-05):</strong> ler{' '}
+                  <code>#rpa-grid-conciliacao</code>; processar itens; se{' '}
+                  <code>data-pendencias-count &gt; 0</code> ao final, reportar via /erro ou concluir
+                  parcialmente com a pendência descrita — nunca concluir como &quot;success&quot;
+                  com pendência aberta.
+                </p>
+                <p>
+                  <strong>6.3 Consulta de dados cadastrais:</strong> navegar a{' '}
+                  <code>/empresas/:id</code>, ler <code>#rpa-empresa-ficha</code> campo a campo via{' '}
+                  <code>data-rpa-field</code>/<code>data-rpa-value</code>; societário via{' '}
+                  <code>#rpa-grid-qsa</code>. Valor &quot;—&quot; significa &quot;sem dado&quot;:
+                  não preencher com suposição.
+                </p>
+                <p>
+                  <strong>6.4 Envio WhatsApp via ZAP (POP-AT-01):</strong> a plataforma NÃO envia;
+                  ela enfileira. Buscar a tarefa aprovada, verificar a autorização da empresa em{' '}
+                  <code>/portal-acessos</code>, executar o disparo pelo ZAP local e retornar
+                  evidência (screenshot da mensagem enviada + hash). Histórico fica em{' '}
+                  <code>whatsapp_envios</code>.
+                </p>
+                <p>
+                  <strong>6.5 Scanner → GED:</strong> digitalizar/OCR do documento do cliente,
+                  classificar e anexar ao pedido de documentos correspondente; evidência com hash.
+                </p>
+              </div>
+            </div>
+
+            {/* Seção 7 */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[10px]">
+                  7
+                </span>
+                7. Erros, limites e proibições
+              </h4>
+              <ul className="list-disc list-inside space-y-1 text-xs text-slate-700 pl-7 leading-relaxed">
+                <li>
+                  Falha de execução → <code>POST /erro</code> com mensagem legível; nunca retentar
+                  silenciosamente além do limite configurado
+                </li>
+                <li>
+                  Tarefa ambígua ou dado divergente → parada honesta (reportar, não improvisar)
+                </li>
+                <li className="font-semibold text-rose-700">
+                  Proibido: concluir sem indicador inequívoco, alterar dados sem tarefa aprovada,
+                  acessar rota fora da lista da seção 1, usar a Evolution API (descontinuada) para
+                  WhatsApp
+                </li>
+              </ul>
+            </div>
+          </Card>
+
+          {/* CHECKLIST DE VALIDAÇÃO DO PRIMEIRO CICLO (ENTREGA 2) */}
+          <Card
+            id="rpa-checklist-validacao-ciclo"
+            className="rounded-2xl border-teal-300 bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white p-6 shadow-md space-y-5"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-teal-800/60 pb-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-teal-500/20 rounded-lg border border-teal-400/40 text-teal-300">
+                    <ListChecks className="h-5 w-5" />
+                  </div>
+                  <h4 className="font-black text-base text-white tracking-tight">
+                    Checklist de Validação do Primeiro Ciclo (Ponta a Ponta)
+                  </h4>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Passo a passo auditável para validar a integração no PC do escritório usando o job
+                  demo oficial <strong>JOB-092026-WA-ZAP01</strong>.
+                </p>
+              </div>
+
+              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-xs font-mono font-bold">
+                Job Demo: JOB-092026-WA-ZAP01
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Etapa 1 */}
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <div className="flex items-center gap-2 text-teal-300 font-bold">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 text-[10px] font-black">
+                    1
+                  </span>
+                  Configurar a API Key no PC
+                </div>
+                <p className="text-slate-300 leading-relaxed text-[11px]">
+                  No software <strong>ELLIZA Desktop</strong> instalado no seu computador, abra{' '}
+                  <em>Configurações → Integração Rumo Cloud → Token de Autenticação</em> e cole a
+                  chave{' '}
+                  <code className="text-teal-300 font-mono bg-slate-950 px-1 py-0.5 rounded border border-slate-800">
+                    {rawKeyEllizaDesktopPadrao}
+                  </code>
+                  .
+                </p>
+              </div>
+
+              {/* Etapa 2 */}
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <div className="flex items-center gap-2 text-teal-300 font-bold">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 text-[10px] font-black">
+                    2
+                  </span>
+                  Executar Polling &amp; Receber o Job
+                </div>
+                <p className="text-slate-300 leading-relaxed text-[11px]">
+                  Rode o polling do robô (ou use o Simulador ao lado). O endpoint{' '}
+                  <code className="text-teal-300 font-mono">
+                    GET /backend/v1/elliza-agente/buscar-aprovadas
+                  </code>{' '}
+                  retorna o job <strong className="text-white">JOB-092026-WA-ZAP01</strong> com
+                  status <span className="text-emerald-400 font-bold">APROVADO</span> e payload
+                  completo.
+                </p>
+              </div>
+
+              {/* Etapa 3 */}
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <div className="flex items-center gap-2 text-teal-300 font-bold">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 text-[10px] font-black">
+                    3
+                  </span>
+                  Conferir Autorização &amp; Executar via ZAP
+                </div>
+                <p className="text-slate-300 leading-relaxed text-[11px]">
+                  O robô verifica a autorização formal da empresa em{' '}
+                  <code className="text-teal-300 font-mono">/portal-acessos</code> (Aba Envio Ativo
+                  WhatsApp) e executa o disparo da mensagem através do aplicativo local{' '}
+                  <strong>ZAP da ELLIZA desktop</strong>.
+                </p>
+              </div>
+
+              {/* Etapa 4 */}
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <div className="flex items-center gap-2 text-teal-300 font-bold">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 text-[10px] font-black">
+                    4
+                  </span>
+                  Devolver /iniciar → /evidencias → /concluir
+                </div>
+                <p className="text-slate-300 leading-relaxed text-[11px]">
+                  A ELLIZA desktop chama{' '}
+                  <code className="text-teal-300 font-mono">POST /iniciar</code>, anexa a evidência
+                  com screenshot e hash <strong>SHA-256</strong> em{' '}
+                  <code className="text-teal-300 font-mono">POST /evidencias</code> e finaliza com{' '}
+                  <code className="text-teal-300 font-mono">POST /concluir</code> com{' '}
+                  <code>criterio_sucesso_validado: true</code>.
+                </p>
+              </div>
+            </div>
+
+            {/* Onde Conferir na Plataforma */}
+            <div className="rounded-xl border border-teal-500/30 bg-slate-950/70 p-4 space-y-2 text-xs">
+              <span className="font-bold text-teal-300 uppercase tracking-wider text-[11px] block">
+                🔍 Onde e o que o usuário confere na plataforma após o ciclo:
+              </span>
+              <ul className="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
+                <li>
+                  <strong>Na tela /elisa-fila (Aba Tarefas &amp; Jobs):</strong> Localize o card{' '}
+                  <code className="font-mono text-teal-300">JOB-092026-WA-ZAP01</code>. O status
+                  deve transicionar de <span className="text-amber-400">APROVADO</span> para{' '}
+                  <span className="text-emerald-400 font-bold">CONCLUIDO</span>, com resumo de
+                  evidência e tempo de execução preenchidos.
+                </li>
+                <li>
+                  <strong>No histórico de envios WhatsApp (whatsapp_envios):</strong> Acesse{' '}
+                  <code>/portal-acessos</code> (Aba Envio Ativo WhatsApp). O registro com referência{' '}
+                  <code className="font-mono text-teal-300">JOB-092026-WA-ZAP01</code> exibe status{' '}
+                  <code>enviado</code> (ou enfileirado aguardando o ZAP) com canal{' '}
+                  <code>zap_elliza_desktop</code> e recibo de entrega.
+                </li>
+                <li>
+                  <strong>No painel de Evidências (/elisa-fila):</strong> Inspecione o registro em{' '}
+                  <code>elisa_evidencias</code> contendo o hash criptográfico{' '}
+                  <strong>SHA-256</strong> e comprovante anexado.
+                </li>
+              </ul>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* ABA NOVA: ROBÔ 1 — SCANNER → GED (POP-EX-02) */}
+        <TabsContent value="robo-scanner" className="space-y-6">
+          <Card
+            id="rpa-robo-scanner-ged"
+            className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs space-y-5"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 text-indigo-600">
+                    <ScanLine className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight">
+                    Robô 1 — Scanner → GED (Digitalização e Classificação)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Procedimento Operacional Padrão:{' '}
+                  <strong className="text-indigo-700">POP-EX-02</strong> · Versão 2026.4 · Job
+                  Template:{' '}
+                  <code className="font-mono font-bold text-slate-800">JOB-092026-SCAN-GED01</code>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge className="bg-indigo-600 text-white font-bold text-[10px]">
+                  POP-EX-02 (Ativo)
+                </Badge>
+                <Badge variant="outline" className="text-slate-600 text-[10px]">
+                  Mapeamento Robô 1
+                </Badge>
+              </div>
+            </div>
+
+            {/* Descrição Geral e Objetivo */}
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-2 text-xs text-indigo-950 leading-relaxed">
+              <strong className="block text-indigo-900 text-sm">
+                Objetivo do Robô Scanner → GED:
+              </strong>
+              <p>
+                Automatizar a esteira física-digital de documentos recebidos no escritório contábil.
+                A <strong>ELLIZA desktop</strong> digitaliza o documento físico através do scanner
+                local acoplado ao PC (ou monitora pasta local de digitalização), aplica
+                reconhecimento óptico de caracteres (<strong>OCR</strong>), classifica o documento
+                (extrato bancário, nota fiscal, contrato, fatura), identifica o cliente pelo CNPJ,
+                localiza o pedido correspondente em{' '}
+                <code className="font-mono">/pedidos-documentos</code> via telemetria determinística{' '}
+                <code className="font-mono">#rpa-grid-documentos</code>, anexa o PDF ao GED e
+                homologa a conclusão pela Regra de Ouro.
+              </p>
+            </div>
+
+            {/* Passo a Passo Expandido (Seção 6.5 do Manual) */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-sm text-slate-900 uppercase tracking-wider text-[11px]">
+                Passo a Passo Operacional do Robô (Etapas POP-EX-02):
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+                {/* Passo 1 */}
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px]">
+                      1
+                    </span>
+                    Digitalização
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Captura física pelo scanner local em resolução mínima de 300 DPI (PDF ou imagem
+                    legível).
+                  </p>
+                </div>
+
+                {/* Passo 2 */}
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px]">
+                      2
+                    </span>
+                    OCR &amp; Classificação
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Extração de texto via OCR da ELLIZA; categorização automática em tipologia
+                    válida do catálogo.
+                  </p>
+                </div>
+
+                {/* Passo 3 */}
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px]">
+                      3
+                    </span>
+                    Vincular Pedido
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Reconhece o CNPJ, navega a <code>/pedidos-documentos</code> e lê{' '}
+                    <code>#rpa-grid-documentos</code>.
+                  </p>
+                </div>
+
+                {/* Passo 4 */}
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px]">
+                      4
+                    </span>
+                    Anexar no GED
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Upload no repositório GED, baixa no item solicitado do pedido e cálculo do hash
+                    SHA-256.
+                  </p>
+                </div>
+
+                {/* Passo 5 */}
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px]">
+                      5
+                    </span>
+                    Regra de Ouro
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Disparo de <code>POST /evidencias</code> e <code>POST /concluir</code> com{' '}
+                    <code>criterio_sucesso_validado: true</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Estrutura do Payload de Execução (Job Template) */}
+            <div className="space-y-2">
+              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
+                Payload de Execução do Job Template (JOB-092026-SCAN-GED01):
+              </span>
+
+              <div className="bg-slate-950 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto">
+                <pre>{`{
+  "tipo_operacao": "SCANNER_GED_DIGITALIZACAO",
+  "robo_codigo": "ROBO-01-SCANNER-GED",
+  "empresa_id": "8p0e1w9y7szvtyy",
+  "competencia": "09/2026",
+  "pedido_documentos_id": "f3z8c3j8tv2p6kx",
+  "categoria_documento": "extrato_bancario",
+  "resolucao_dpi_minima": 300,
+  "arquivos_esperados": [
+    {
+      "nome_sugerido": "extrato_bancario_itau_092026.pdf",
+      "descricao": "Extrato bancário conta corrente Itaú Setembro/2026",
+      "tipo": "extrato_bancario",
+      "obrigatorio": true
+    }
+  ],
+  "criterio_sucesso": "Documento digitalizado anexado ao GED, item do pedido marcado como recebido e evidência com hash SHA-256 devolvida.",
+  "criterio_erro": "Falha no scanner, imagem ilegível ou erro ao indexar no GED contábil.",
+  "timeout_segundos": 120
+}`}</pre>
+              </div>
+            </div>
+
+            {/* Critérios de Sucesso e Parada Honesta */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50 space-y-1.5">
+                <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Critérios de Sucesso Validáveis:
+                </span>
+                <ul className="list-disc list-inside text-emerald-900 space-y-1 text-[11px]">
+                  <li>Documento anexado no GED com empresa_id correta</li>
+                  <li>Item do pedido de documentos transicionado para &quot;recebido&quot;</li>
+                  <li>Evidência com hash SHA-256 e recibo arquivado em elisa_evidencias</li>
+                  <li>Indicador #rpa-status-conclusao validado</li>
+                </ul>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 space-y-1.5">
+                <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  Diretriz de Parada Honesta:
+                </span>
+                <p className="text-amber-900 text-[11px] leading-relaxed">
+                  Caso o documento digitalizado seja ilegível, o CNPJ não corresponda a nenhuma
+                  empresa da carteira, ou não haja pedido de documentos aberto: a ELLIZA desktop{' '}
+                  <strong>NUNCA adivinha ou anexa em cliente errado</strong>. Reporta imediatamente
+                  via <code>POST /erro</code> e move o arquivo para a quarentena.
+                </p>
+              </div>
+            </div>
+          </Card>
         </TabsContent>
 
         {/* ABA 2: CONTAS DE SERVIÇO & TOKENS */}
@@ -1278,6 +1972,31 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                         Grid determinístico do Quadro de Sócios e Administradores. Por linha/sócio:
                         CPF, percentual de quotas, RG, data de nascimento, naturalidade e endereço
                         completo.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                        11. Pedidos de Documentos / GED
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">
+                        #rpa-grid-documentos
+                        <br />
+                        #rpa-grid-ged-documentos
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-rpa-status=&quot;loaded|empty&quot;
+                        <br />
+                        data-pedido-id=&quot;...&quot;
+                        <br />
+                        data-documento-tipo=&quot;...&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Leitura determinística de pedidos de documentos e repositório GED para robôs
+                        de digitalização, classificação OCR (Scanner → GED) e baixa automática de
+                        documentos.
                       </td>
                     </tr>
                   </tbody>

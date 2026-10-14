@@ -684,8 +684,30 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
         </div>
       </div>
 
-      {/* Tabela de Pedidos com Ações Completas */}
-      <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden">
+      {/* Tabela de Pedidos com Ações Completas e Telemetria Trilha RPA v1.0 */}
+      <Card
+        id="rpa-grid-documentos"
+        data-total-rows={pedidos.length}
+        data-rpa-status={pedidos.length > 0 ? 'loaded' : 'empty'}
+        className="rounded-2xl border-slate-200 shadow-xs overflow-hidden"
+      >
+        {/* Indicador de Conclusão / Estado Trilha RPA v1.0 */}
+        <div
+          id="rpa-status-conclusao"
+          data-rpa-state={
+            pedidos.length === 0
+              ? 'open'
+              : pedidos.every((p) => p.status === 'atendido')
+                ? 'success'
+                : 'open'
+          }
+          data-rpa-resultado={`${pedidos.filter((p) => p.status === 'atendido').length}/${pedidos.length} pedidos atendidos`}
+          className="sr-only"
+          aria-hidden="true"
+        >
+          {pedidos.filter((p) => p.status === 'atendido').length}/{pedidos.length} pedidos atendidos
+        </div>
+
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
@@ -733,7 +755,15 @@ export function PedidosDocumentosTab({ empresas, tenantId, canEdit }: PedidosDoc
                   new Date(ped.link_expira_em).getTime() < agoraMs
 
                 return (
-                  <TableRow key={ped.id} className="hover:bg-slate-50/70 transition-colors">
+                  <TableRow
+                    key={ped.id}
+                    id={`rpa-pedido-${ped.id}`}
+                    data-pedido-id={ped.id}
+                    data-rpa-status={ped.status}
+                    data-itens-recebidos={itensRecebidos}
+                    data-itens-total={totalItens}
+                    className="hover:bg-slate-50/70 transition-colors"
+                  >
                     {/* Empresa / Competência */}
                     <TableCell className="align-top py-3.5">
                       <div className="font-semibold text-xs text-[#1A2333] flex items-center gap-1.5">

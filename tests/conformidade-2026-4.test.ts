@@ -417,6 +417,104 @@ function runSuite() {
   )
 
   // -------------------------------------------------------------------------
+  // ITEM 8 (NOVO): Entrega Manual de Operação, Validação do 1º Ciclo & Robô Scanner → GED
+  // -------------------------------------------------------------------------
+  console.log('\n👉 [8] Manual de Operação RUMO (POP-EX-01), Validação do 1º Ciclo e Robô Scanner → GED (POP-EX-02):')
+
+  // 1. Migration 0120 cria POP-EX-01, POP-EX-02, autorização WhatsApp e Job Scanner->GED
+  const mig0120Path = path.join(projectRoot, 'pocketbase', 'migrations', '0120_seed_manual_and_scanner_ged.js')
+  assert(fs.existsSync(mig0120Path), 'Migration 0120 existe no projeto')
+  const mig0120Content = fs.readFileSync(mig0120Path, 'utf-8')
+  assert(
+    mig0120Content.includes('POP-EX-01') && mig0120Content.includes('POP-EX-02'),
+    'Migration 0120 define os novos POPs operacionais POP-EX-01 e POP-EX-02',
+  )
+  assert(
+    mig0120Content.includes('JOB-092026-SCAN-GED01'),
+    'Migration 0120 cadastra o job template JOB-092026-SCAN-GED01 para o robô Scanner → GED',
+  )
+  assert(
+    mig0120Content.includes('JOB-092026-WA-ZAP01'),
+    'Migration 0120 assegura o job demo JOB-092026-WA-ZAP01 e seu payload enriquecido',
+  )
+
+  // 2. Manual de Operação RUMO publicado no PainelAgenteExterno.tsx
+  assert(
+    painelAgenteContent.includes('id="rpa-manual-operacao-rumo"'),
+    'PainelAgenteExterno possui a seção/container #rpa-manual-operacao-rumo',
+  )
+  assert(
+    painelAgenteContent.includes('MANUAL DE OPERAÇÃO RUMO — AGENTE EXTERNO ELLIZA DESKTOP (RPA)'),
+    'PainelAgenteExterno exibe o título oficial integral do Manual de Operação RUMO',
+  )
+  assert(
+    painelAgenteContent.includes('1. Identidade e privilégios') &&
+      painelAgenteContent.includes('2. O ciclo de operação') &&
+      painelAgenteContent.includes('3. Regra de Ouro (inegociável)') &&
+      painelAgenteContent.includes('4. Contrato de telemetria visual') &&
+      painelAgenteContent.includes('5. Mapa de telas da plataforma') &&
+      painelAgenteContent.includes('6. Processos passo a passo') &&
+      painelAgenteContent.includes('7. Erros, limites e proibições'),
+    'Manual no PainelAgenteExterno cobre integralmente as 7 seções obrigatórias',
+  )
+
+  // 3. Checklist de Validação do Primeiro Ciclo no PainelAgenteExterno.tsx
+  assert(
+    painelAgenteContent.includes('id="rpa-checklist-validacao-ciclo"'),
+    'PainelAgenteExterno possui o bloco #rpa-checklist-validacao-ciclo',
+  )
+  assert(
+    painelAgenteContent.includes('JOB-092026-WA-ZAP01'),
+    'Checklist de Validação orienta sobre o job demo JOB-092026-WA-ZAP01',
+  )
+  assert(
+    painelAgenteContent.includes('/portal-acessos') &&
+      painelAgenteContent.includes('whatsapp_envios'),
+    'Checklist indica as rotas e tabelas de conferência (/portal-acessos e whatsapp_envios)',
+  )
+
+  // 4. Seção do Robô 1 — Scanner → GED (POP-EX-02) no PainelAgenteExterno.tsx
+  assert(
+    painelAgenteContent.includes('id="rpa-robo-scanner-ged"'),
+    'PainelAgenteExterno possui o bloco do Robô 1: #rpa-robo-scanner-ged',
+  )
+  assert(
+    painelAgenteContent.includes('POP-EX-02') &&
+      painelAgenteContent.includes('JOB-092026-SCAN-GED01'),
+    'Seção do Robô 1 traz referência expressa ao POP-EX-02 e ao template JOB-092026-SCAN-GED01',
+  )
+  assert(
+    painelAgenteContent.includes('SCANNER_GED_DIGITALIZACAO') &&
+      painelAgenteContent.includes('extrato_bancario_itau_092026.pdf'),
+    'Seção do Robô 1 expõe o payload do job com lista de arquivos esperados',
+  )
+
+  // 5. Telemetria Trilha RPA v1.0 em Pedidos de Documentos / GED
+  const pedidosDocsTabContent = fs.readFileSync(
+    path.join(projectRoot, 'src', 'components', 'PedidosDocumentosTab.tsx'),
+    'utf-8',
+  )
+  assert(
+    pedidosDocsTabContent.includes('id="rpa-grid-documentos"'),
+    'PedidosDocumentosTab possui id="rpa-grid-documentos" com telemetria RPA v1.0',
+  )
+  assert(
+    pedidosDocsTabContent.includes('data-total-rows=') &&
+      pedidosDocsTabContent.includes('data-pedido-id='),
+    'PedidosDocumentosTab telemetriza data-total-rows e data-pedido-id',
+  )
+
+  const documentosPageContent = fs.readFileSync(
+    path.join(projectRoot, 'src', 'pages', 'Documentos.tsx'),
+    'utf-8',
+  )
+  assert(
+    documentosPageContent.includes('id="rpa-grid-ged-documentos"') &&
+      documentosPageContent.includes('data-documento-id='),
+    'Documentos.tsx possui #rpa-grid-ged-documentos e data-documento-id=',
+  )
+
+  // -------------------------------------------------------------------------
   // Resumo da Suíte
   // -------------------------------------------------------------------------
   console.log('\n=============================================================')
