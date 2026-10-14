@@ -417,7 +417,7 @@ function runSuite() {
   )
 
   // -------------------------------------------------------------------------
-  // ITEM 8 (NOVO): Entrega Manual de Operação, Validação do 1º Ciclo & Robô Scanner → GED
+  // ITEM 8: Entrega Manual de Operação, Validação do 1º Ciclo & Robô Scanner → GED
   // -------------------------------------------------------------------------
   console.log('\n👉 [8] Manual de Operação RUMO (POP-EX-01), Validação do 1º Ciclo e Robô Scanner → GED (POP-EX-02):')
 
@@ -512,6 +512,61 @@ function runSuite() {
     documentosPageContent.includes('id="rpa-grid-ged-documentos"') &&
       documentosPageContent.includes('data-documento-id='),
     'Documentos.tsx possui #rpa-grid-ged-documentos e data-documento-id=',
+  )
+
+  // -------------------------------------------------------------------------
+  // ITEM 9 (NOVO): Validação da Base URL Correta da API do Agente Externo (Host PocketBase)
+  // -------------------------------------------------------------------------
+  console.log('\n👉 [9] Base URL Correta da API ELLIZA Agente (Host PocketBase vs SPA Web):')
+
+  const POCKETBASE_HOST = 'plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev'
+  const DOMINIO_PUBLICO = 'rumoconsultoriacontabil.com.br'
+
+  // 1. Migration 0121 existe e atualiza POP-EX-01 com o host PocketBase
+  const mig0121Path = path.join(projectRoot, 'pocketbase', 'migrations', '0121_update_pop_ex01_base_url.js')
+  assert(fs.existsSync(mig0121Path), 'Migration 0121 existe no projeto')
+  const mig0121Content = fs.readFileSync(mig0121Path, 'utf-8')
+  assert(
+    mig0121Content.includes(POCKETBASE_HOST),
+    'Migration 0121 define explicitamente a Base URL oficial do host PocketBase para o POP-EX-01',
+  )
+  assert(
+    mig0121Content.includes(DOMINIO_PUBLICO) &&
+      (mig0121Content.includes('404') || mig0121Content.includes('SPA')),
+    'Migration 0121 alerta contra o uso do domínio público rumoconsultoriacontabil.com.br que retorna 404 do SPA',
+  )
+  assert(
+    mig0121Content.includes('/backend/v1/elliza-agente/auth/validar') ||
+      mig0121Content.includes('/backend/v1/elliza-agente/tarefas-aprovadas') ||
+      mig0121Content.includes('/backend/v1/elliza-agente/buscar-aprovadas'),
+    'Migration 0121 inclui exemplos de chamada completa com X-Elliza-Api-Key e rotas do agente',
+  )
+
+  // 2. PainelAgenteExterno.tsx exibe o host PocketBase em destaque e alerta contra o domínio público
+  assert(
+    painelAgenteContent.includes(POCKETBASE_HOST),
+    'PainelAgenteExterno exibe o host PocketBase (plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev)',
+  )
+  assert(
+    painelAgenteContent.includes('Base URL Oficial da API') ||
+      painelAgenteContent.includes('Base URL Oficial'),
+    'PainelAgenteExterno traz rótulo/bloco em destaque de Base URL Oficial da API',
+  )
+  assert(
+    painelAgenteContent.includes(DOMINIO_PUBLICO) &&
+      (painelAgenteContent.includes('NÃO serve /backend/v1/*') ||
+        painelAgenteContent.includes('404') ||
+        painelAgenteContent.includes('SPA')),
+    'PainelAgenteExterno orienta expressamente contra o uso do domínio público para a API do agente',
+  )
+  assert(
+    painelAgenteContent.includes('curl -X') &&
+      painelAgenteContent.includes(POCKETBASE_HOST),
+    'Checklist/documentação do PainelAgenteExterno traz exemplos de comandos curl com a Base URL correta',
+  )
+  assert(
+    painelAgenteContent.includes('/backend/v1/elliza-agente/auth/validar'),
+    'Checklist inclui o endpoint de validação de autenticação /backend/v1/elliza-agente/auth/validar',
   )
 
   // -------------------------------------------------------------------------

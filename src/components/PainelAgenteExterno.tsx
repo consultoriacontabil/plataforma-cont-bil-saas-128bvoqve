@@ -20,6 +20,7 @@ import {
   BookOpen,
   ScanLine,
   ListChecks,
+  Globe,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -392,8 +393,62 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
               <code>/backend/v1/elliza-agente/*</code>.
             </p>
 
-            {/* Painel da Chave de API do Agente ELLIZA Desktop */}
-            <div className="pt-2">
+            {/* Painel de Conexão: Base URL Oficial do Backend PocketBase + Chave de API */}
+            <div className="pt-2 space-y-3">
+              {/* Bloco Base URL em Destaque com Aviso SPA vs Backend */}
+              <div className="p-3.5 bg-slate-950 border-2 border-teal-400/50 rounded-xl space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-xs font-mono text-teal-300 font-bold flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-teal-400" />
+                    Base URL Oficial da API (Host PocketBase):
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      copiarTexto(
+                        'https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev',
+                      )
+                    }
+                    className="h-6 text-[10px] bg-teal-600 hover:bg-teal-500 text-white font-bold gap-1 px-2.5"
+                  >
+                    <Copy className="h-3 w-3" />
+                    <span>Copiar Base URL</span>
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value="https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev"
+                    className="h-8 font-mono text-xs bg-slate-900 border-teal-500/40 text-emerald-300 font-semibold select-all"
+                  />
+                </div>
+
+                <div className="rounded-lg bg-amber-500/15 border border-amber-400/30 p-2.5 text-[11px] text-amber-200 leading-relaxed space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                    <span>ATENÇÃO: NÃO UTILIZE O DOMÍNIO PÚBLICO PARA A API</span>
+                  </div>
+                  <p>
+                    O domínio público{' '}
+                    <code className="text-amber-100 font-mono font-bold bg-slate-900/80 px-1 py-0.5 rounded">
+                      rumoconsultoriacontabil.com.br
+                    </code>{' '}
+                    serve <strong>apenas a interface web (React SPA)</strong> e{' '}
+                    <strong>NÃO serve /backend/v1/*</strong>. Chamadas para o domínio público
+                    devolvem a página HTML do SPA (404) e quebram a deserialização JSON do conector.
+                  </p>
+                  <p className="text-[10px] text-slate-300">
+                    No conector ELLIZA Desktop, preencha o campo <em>Base URL / Servidor da API</em>{' '}
+                    com:{' '}
+                    <code className="text-emerald-300 font-mono">
+                      https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev
+                    </code>
+                  </p>
+                </div>
+              </div>
+
+              {/* Chave de API Dedicada */}
               <div className="p-3 bg-slate-900/90 border border-teal-500/30 rounded-xl space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <span className="text-[11px] font-mono text-teal-300 font-bold flex items-center gap-1.5">
@@ -824,9 +879,9 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                   <code className="font-mono text-teal-700 font-bold">
                     ELLIZA desktop (elliza-desktop-rpa)
                   </code>{' '}
-                  · Base URL:{' '}
-                  <code className="font-mono text-slate-700">
-                    https://rumoconsultoriacontabil.com.br
+                  · Base URL Oficial da API:{' '}
+                  <code className="font-mono text-emerald-700 font-bold">
+                    https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev
                   </code>{' '}
                   · Catálogo 2026.4: <strong className="text-teal-700">POP-EX-01</strong>
                 </p>
@@ -855,9 +910,13 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                 Privilégios mínimos por design: acesso <strong>APENAS</strong> aos endpoints{' '}
                 <code className="text-teal-700 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
                   /backend/v1/elliza-agente/*
-                </code>
-                . Nunca acessar banco, painel de administração ou qualquer outra rota — tentativa é
-                rejeitada e registrada. Credencial: API key dedicada no header{' '}
+                </code>{' '}
+                no host do PocketBase (
+                <strong>https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev</strong>).
+                O domínio público <code>rumoconsultoriacontabil.com.br</code> serve exclusivamente o
+                front-end React SPA e <strong>NÃO deve ser usado pelo conector</strong> (devolve
+                404/HTML). Nunca acessar banco, painel de administração ou qualquer outra rota —
+                tentativa é rejeitada e registrada. Credencial: API key dedicada no header{' '}
                 <code className="font-mono text-slate-900 bg-slate-100 px-1 py-0.5 rounded">
                   X-Elliza-Api-Key
                 </code>{' '}
@@ -1195,16 +1254,26 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 text-[10px] font-black">
                     1
                   </span>
-                  Configurar a API Key no PC
+                  Configurar Base URL e API Key no PC
                 </div>
                 <p className="text-slate-300 leading-relaxed text-[11px]">
                   No software <strong>ELLIZA Desktop</strong> instalado no seu computador, abra{' '}
-                  <em>Configurações → Integração Rumo Cloud → Token de Autenticação</em> e cole a
-                  chave{' '}
-                  <code className="text-teal-300 font-mono bg-slate-950 px-1 py-0.5 rounded border border-slate-800">
-                    {rawKeyEllizaDesktopPadrao}
-                  </code>
-                  .
+                  <em>Configurações → Integração Rumo Cloud</em>:
+                </p>
+                <div className="space-y-1 text-[10px] font-mono bg-slate-950 p-2 rounded border border-slate-800 text-slate-300">
+                  <div>
+                    <span className="text-slate-400">Base URL:</span>{' '}
+                    <span className="text-emerald-300 select-all">
+                      https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Token/Key:</span>{' '}
+                    <span className="text-teal-300 select-all">{rawKeyEllizaDesktopPadrao}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-amber-300">
+                  ⚠️ NÃO utilize rumoconsultoriacontabil.com.br (servidor do SPA).
                 </p>
               </div>
 
@@ -1214,16 +1283,22 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-slate-950 text-[10px] font-black">
                     2
                   </span>
-                  Executar Polling &amp; Receber o Job
+                  Validar Autenticação e Polling no Backend
                 </div>
                 <p className="text-slate-300 leading-relaxed text-[11px]">
-                  Rode o polling do robô (ou use o Simulador ao lado). O endpoint{' '}
-                  <code className="text-teal-300 font-mono">
-                    GET /backend/v1/elliza-agente/buscar-aprovadas
-                  </code>{' '}
-                  retorna o job <strong className="text-white">JOB-092026-WA-ZAP01</strong> com
-                  status <span className="text-emerald-400 font-bold">APROVADO</span> e payload
-                  completo.
+                  Dispare a chamada de validação ou o polling diretamente no host PocketBase:
+                </p>
+                <code className="block text-[10px] font-mono bg-slate-950 p-1.5 rounded border border-slate-800 text-emerald-300 overflow-x-auto">
+                  POST
+                  https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/auth/validar
+                </code>
+                <p className="text-slate-400 text-[10px]">
+                  Resultado esperado:{' '}
+                  <code className="text-emerald-300">{`{"sucesso": true, "agente": ...}`}</code>. Em
+                  seguida,{' '}
+                  <code className="text-teal-300 font-mono">GET .../tarefas-aprovadas</code> retorna
+                  o job <strong className="text-white">JOB-092026-WA-ZAP01</strong> com status{' '}
+                  <span className="text-emerald-400 font-bold">APROVADO</span>.
                 </p>
               </div>
 
@@ -1253,12 +1328,78 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
                 </div>
                 <p className="text-slate-300 leading-relaxed text-[11px]">
                   A ELLIZA desktop chama{' '}
-                  <code className="text-teal-300 font-mono">POST /iniciar</code>, anexa a evidência
-                  com screenshot e hash <strong>SHA-256</strong> em{' '}
-                  <code className="text-teal-300 font-mono">POST /evidencias</code> e finaliza com{' '}
-                  <code className="text-teal-300 font-mono">POST /concluir</code> com{' '}
+                  <code className="text-teal-300 font-mono">POST .../iniciar</code>, anexa a
+                  evidência com screenshot e hash <strong>SHA-256</strong> em{' '}
+                  <code className="text-teal-300 font-mono">POST .../evidencias</code> e finaliza
+                  com <code className="text-teal-300 font-mono">POST .../concluir</code> com{' '}
                   <code>criterio_sucesso_validado: true</code>.
                 </p>
+                <p className="text-slate-400 text-[10px]">
+                  Resultado esperado: HTTP 200 com{' '}
+                  <code className="text-emerald-300">{`{"sucesso": true, "status": "CONCLUIDO"}`}</code>
+                  .
+                </p>
+              </div>
+            </div>
+
+            {/* Exemplo de Chamada Completa em cURL com Base URL Correta */}
+            <div className="rounded-xl border border-teal-500/40 bg-slate-950 p-4 space-y-3 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="font-bold text-teal-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Terminal className="h-4 w-4 text-teal-400" />
+                  Exemplos de Chamada Completa (cURL) no Host Oficial:
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    copiarTexto(`# 1. Validação de Autenticação
+curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/auth/validar" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json"
+
+# 2. Polling de Tarefas Aprovadas
+curl -X GET "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/tarefas-aprovadas" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}"
+
+# 3. Concluir Tarefa com Validação de Sucesso
+curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/concluir" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"job_id": "JOB-092026-WA-ZAP01", "criterio_sucesso_validado": true, "resultado": "Homologado via ZAP desktop"}'`)
+                  }
+                  className="h-6 text-[10px] border-teal-500/40 text-teal-300 hover:text-white hover:bg-teal-900/40 gap-1"
+                >
+                  <Copy className="h-3 w-3" />
+                  <span>Copiar Comandos cURL</span>
+                </Button>
+              </div>
+
+              <div className="space-y-2 text-[11px] font-mono leading-relaxed overflow-x-auto text-slate-300 bg-slate-900/90 p-3 rounded-lg border border-slate-800">
+                <div className="text-slate-400">
+                  // 1. Validar Autenticação (devolve 200 com agente identificado):
+                </div>
+                <div className="text-emerald-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/auth/validar" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json"`}</div>
+                <div className="text-slate-400 pt-1">// Resposta esperada:</div>
+                <div className="text-slate-300">{`{"sucesso": true, "mensagem": "Autenticação de Agente Externo validada com sucesso.", "agente": {"identificador": "elliza-desktop-rpa", "status": "ativo"}}`}</div>
+
+                <div className="text-slate-400 pt-2">// 2. Buscar Tarefas Aprovadas:</div>
+                <div className="text-emerald-300">{`curl -X GET "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/tarefas-aprovadas" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}"`}</div>
+                <div className="text-slate-400 pt-1">// Resposta esperada:</div>
+                <div className="text-slate-300">{`{"sucesso": true, "total_tarefas_aprovadas": 1, "tarefas": [{"job_id": "...", "job_codigo": "JOB-092026-WA-ZAP01", ...}]}`}</div>
+
+                <div className="text-slate-400 pt-2">
+                  // 3. Concluir Tarefa (com critério validado):
+                </div>
+                <div className="text-emerald-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/concluir" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"job_id": "JOB-092026-WA-ZAP01", "criterio_sucesso_validado": true, "resultado": "Homologado via ZAP desktop"}'`}</div>
+                <div className="text-slate-400 pt-1">// Resposta esperada:</div>
+                <div className="text-slate-300">{`{"sucesso": true, "mensagem": "Job concluído com sucesso e esteira avançada.", "status": "CONCLUIDO"}`}</div>
               </div>
             </div>
 
@@ -2024,8 +2165,9 @@ from playwright.async_api import async_playwright
 import requests
 import hashlib
 
-BASE_URL = "https://SEU_DOMINIO"
-API_BASE = f"{BASE_URL}/backend/v1/elliza-agente"
+# IMPORTANTE: A API do Agente vive no host PocketBase (NÃO no domínio público que serve o SPA React)
+API_BASE = "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente"
+WEB_URL = "https://rumoconsultoriacontabil.com.br"
 API_KEY = "elliza_agt_live_99482fbc71a340e58832a884ef"
 HEADERS = {"X-Elliza-Api-Key": API_KEY, "Content-Type": "application/json"}
 
@@ -2049,8 +2191,8 @@ async def executar_fechamento_rpa():
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
 
-        # 2. Navegar para a página de execução do processo
-        await page.goto(f"{BASE_URL}/processos/{processo_id}")
+        # 2. Navegar para a página de execução do processo (interface web)
+        await page.goto(f"{WEB_URL}/processos/{processo_id}")
         await page.wait_for_selector("#rpa-status-conclusao")
 
         # 3. Leitura da Telemetria das Etapas (data-step-status)
@@ -2072,7 +2214,7 @@ async def executar_fechamento_rpa():
             print(f"Botão de execução retido. Motivo: {motivo}")
 
         # 5. Validação da Telemetria do Balancete (data-diferenca e data-rpa-equilibrado)
-        await page.goto(f"{BASE_URL}/balancete")
+        await page.goto(f"{WEB_URL}/balancete")
         grid_balancete = await page.wait_for_selector("#rpa-grid-balancete")
         dif = await grid_balancete.get_attribute("data-diferenca")
         equilibrado = await grid_balancete.get_attribute("data-rpa-equilibrado")
