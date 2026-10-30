@@ -50,6 +50,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
+import { ellizaComandosService } from '@/services/ellizaComandosService'
+import { Bot, Sparkles } from 'lucide-react'
 
 export default function Documentos() {
   const { user, tenant } = useAuth()
@@ -75,6 +77,7 @@ export default function Documentos() {
   // Modals
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<Documento | null>(null)
+  const [disparandoOcrId, setDisparandoOcrId] = useState<string | null>(null)
 
   // Upload Form
   const [selectedEmpresaId, setSelectedEmpresaId] = useState('')
@@ -735,10 +738,55 @@ export default function Documentos() {
                     </div>
                   )}
 
+                  {/* Botão de Disparo do Piloto extrair_documento (ELLIZA Desktop) */}
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <Button
+                      type="button"
+                      disabled={disparandoOcrId === selectedDoc.id}
+                      onClick={async () => {
+                        if (!tenant?.id) return
+                        setDisparandoOcrId(selectedDoc.id)
+                        try {
+                          const cmd = await ellizaComandosService.dispararExtrairDocumento({
+                            tenant_id: tenant.id,
+                            empresa_id: selectedDoc.empresa_id,
+                            documento_id: selectedDoc.id,
+                            nome_arquivo: selectedDoc.nome_arquivo,
+                          })
+                          toast({
+                            title: 'Comando extrair_documento disparado!',
+                            description: `Comando criado com nonce ${cmd.nonce.slice(0, 8)}... na Fila da Elliza. A ELLIZA desktop executará o OCR local.`,
+                          })
+                        } catch (err: any) {
+                          toast({
+                            variant: 'destructive',
+                            title: 'Erro ao disparar comando',
+                            description: err?.message || 'Falha ao criar comando.',
+                          })
+                        } finally {
+                          setDisparandoOcrId(null)
+                        }
+                      }}
+                      className="w-full gap-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs shadow-xs font-semibold"
+                    >
+                      {disparandoOcrId === selectedDoc.id ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Enfileirando extrair_documento...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>Extrair com ELLIZA Desktop (Scanner OCR)</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
                   {selectedDoc.arquivo && (
                     <Button
                       asChild
-                      className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs mt-2"
+                      className="w-full gap-2 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs mt-1"
                     >
                       <a
                         href={documentosService.getFileUrl(selectedDoc, selectedDoc.arquivo)}

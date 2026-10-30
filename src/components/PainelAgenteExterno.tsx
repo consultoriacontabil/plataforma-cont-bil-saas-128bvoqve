@@ -26,6 +26,8 @@ import {
   FileText,
   Layers,
   CheckCheck,
+  Zap,
+  ShieldCheck,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -2020,6 +2022,77 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
               </p>
             </div>
 
+            {/* CHECKLIST DE PRÉ-REQUISITOS DA ELLIZA DESKTOP */}
+            <div
+              id="rpa-checklist-pre-requisitos-desktop"
+              className="p-4 rounded-xl border border-teal-200 bg-teal-50/70 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-[#0FA3A3]" />
+                  <h5 className="font-bold text-sm text-teal-950">
+                    Checklist de Pré-Requisitos da ELLIZA Desktop (PC Local)
+                  </h5>
+                </div>
+                <Badge className="bg-[#0FA3A3] text-white text-[10px] font-bold">
+                  Assistente Local
+                </Badge>
+              </div>
+              <p className="text-xs text-teal-900 leading-relaxed">
+                Para os próximos marcos de hiperautomação contábil e RPA, confira se os
+                pré-requisitos abaixo estão habilitados na configuração do assistente da ELLIZA no
+                seu computador:
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                <div className="p-3 bg-white rounded-lg border border-teal-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                      WhatsApp (ZAP)
+                    </span>
+                    <Badge className="bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                      Pré-requisito
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Sessão do ZAP ativa e conectada para envios ativos de DAS, guias e notificações
+                    a clientes.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-teal-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                      Plugin NopeCHA
+                    </span>
+                    <Badge className="bg-blue-100 text-blue-800 text-[9px] font-bold">Ativo</Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Resolução autônoma de CAPTCHAs em portais municipais, Caixa e juntas comerciais
+                    sem travar o RPA.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-teal-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Activity className="h-3.5 w-3.5 text-purple-600" />
+                      APIs Brasileiras
+                    </span>
+                    <Badge className="bg-purple-100 text-purple-800 text-[9px] font-bold">
+                      Habilitadas
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Receita Federal (CNPJ/CNAE), IBPT (tributação fiscal) e Banco Central
+                    (Selic/moedas) configuradas.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Endpoints */}
             <div className="space-y-2 text-xs">
               <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
@@ -2084,6 +2157,110 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
                     honesta em não classificáveis.
                   </span>
                 </div>
+
+                {/* MARCO 1: NOVOS ENDPOINTS DO CANAL DE COMANDOS */}
+                <div className="bg-teal-50 border border-teal-200 p-2.5 rounded-lg col-span-1 md:col-span-2 space-y-1">
+                  <span className="text-teal-900 font-bold block flex items-center gap-1.5">
+                    <Terminal className="h-3.5 w-3.5 text-teal-700" />
+                    MARCO 1 — Endpoints do Canal de Comandos Rumo ⇄ ELLIZA Desktop
+                  </span>
+                  <span className="text-teal-800 text-[10px] block">
+                    Base: <code>/backend/v1/elliza-agente/comandos/*</code> com autenticação via{' '}
+                    <code>X-Elliza-Api-Key</code>
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-[10px]">
+                    <div className="bg-white p-1.5 rounded border border-teal-100">
+                      <strong className="text-teal-950 block">GET .../comandos/assinar</strong>
+                      <span>
+                        Stream SSE (ou polling) dos comandos pendentes do tenant (canal de descida).
+                      </span>
+                    </div>
+                    <div className="bg-white p-1.5 rounded border border-teal-100">
+                      <strong className="text-teal-950 block">
+                        GET .../comandos/obter?nonce=...
+                      </strong>
+                      <span>Polling fallback com suporte a filtro por nonce e status.</span>
+                    </div>
+                    <div className="bg-white p-1.5 rounded border border-teal-100">
+                      <strong className="text-blue-900 block">POST .../comandos/aceitar</strong>
+                      <span>
+                        Marca em_execucao com lock idempotente por nonce; expirado recusa.
+                      </span>
+                    </div>
+                    <div className="bg-white p-1.5 rounded border border-teal-100">
+                      <strong className="text-emerald-900 block">POST .../comandos/concluir</strong>
+                      <span>
+                        Recebe resultado + evidências. Regra de Ouro: sem evidência vira erro
+                        honesto.
+                      </span>
+                    </div>
+                    <div className="bg-white p-1.5 rounded border border-teal-100 col-span-1 sm:col-span-2">
+                      <strong className="text-red-900 block">POST .../comandos/erro</strong>
+                      <span>
+                        Erro honesto: grava pendência estruturada em processo_pendencias, nunca
+                        &quot;sucesso aproximado&quot;.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* EXEMPLOS CURL DOS NOVOS ENDPOINTS DE COMANDO */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
+                Exemplos de Chamada cURL — Canal de Comandos (ELLIZA Desktop)
+              </span>
+              <div className="bg-slate-950 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto space-y-3">
+                <div className="text-slate-400"># 1. Assinar / Obter Comandos Pendentes:</div>
+                <pre className="text-emerald-300">{`curl -X GET "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/assinar" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Accept: application/json"`}</pre>
+
+                <div className="text-slate-400 pt-1">
+                  # 2. Aceitar Execução com Lock Idempotente (Nonce):
+                </div>
+                <pre className="text-blue-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/aceitar" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"nonce": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"}'`}</pre>
+
+                <div className="text-slate-400 pt-1">
+                  # 3. Concluir Comando extrair_documento com Dados Fiscais + Evidência (Regra de
+                  Ouro):
+                </div>
+                <pre className="text-emerald-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/concluir" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "nonce": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "evidencias": ["evi_ocr_scanner_9921"],
+    "resultado": {
+      "numero": "14820",
+      "serie": "1",
+      "cnpj_emitente": "12345678000199",
+      "cnpj_destinatario": "98765432000188",
+      "valor_total": 3500.00,
+      "cfop": "5102",
+      "competencia": "2026-09",
+      "itens": [{"item": 1, "descricao": "Serviços Contábeis", "valor": 3500.00}]
+    }
+  }'`}</pre>
+
+                <div className="text-slate-400 pt-1">
+                  # 4. Reportar Erro Honesto com Pendência Estruturada:
+                </div>
+                <pre className="text-amber-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/erro" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "nonce": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "codigo": "OCR_ILEGIVEL",
+    "motivo": "Documento digitalizado com resolução inferior a 150 DPI, campos fiscais ilegíveis.",
+    "o_que_foi_executado": "Scanner local OCR processou imagem mas confiança média ficou abaixo de 40%.",
+    "o_que_falta": "Reenvio de documento com melhor resolução pelo cliente.",
+    "decisao_necessaria": "Solicitar novo upload ao cliente em /portal-cliente."
+  }'`}</pre>
               </div>
             </div>
 

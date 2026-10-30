@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react'
 import { PainelAgenteExterno } from '@/components/PainelAgenteExterno'
+import { PainelComandosElliza } from '@/components/PainelComandosElliza'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   elisaOpsService,
@@ -720,6 +721,9 @@ export default function ElisaFilaPage() {
 
         {/* ABA 1: FILA OPERACIONAL */}
         <TabsContent value="fila" className="space-y-4">
+          {/* Painel do Canal de Comandos da ELLIZA Desktop */}
+          <PainelComandosElliza tenantId={tenant?.id || ''} onRefresh={loadData} />
+
           {/* Barra de Filtros Padronizada */}
           <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-2xs">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">

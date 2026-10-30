@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T11:38:48.761Z",
+  "generatedAt": "2026-10-30T11:57:18.080Z",
   "collections": [
     {
       "name": "users",
@@ -13640,6 +13640,238 @@
       "indexes": [
         "CREATE INDEX idx_fator_r_tenant_emp_comp ON prolabore_fator_r_alertas (tenant_id, empresa, competencia)",
         "CREATE INDEX idx_fator_r_severidade ON prolabore_fator_r_alertas (severidade)"
+      ]
+    },
+    {
+      "name": "elliza_comandos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "agente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "chat_objetivo",
+            "extrair_documento",
+            "conciliar_xml",
+            "raspar_portal",
+            "enviar_zap",
+            "consultar_api",
+            "sync_ged"
+          ]
+        },
+        {
+          "name": "payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prioridade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "aceito", "em_execucao", "concluido", "erro", "expirado"]
+        },
+        {
+          "name": "nonce",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expira_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resultado",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidencias",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "erro",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_elliza_cmd_tenant_status ON elliza_comandos (tenant_id, status)",
+        "CREATE INDEX idx_elliza_cmd_empresa ON elliza_comandos (empresa_id)",
+        "CREATE UNIQUE INDEX idx_elliza_cmd_nonce ON elliza_comandos (nonce)",
+        "CREATE INDEX idx_elliza_cmd_tipo ON elliza_comandos (tipo)",
+        "CREATE INDEX idx_elliza_cmd_expira ON elliza_comandos (expira_em)"
+      ]
+    },
+    {
+      "name": "nfiscal",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "tenant_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tenants"
+        },
+        {
+          "name": "empresa_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "empresas"
+        },
+        {
+          "name": "numero",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "serie",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj_emitente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cnpj_destinatario",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cfop",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "documento_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "documentos"
+        },
+        {
+          "name": "itens",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadados_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_nfiscal_tenant_empresa ON nfiscal (tenant_id, empresa_id)",
+        "CREATE INDEX idx_nfiscal_comp ON nfiscal (competencia)",
+        "CREATE INDEX idx_nfiscal_emitente ON nfiscal (cnpj_emitente)",
+        "CREATE INDEX idx_nfiscal_doc ON nfiscal (documento_id)"
       ]
     }
   ]
