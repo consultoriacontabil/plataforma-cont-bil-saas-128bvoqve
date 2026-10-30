@@ -2248,6 +2248,26 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
   }'`}</pre>
 
                 <div className="text-slate-400 pt-1">
+                  # 3.1. Concluir Comando pesquisa_tributaria com Relatório Técnico + Fontes
+                  (POP-EX-04):
+                </div>
+                <pre className="text-teal-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/concluir" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "nonce": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "evidencias": ["evi_cosit_disit_7731", "hash_doc_sefaz_sp_01"],
+    "resultado": {
+      "relatorio_tecnico": "## 1. Parecer Técnico de Enquadramento Fiscal\\n\\n### Matéria em Consulta\\nAnálise de incidência de ICMS e PIS/COFINS na operação indicada...\\n\\n### Fundamentação Legal\\n- **RICMS/SP Artigo 8º**: Hipótese de isenção sob certas condições.\\n- **Solução de Consulta COSIT nº 123/2025**: Interpretação da RFB para crédito de PIS/COFINS.\\n\\n### Conclusão e Riscos\\nOperação passível de crédito fiscal condicionado à documentação de origem.",
+      "conclusoes": "Operação com direito a crédito de PIS/COFINS conforme Solução de Consulta COSIT nº 123/2025; ICMS diferido na remessa interna.",
+      "fontes": [
+        {"titulo": "Solução de Consulta COSIT nº 123/2025", "tipo": "solucao_consulta", "numero": "123", "ano": 2025, "orgao": "Receita Federal do Brasil"},
+        {"titulo": "RICMS do Estado de SP - Art. 8º", "tipo": "decreto", "numero": "45.490", "ano": 2000, "orgao": "SEFAZ/SP"}
+      ]
+    }
+  }'`}</pre>
+
+                <div className="text-slate-400 pt-1">
                   # 4. Reportar Erro Honesto com Pendência Estruturada:
                 </div>
                 <pre className="text-amber-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/erro" \\
@@ -2640,6 +2660,35 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
                         Telemetria em tempo real da rotina de sincronização de pastas locais no
                         padrão CNPJ\AAAA-MM, contabilizando novos arquivados, duplicados
                         identificados e paradas honestas retidas para validação humana.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50 bg-emerald-50/30">
+                      <td className="py-2.5 px-3 font-bold text-emerald-950">
+                        13. Pesquisa Tributária Avançada
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">
+                        #rpa-grid-pesquisas-tributarias
+                        <br />
+                        #rpa-status-conclusao
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-pesquisas=&quot;N&quot;
+                        <br />
+                        data-total-concluidas=&quot;N&quot;
+                        <br />
+                        data-total-em-analise=&quot;N&quot;
+                        <br />
+                        data-total-fila-comandos=&quot;N&quot;
+                        <br />
+                        data-total-erros-fila=&quot;N&quot;
+                        <br />
+                        data-rpa-status=&quot;loaded&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Módulo de Pesquisa Tributária Avançada (POP-EX-04 / /pesquisa-tributaria).
+                        Leitura determinística do status da pesquisa, fundamentação técnica da
+                        ELLIZA Desktop e relatórios concluídos auditáveis.
                       </td>
                     </tr>
                   </tbody>

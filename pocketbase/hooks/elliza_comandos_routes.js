@@ -650,6 +650,153 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
     })
   }
 
+  // PILOTO MARCO 3: se tipo for pesquisa_tributaria, validação dura de relatório técnico e persistência em pesquisas_tributarias
+  var pesquisaTributariaId = null
+  if (tipoComando === 'pesquisa_tributaria') {
+    var dadosPesq = resultado || {}
+    var relatorioTecnico = String(
+      dadosPesq.relatorio_tecnico || dadosPesq.relatorio || dadosPesq.parecer || '',
+    ).trim()
+    var conclusoes = String(
+      dadosPesq.conclusoes || dadosPesq.conclusao || dadosPesq.sintese || '',
+    ).trim()
+    var fontes = dadosPesq.fontes || []
+    var contextoResultado = dadosPesq.contexto || payloadCmd.contexto || {}
+
+    var perguntaTexto = String(
+      payloadCmd.pergunta || payloadCmd.objetivo || dadosPesq.pergunta || '',
+    ).trim()
+
+    var errosValidacaoPesquisa = []
+    if (!perguntaTexto) {
+      errosValidacaoPesquisa.push('pergunta/objetivo da pesquisa tributária')
+    }
+    // Regra de ouro: relatório técnico não pode ser vazio ou genérico trivial (mínimo 50 caracteres de análise técnica)
+    if (!relatorioTecnico || relatorioTecnico.length < 50) {
+      errosValidacaoPesquisa.push(
+        'relatorio_tecnico estruturado com fundamentação real (mínimo 50 caracteres)',
+      )
+    }
+
+    if (errosValidacaoPesquisa.length > 0) {
+      var motivoPesquisaInvalida =
+        'Parada honesta: conclusão de pesquisa_tributaria rejeitada. Conteúdo técnico ausente ou insuficiente: ' +
+        errosValidacaoPesquisa.join(', ') +
+        '.'
+
+      var pendColPesq = app.findCollectionByNameOrId('processo_pendencias')
+      var pendRecPesq = new Record(pendColPesq)
+      pendRecPesq.set('tenant_id', tenantId)
+      if (empresaId) pendRecPesq.set('empresa_id', empresaId)
+      pendRecPesq.set(
+        'titulo',
+        'Pesquisa Tributária sem relatório técnico consistente (Regra de Ouro)',
+      )
+      pendRecPesq.set('por_que_parou', motivoPesquisaInvalida)
+      pendRecPesq.set(
+        'o_que_foi_executado',
+        'ELLIZA desktop tentou finalizar o comando de pesquisa tributária ' +
+          cmd.id +
+          ', mas não forneceu relatório técnico fundamentado.',
+      )
+      pendRecPesq.set(
+        'o_que_falta',
+        'ELLIZA desktop deve executar a pesquisa normativa completa e retornar o relatório técnico fundamentado (Markdown) com fontes.',
+      )
+      pendRecPesq.set(
+        'decisao_necessaria',
+        'Verificar conectividade com fontes da RFB/SEFAZ na ELLIZA desktop e reenviar conclusão com relatório real.',
+      )
+      pendRecPesq.set('status', 'aberta')
+      app.save(pendRecPesq)
+
+      cmd.set('status', 'erro')
+      cmd.set('resultado', resultado)
+      cmd.set('evidencias', evidenciasArray)
+      cmd.set('erro', {
+        codigo: 'RELATORIO_TECNICO_INSUFICIENTE',
+        motivo: motivoPesquisaInvalida,
+        erros_validacao: errosValidacaoPesquisa,
+        referencia_pendencia: pendRecPesq.id,
+        timestamp: nowIso,
+      })
+      app.save(cmd)
+
+      try {
+        var aColPesqErr = app.findCollectionByNameOrId('audit_log')
+        var aRecPesqErr = new Record(aColPesqErr)
+        aRecPesqErr.set('tenant_id', tenantId)
+        aRecPesqErr.set('acao', 'PESQUISA_TRIBUTARIA_REJEITADA_PARADA_HONESTA')
+        aRecPesqErr.set('entidade_tipo', 'elliza_comandos')
+        aRecPesqErr.set('entidade_id', cmd.id)
+        aRecPesqErr.set(
+          'detalhes',
+          JSON.stringify({
+            nonce: cmd.getString('nonce'),
+            erros: errosValidacaoPesquisa,
+            pendencia_id: pendRecPesq.id,
+          }),
+        )
+        app.save(aRecPesqErr)
+      } catch (_) {}
+
+      return e.json(422, {
+        sucesso: false,
+        status: 'erro',
+        parada_honesta: true,
+        erro: motivoPesquisaInvalida,
+        codigo_erro: 'RELATORIO_TECNICO_INSUFICIENTE',
+        erros_validacao: errosValidacaoPesquisa,
+        pendencia_id: pendRecPesq.id,
+        comando_id: cmd.id,
+        nonce: cmd.getString('nonce'),
+      })
+    }
+
+    // Conteúdo técnico válido: persistir em `pesquisas_tributarias`
+    var pesqCol = app.findCollectionByNameOrId('pesquisas_tributarias')
+    var pesqRec = new Record(pesqCol)
+    pesqRec.set('tenant_id', tenantId)
+    if (empresaId) pesqRec.set('empresa_id', empresaId)
+    pesqRec.set('pergunta', perguntaTexto)
+    pesqRec.set('contexto', contextoResultado)
+    pesqRec.set('relatorio_tecnico', relatorioTecnico)
+    pesqRec.set('fontes', fontes)
+    pesqRec.set('conclusoes', conclusoes || 'Análise técnica finalizada pela ELLIZA desktop.')
+    pesqRec.set('status', 'concluida')
+    pesqRec.set('criado_por_comando_id', cmd.id)
+    pesqRec.set('evidencias', evidenciasArray)
+    pesqRec.set('metadados_json', {
+      comando_id: cmd.id,
+      nonce: cmd.getString('nonce'),
+      agente: agentIdent,
+      concluido_em: nowIso,
+      tempo_processamento: dadosPesq.tempo_processamento || null,
+    })
+    app.save(pesqRec)
+    pesquisaTributariaId = pesqRec.id
+
+    try {
+      var aColPesqOk = app.findCollectionByNameOrId('audit_log')
+      var aRecPesqOk = new Record(aColPesqOk)
+      aRecPesqOk.set('tenant_id', tenantId)
+      aRecPesqOk.set('acao', 'PESQUISA_TRIBUTARIA_CONCLUIDA_ELLIZA_DESKTOP')
+      aRecPesqOk.set('entidade_tipo', 'pesquisas_tributarias')
+      aRecPesqOk.set('entidade_id', pesqRec.id)
+      aRecPesqOk.set(
+        'detalhes',
+        JSON.stringify({
+          comando_id: cmd.id,
+          pesquisa_id: pesqRec.id,
+          pergunta: perguntaTexto,
+          empresa_id: empresaId,
+          agente: agentIdent,
+        }),
+      )
+      app.save(aRecPesqOk)
+    } catch (_) {}
+  }
+
   // PILOTO MARCO 2: se tipo for extrair_documento, validação dura e gravação em nfiscal
   var nfiscalId = null
   if (tipoComando === 'extrair_documento') {
@@ -876,6 +1023,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
     nonce: cmd.getString('nonce'),
     tipo: tipoComando,
     nfiscal_id: nfiscalId,
+    pesquisa_tributaria_id: pesquisaTributariaId,
     evidencias: evidenciasArray,
   })
 })

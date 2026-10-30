@@ -8,6 +8,7 @@ export type EllizaComandoTipo =
   | 'enviar_zap'
   | 'consultar_api'
   | 'sync_ged'
+  | 'pesquisa_tributaria'
 
 export type EllizaComandoStatus =
   | 'pendente'
@@ -140,6 +141,38 @@ export const ellizaComandosService = {
         acao: 'ocr_classificacao_fiscal',
         instrucao:
           'Executar Scanner OCR e extração fiscal estruturada no cliente ELLIZA desktop local.',
+      },
+    })
+  },
+
+  async dispararPesquisaTributaria(params: {
+    tenant_id: string
+    empresa_id?: string
+    pergunta: string
+    contexto?: {
+      ncm?: string
+      cfop?: string
+      operacao?: string
+      uf_origem?: string
+      uf_destino?: string
+      aliquota_estudo?: string
+      regime_tributario?: string
+      detalhes_operacao?: string
+    }
+    prioridade?: number
+  }): Promise<EllizaComando> {
+    return this.criarComando({
+      tenant_id: params.tenant_id,
+      empresa_id: params.empresa_id,
+      tipo: 'pesquisa_tributaria',
+      prioridade: params.prioridade || 3,
+      payload: {
+        pergunta: params.pergunta,
+        empresa_id: params.empresa_id,
+        contexto: params.contexto || {},
+        acao: 'pesquisa_tributaria_avancada',
+        instrucao:
+          'Executar workflow Pesquisa Tributária no cliente ELLIZA desktop local gerando relatório técnico fundamentado (Markdown) e fontes.',
       },
     })
   },

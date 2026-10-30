@@ -49,6 +49,7 @@ import ExtensaoWhatsAppPage from '@/pages/ExtensaoWhatsApp'
 import SimuladorReformaPage from '@/pages/SimuladorReforma'
 import NfseWhatsappPage from '@/pages/NfseWhatsapp'
 import AnalyticsTributarioPage from '@/pages/AnalyticsTributario'
+import PesquisaTributariaPage from '@/pages/PesquisaTributariaPage'
 import MonitoramentoLegislativoPage from '@/pages/MonitoramentoLegislativo'
 import PopTreinamentoPage from '@/pages/PopTreinamento'
 import ManualPage from '@/pages/Manual'
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/fiscal" element={<Fiscal />} />
             <Route path="/fiscal/defis" element={<Fiscal />} />
             <Route path="/analytics-tributario" element={<AnalyticsTributarioPage />} />
+            <Route path="/pesquisa-tributaria" element={<PesquisaTributariaPage />} />
             <Route path="/monitoramento-legislativo" element={<MonitoramentoLegislativoPage />} />
             <Route path="/nfse-whatsapp" element={<NfseWhatsappPage />} />
             <Route path="/simulador-reforma" element={<SimuladorReformaPage />} />

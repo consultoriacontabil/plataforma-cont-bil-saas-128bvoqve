@@ -33,6 +33,7 @@ import {
   SlidersHorizontal,
   Wallet,
   TrendingUp,
+  Scale,
   Plus,
   Receipt,
   FileCheck,
@@ -155,6 +156,8 @@ export default function Layout() {
     if (path.startsWith('/obrigacoes')) return 'Módulo de Obrigações'
     if (path.startsWith('/simulador-reforma')) return 'Simulador da Reforma Tributária (IBS/CBS)'
     if (path.startsWith('/analytics-tributario')) return 'Analytics Tributário da Carteira'
+    if (path.startsWith('/pesquisa-tributaria'))
+      return 'Pesquisa Tributária Avançada (Workflow ELLIZA)'
     if (path.startsWith('/monitoramento-legislativo'))
       return 'Monitoramento Legislativo & Alíquotas'
     if (path.startsWith('/nfse-whatsapp')) return 'Emissão Inteligente de NFS-e via WhatsApp'
@@ -328,6 +331,12 @@ export default function Layout() {
           to: '/analytics-tributario',
           icon: TrendingUp,
           badge: 'NOVO',
+        },
+        {
+          label: 'Pesquisa Tributária',
+          to: '/pesquisa-tributaria',
+          icon: Scale,
+          badge: 'ROBÔ',
         },
         {
           label: 'Monitor Legislativo',
