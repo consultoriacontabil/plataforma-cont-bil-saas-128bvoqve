@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { elisaOpsService, type SopRecord, type SopEtapaTemplate } from '@/services/elisaOpsService'
+import { RelatorioMarkdownViewer } from '@/components/RelatorioMarkdownViewer'
 
 interface ChecklistItemState {
   id: string
@@ -66,8 +67,10 @@ export default function PopTreinamentoPage() {
   const isReadOnly = perfil === 'auxiliar' || perfil === 'consultor'
   const isCliente = perfil === 'cliente'
 
-  // Seletor de versão: padrão 2026.4 (Vigente), alternativa 2026.3 (Histórico)
-  const [versaoSelecionada, setVersaoSelecionada] = useState<'2026.4' | '2026.3'>('2026.4')
+  // Seletor de versão: 2026.5 (Manual Aprendizado), 2026.4 (Vigente), 2026.3 (Histórico)
+  const [versaoSelecionada, setVersaoSelecionada] = useState<'2026.5' | '2026.4' | '2026.3'>(
+    '2026.5',
+  )
   const [sopsCarregados, setSopsCarregados] = useState<SopRecord[]>([])
   const [carregandoSops, setCarregandoSops] = useState(false)
   const [sopSelecionadoCodigo, setSopSelecionadoCodigo] = useState<string>('POP-01')
@@ -302,12 +305,18 @@ export default function PopTreinamentoPage() {
             </Badge>
             <Badge
               className={
-                versaoSelecionada === '2026.4'
-                  ? 'bg-emerald-600 text-white font-bold'
-                  : 'bg-slate-500 text-white'
+                versaoSelecionada === '2026.5'
+                  ? 'bg-blue-600 text-white font-bold'
+                  : versaoSelecionada === '2026.4'
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'bg-slate-500 text-white'
               }
             >
-              {versaoSelecionada === '2026.4' ? 'Versão Vigente' : 'Versão Histórica (Inativa)'}
+              {versaoSelecionada === '2026.5'
+                ? 'Manual 2026.5 (Base de Aprendizado)'
+                : versaoSelecionada === '2026.4'
+                  ? 'Versão Vigente'
+                  : 'Versão Histórica (Inativa)'}
             </Badge>
             <Badge variant="outline" className="text-slate-600 font-medium">
               NBC PP 01 & NBC PG 01 • Rumo SaaS
@@ -333,22 +342,23 @@ export default function PopTreinamentoPage() {
         </div>
 
         <div className="flex items-center gap-2 print:hidden flex-wrap">
-          {/* SELETOR DE VERSÃO (2026.4 Vigente / 2026.3 Histórico) */}
+          {/* SELETOR DE VERSÃO (2026.5 Manual Aprendizado / 2026.4 Vigente / 2026.3 Histórico) */}
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
-            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
-              Versão do POP:
-            </span>
+            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">Versão:</span>
             <Select
               value={versaoSelecionada}
-              onValueChange={(val: '2026.4' | '2026.3') => setVersaoSelecionada(val)}
+              onValueChange={(val: '2026.5' | '2026.4' | '2026.3') => setVersaoSelecionada(val)}
             >
               <SelectTrigger
                 id="pop-version-selector"
-                className="h-8 text-xs font-semibold bg-white border-slate-300 w-[180px]"
+                className="h-8 text-xs font-semibold bg-white border-slate-300 w-[200px]"
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="2026.5" className="text-xs font-semibold text-blue-700">
+                  2026.5 (Manual Elliza)
+                </SelectItem>
                 <SelectItem value="2026.4" className="text-xs font-semibold text-emerald-700">
                   2026.4 (Vigente)
                 </SelectItem>
@@ -395,7 +405,42 @@ export default function PopTreinamentoPage() {
       </div>
 
       {/* Banner Informativo de Versão */}
-      {versaoSelecionada === '2026.4' ? (
+      {versaoSelecionada === '2026.5' ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-xs text-blue-950 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-blue-900">
+              <Sparkles className="h-4 w-4 text-blue-700" />
+              <span>MANUAL ELLIZA — AGENTE EXTERNO DA PLATAFORMA RUMO (Versão 2026.5)</span>
+            </div>
+            <Badge className="bg-blue-600 text-white text-[10px]">Base de Aprendizado Ativa</Badge>
+          </div>
+          <p className="leading-relaxed text-blue-950/90 font-medium">
+            Versão 2026.5 · Base de aprendizado da ELLIZA (identidade operacional própria, não
+            usuário). Contrato determinístico de integração com a ELLIZA desktop instalada na
+            máquina do escritório Rumo.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] text-blue-950/90 pt-1">
+            <div className="bg-white/80 p-2.5 rounded border border-blue-200">
+              <b className="text-blue-950">Identidade & Comunicação:</b> Perfil operacional{' '}
+              <code className="font-mono text-[10px]">elliza</code> em{' '}
+              <code className="font-mono text-[10px]">elliza_perfil</code>. Stream realtime SSE em{' '}
+              <code className="font-mono text-[10px]">/comandos/assinar</code> apontando
+              obrigatoriamente para o host PocketBase.
+            </div>
+            <div className="bg-white/80 p-2.5 rounded border border-blue-200">
+              <b className="text-blue-950">Regras Inegociáveis:</b> Regra de Ouro (só conclui com
+              evidência real), Parada Honesta (em erro via{' '}
+              <code className="font-mono text-[10px]">/erro</code> gera pendência estruturada) e
+              Idempotência por <code className="font-mono text-[10px]">nonce</code> único.
+            </div>
+            <div className="bg-white/80 p-2.5 rounded border border-blue-200">
+              <b className="text-blue-950">POPs Referenciados:</b> POP-EX-01 (Manual Geral),{' '}
+              POP-EX-03 (Sync GED) e POP-EX-04 (Pesquisa Tributária) integrados como base
+              operacional contínua.
+            </div>
+          </div>
+        </div>
+      ) : versaoSelecionada === '2026.4' ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs text-emerald-950 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-emerald-900">
@@ -613,11 +658,13 @@ export default function PopTreinamentoPage() {
                             <Badge
                               className={
                                 sopAtual.ativo
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                  ? sopAtual.versao === '2026.5'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'
                                   : 'bg-slate-100 text-slate-600'
                               }
                             >
-                              {sopAtual.ativo ? 'Ativo na 2026.4' : 'Histórico Inativo'}
+                              {sopAtual.ativo ? `Ativo na ${sopAtual.versao}` : 'Histórico Inativo'}
                             </Badge>
                             <Badge variant="secondary" className="text-xs font-mono">
                               Versão {sopAtual.versao}
@@ -679,16 +726,31 @@ export default function PopTreinamentoPage() {
                         </div>
                       </div>
 
-                      {/* Regras de Negócio e Casos Especiais */}
+                      {/* Regras de Negócio e Casos Especiais / Conteúdo Integral do Manual */}
                       {sopAtual.regras_negocio && (
-                        <div className="p-3.5 rounded-lg border border-teal-200 bg-teal-50/40 space-y-1">
-                          <span className="font-bold text-teal-950 flex items-center gap-1.5">
-                            <Shield className="h-4 w-4 text-[#0FA3A3]" />
-                            Regras de Negócio & Telemetria do POP:
-                          </span>
-                          <p className="text-slate-700 leading-relaxed">
-                            {sopAtual.regras_negocio}
-                          </p>
+                        <div className="p-4 rounded-lg border border-teal-200 bg-teal-50/30 space-y-2">
+                          <div className="flex items-center justify-between border-b border-teal-200 pb-2">
+                            <span className="font-bold text-teal-950 flex items-center gap-1.5 text-xs">
+                              <Shield className="h-4 w-4 text-[#0FA3A3]" />
+                              {sopAtual.codigo?.startsWith('POP-EX') || sopAtual.versao === '2026.5'
+                                ? 'Conteúdo Integral do Manual / Regras Operacionais:'
+                                : 'Regras de Negócio & Telemetria do POP:'}
+                            </span>
+                            {sopAtual.versao === '2026.5' && (
+                              <Badge className="bg-blue-600 text-white text-[10px]">
+                                Manual Elliza 2026.5
+                              </Badge>
+                            )}
+                          </div>
+                          {sopAtual.regras_negocio.includes('## ') ? (
+                            <div className="bg-white p-3 rounded border border-slate-200 text-xs">
+                              <RelatorioMarkdownViewer markdown={sopAtual.regras_negocio} />
+                            </div>
+                          ) : (
+                            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                              {sopAtual.regras_negocio}
+                            </p>
+                          )}
                         </div>
                       )}
 

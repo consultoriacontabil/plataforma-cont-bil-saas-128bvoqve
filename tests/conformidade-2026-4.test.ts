@@ -570,6 +570,92 @@ function runSuite() {
   )
 
   // -------------------------------------------------------------------------
+  // ITEM 10 (NOVO): Manual Elliza 2026.5 — Base de Aprendizado da ELLIZA
+  // -------------------------------------------------------------------------
+  console.log('\n👉 [10] Manual Elliza 2026.5 — Base de Aprendizado da ELLIZA (/pop-treinamento):')
+
+  // 1. Migration 0125 existe e registra a versão 2026.5
+  const mig0125Path = path.join(projectRoot, 'pocketbase', 'migrations', '0125_seed_manual_elliza_2026_5.js')
+  assert(fs.existsSync(mig0125Path), 'Migration 0125 existe no projeto')
+  const mig0125Content = fs.readFileSync(mig0125Path, 'utf-8')
+
+  assert(
+    mig0125Content.includes('MANUAL ELLIZA — AGENTE EXTERNO DA PLATAFORMA RUMO'),
+    'Migration 0125 define o título oficial do Manual Elliza 2026.5',
+  )
+  assert(
+    mig0125Content.includes("versao = '2026.5'") || mig0125Content.includes("'2026.5'"),
+    'Migration 0125 grava registro com versao 2026.5',
+  )
+  assert(
+    mig0125Content.includes('## 1. Quem eu sou neste contexto') &&
+      mig0125Content.includes('## 2. Arquitetura da integração (como me comunico)') &&
+      mig0125Content.includes('## 3. Regras inegociáveis (Regra de Ouro e Parada Honesta)') &&
+      mig0125Content.includes('## 4. Tipos de comando que a Rumo me envia') &&
+      mig0125Content.includes('## 5. Contratos de endpoint (resumo operacional)') &&
+      mig0125Content.includes('## 6. Rotinas e pré-requisitos') &&
+      mig0125Content.includes('## 7. Mapa dos meus módulos × uso na Rumo') &&
+      mig0125Content.includes('## 8. O que NÃO faço (limites)'),
+    'Migration 0125 possui as 8 seções integrais em pt-BR',
+  )
+
+  // 2. Matriz de tipos de comando da Seção 4
+  assert(
+    mig0125Content.includes('`chat_objetivo`') && mig0125Content.includes('Ativo'),
+    'Comando chat_objetivo marcado como Ativo',
+  )
+  assert(
+    mig0125Content.includes('`extrair_documento`') && mig0125Content.includes('Piloto ativo'),
+    'Comando extrair_documento marcado como Piloto ativo',
+  )
+  assert(
+    mig0125Content.includes('`pesquisa_tributaria`') && mig0125Content.includes('Ativo (POP-EX-04)'),
+    'Comando pesquisa_tributaria marcado como Ativo (POP-EX-04)',
+  )
+  assert(
+    mig0125Content.includes('`sync_ged`') && mig0125Content.includes('Ativo (POP-EX-03)'),
+    'Comando sync_ged marcado como Ativo (POP-EX-03)',
+  )
+  assert(
+    mig0125Content.includes('`conciliar_xml`') && mig0125Content.includes('Planejado'),
+    'Comando conciliar_xml marcado como Planejado',
+  )
+  assert(
+    mig0125Content.includes('`consultar_api`') && mig0125Content.includes('Planejado'),
+    'Comando consultar_api marcado como Planejado',
+  )
+  assert(
+    mig0125Content.includes('`raspar_portal`') && mig0125Content.includes('Planejado'),
+    'Comando raspar_portal marcado como Planejado',
+  )
+  assert(
+    mig0125Content.includes('`enviar_zap`') && mig0125Content.includes('Planejado'),
+    'Comando enviar_zap marcado como Planejado',
+  )
+
+  // 3. Suporte na página PopTreinamento.tsx
+  const popTreinamentoPath = path.join(projectRoot, 'src', 'pages', 'PopTreinamento.tsx')
+  assert(fs.existsSync(popTreinamentoPath), 'src/pages/PopTreinamento.tsx existe')
+  const popTreinamentoContent = fs.readFileSync(popTreinamentoPath, 'utf-8')
+
+  assert(
+    popTreinamentoContent.includes("'2026.5'"),
+    'PopTreinamentoPage aceita a versão 2026.5 no estado versaoSelecionada',
+  )
+  assert(
+    popTreinamentoContent.includes('value="2026.5"'),
+    'PopTreinamentoPage inclui item 2026.5 no seletor de versão do POP',
+  )
+  assert(
+    popTreinamentoContent.includes('RelatorioMarkdownViewer'),
+    'PopTreinamentoPage renderiza markdown rico com RelatorioMarkdownViewer para tabelas e seções do manual',
+  )
+
+  // 4. Referência mantida aos POPs EX-01, EX-03 e EX-04
+  const mig0126Path = path.join(projectRoot, 'pocketbase', 'migrations', '0126_mirror_pop_ex_2026_5.js')
+  assert(fs.existsSync(mig0126Path), 'Migration 0126 existe espelhando POP-EX-03 e POP-EX-04 em 2026.5')
+
+  // -------------------------------------------------------------------------
   // Resumo da Suíte
   // -------------------------------------------------------------------------
   console.log('\n=============================================================')
