@@ -56,7 +56,6 @@ export function RelatorioMarkdownViewer({ conteudo }: RelatorioMarkdownViewerPro
           )
         }
         if (/^\d+\.\s+/.test(trimmed)) {
-          const numPrefix = trimmed.match(/^\d+\./)?.[0] || '1.'
           const itemText = trimmed.replace(/^\d+\.\s+/, '')
           return (
             <li key={idx} className="ml-4 list-decimal pl-1 text-slate-700">
