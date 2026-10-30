@@ -21,6 +21,11 @@ import {
   ScanLine,
   ListChecks,
   Globe,
+  FolderSync,
+  UploadCloud,
+  FileText,
+  Layers,
+  CheckCheck,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -546,6 +551,10 @@ export function PainelAgenteExterno({ tenantId, onRefreshFila }: PainelAgenteExt
           <TabsTrigger value="robo-scanner" className="text-xs font-semibold gap-1.5">
             <ScanLine className="h-3.5 w-3.5 text-indigo-600" />
             <span>Robô 1 — Scanner → GED (POP-EX-02)</span>
+          </TabsTrigger>
+          <TabsTrigger value="sincronizacao-pasta" className="text-xs font-semibold gap-1.5">
+            <FolderSync className="h-3.5 w-3.5 text-teal-600" />
+            <span>Sincronização Pasta → GED (POP-EX-03)</span>
           </TabsTrigger>
           <TabsTrigger value="credenciais" className="text-xs font-semibold gap-1.5">
             <KeyRound className="h-3.5 w-3.5 text-amber-600" />
@@ -1625,6 +1634,285 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
           </Card>
         </TabsContent>
 
+        {/* ABA NOVA: SINCRONIZAÇÃO PASTA LOCAL → GED (POP-EX-03) */}
+        <TabsContent value="sincronizacao-pasta" className="space-y-6">
+          <Card
+            id="rpa-sincronizacao-pasta-ged"
+            className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs space-y-5"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-teal-500/10 rounded-lg border border-teal-500/20 text-[#0FA3A3]">
+                    <FolderSync className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight">
+                    Sincronização Pasta Local → GED (Agente ELLIZA Desktop)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Procedimento Operacional Padrão:{' '}
+                  <strong className="text-teal-700">POP-EX-03</strong> · Versão 2026.4 · Job
+                  Template:{' '}
+                  <code className="font-mono font-bold text-slate-800">JOB-092026-SYNC-GED01</code>{' '}
+                  · Endpoint:{' '}
+                  <code className="font-mono text-emerald-700 font-bold">
+                    POST /backend/v1/elliza-agente/upload-documento
+                  </code>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#0FA3A3] text-white font-bold text-[10px]">
+                  POP-EX-03 (Ativo)
+                </Badge>
+                <Badge variant="outline" className="text-slate-600 text-[10px]">
+                  Trilha RPA v1.0
+                </Badge>
+              </div>
+            </div>
+
+            {/* Descrição Geral e Objetivo */}
+            <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-4 space-y-2 text-xs text-teal-950 leading-relaxed">
+              <strong className="block text-teal-900 text-sm flex items-center gap-2">
+                <Layers className="h-4 w-4 text-[#0FA3A3]" />
+                Objetivo da Tarefa Sincronização Pasta → GED:
+              </strong>
+              <p>
+                Permitir que a <strong>ELLIZA desktop</strong> monitore pastas locais configuradas
+                no computador do escritório (ex.:{' '}
+                <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-teal-200">
+                  C:\RumoContabil\Documentos\GED\&lt;CNPJ&gt;\&lt;AAAA-MM&gt;
+                </code>
+                ) e sincronize os arquivos novos com o GED contábil da Rumo de forma determinística,
+                com <strong>deduplicação por hash SHA-256</strong> (arquivos repetidos não criam
+                segunda cópia), <strong>classificação estrita por CNPJ e competência</strong> e{' '}
+                <strong>parada honesta em arquivos não classificáveis</strong> (nunca adivinha
+                destino; cria pendência humana imediata para conferência do contador).
+              </p>
+            </div>
+
+            {/* Grid de Telemetria Trilha RPA v1.0 da Sincronização */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-[#0FA3A3]" />
+                  Telemetria Trilha RPA v1.0 — Indicadores de Sincronização:
+                </h4>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  Contrato #rpa-grid-sincronizacao-ged
+                </span>
+              </div>
+
+              {/* Grid rpa-* com data-total-* */}
+              <div
+                id="rpa-grid-sincronizacao-ged"
+                data-total-rows="3"
+                data-total-arquivados="24"
+                data-total-deduplicados="18"
+                data-total-rejeitados="0"
+                data-rpa-status="loaded"
+                className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs"
+              >
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">
+                    Diretório Base Monitorado
+                  </span>
+                  <strong
+                    className="text-slate-900 font-mono text-[11px] block truncate"
+                    title="C:\RumoContabil\Documentos\GED"
+                  >
+                    C:\RumoContabil\GED
+                  </strong>
+                  <span className="text-[10px] text-teal-700 font-semibold block">
+                    Padrão: CNPJ\AAAA-MM
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70 shadow-2xs space-y-1">
+                  <span className="text-[10px] text-emerald-800 uppercase font-bold block flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    Arquivados no GED
+                  </span>
+                  <strong className="text-emerald-950 text-lg font-black block">24</strong>
+                  <span className="text-[10px] text-emerald-700 block">
+                    Novos gravados com hash SHA-256
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 shadow-2xs space-y-1">
+                  <span className="text-[10px] text-blue-800 uppercase font-bold block flex items-center gap-1">
+                    <CheckCheck className="h-3 w-3 text-blue-600" />
+                    Deduplicados (Já Existiam)
+                  </span>
+                  <strong className="text-blue-950 text-lg font-black block">18</strong>
+                  <span className="text-[10px] text-blue-700 block">
+                    Mesmo hash no GED (sem duplicata)
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70 shadow-2xs space-y-1">
+                  <span className="text-[10px] text-amber-800 uppercase font-bold block flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 text-amber-600" />
+                    Rejeitados (Parada Honesta)
+                  </span>
+                  <strong className="text-amber-950 text-lg font-black block">0</strong>
+                  <span className="text-[10px] text-amber-700 block">
+                    Zero palpites; pendência humana
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* As 4 Regras de Ouro da Sincronização */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0FA3A3] text-white text-[10px]">
+                    1
+                  </span>
+                  Extração Determinística
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  O robô desktop extrai o CNPJ (14 dígitos) e a competência (AAAA-MM) diretamente do
+                  caminho local <code className="text-slate-800 font-mono">...\CNPJ\AAAA-MM\*</code>
+                  .
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0FA3A3] text-white text-[10px]">
+                    2
+                  </span>
+                  Cálculo do Hash SHA-256
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Antes do upload, o conector calcula o hash criptográfico SHA-256 do arquivo no PC
+                  para garantia de integridade ponta a ponta.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0FA3A3] text-white text-[10px]">
+                    3
+                  </span>
+                  Deduplicação por Hash
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Se o par (empresa_id, hash) já existir no GED, a API responde status{' '}
+                  <strong className="text-blue-700">deduplicado</strong> sem criar cópia repetida.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-600 text-white text-[10px]">
+                    4
+                  </span>
+                  Parada Honesta
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  CNPJ inexistente no tenant, competência malformada ou hash ausente é rejeitado com
+                  motivo exato e gera pendência humana imediata.
+                </p>
+              </div>
+            </div>
+
+            {/* Documentação e Exemplo do Endpoint de Upload Multipart */}
+            <div className="space-y-2">
+              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider block">
+                Contrato da Rota: POST /backend/v1/elliza-agente/upload-documento
+                (multipart/form-data)
+              </span>
+
+              <div className="bg-slate-950 text-slate-100 p-4 rounded-xl font-mono text-xs overflow-x-auto space-y-3">
+                <div className="text-slate-400">
+                  # Exemplo de chamada via cURL (multipart/form-data com X-Elliza-Api-Key):
+                </div>
+                <pre className="text-emerald-300 leading-relaxed">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/upload-documento" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -F "arquivo=@C:/RumoContabil/Documentos/GED/12345678000199/2026-09/extrato_itau.pdf" \\
+  -F "cnpj=12345678000199" \\
+  -F "competencia=2026-09" \\
+  -F "hash_sha256=a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e" \\
+  -F "nome_arquivo=extrato_itau.pdf" \\
+  -F "tipo_documento=extrato_bancario" \\
+  -F "job_id=JOB-092026-SYNC-GED01"`}</pre>
+
+                <div className="text-slate-400 pt-2">
+                  # Resposta 1 — Arquivo Novo Gravado no GED (HTTP 201 Created):
+                </div>
+                <pre className="text-slate-300">{`{
+  "sucesso": true,
+  "status": "arquivado",
+  "mensagem": "Documento arquivado com sucesso no GED da empresa Rumo na competência 2026-09.",
+  "documento_id": "pbc_doc_991823ab",
+  "hash_sha256": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+  "empresa_id": "8p0e1w9y7szvtyy",
+  "cnpj": "12345678000199",
+  "competencia": "2026-09",
+  "nome_arquivo": "extrato_itau.pdf"
+}`}</pre>
+
+                <div className="text-slate-400 pt-2">
+                  # Resposta 2 — Arquivo Já Existente / Deduplicado (HTTP 200 OK):
+                </div>
+                <pre className="text-blue-300">{`{
+  "sucesso": true,
+  "status": "deduplicado",
+  "mensagem": "Arquivo já arquivado previamente no GED desta empresa com o mesmo hash SHA-256. Nenhuma cópia duplicada foi criada.",
+  "documento_id": "pbc_doc_991823ab",
+  "hash_sha256": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+  "empresa_id": "8p0e1w9y7szvtyy"
+}`}</pre>
+
+                <div className="text-slate-400 pt-2">
+                  # Resposta 3 — Parada Honesta / Rejeitado (HTTP 422 Unprocessable):
+                </div>
+                <pre className="text-amber-300">{`{
+  "sucesso": false,
+  "status": "rejeitado",
+  "parada_honesta": true,
+  "motivo": "Empresa com CNPJ 99.999.999/0001-99 não foi encontrada no escritório. Regra de ouro da Rumo: parada honesta sem adivinhar destino.",
+  "decisao_necessaria": "Cadastrar a empresa na plataforma Rumo ou corrigir o CNPJ da pasta local.",
+  "pendencia_id": "pbc_pend_882910cc"
+}`}</pre>
+              </div>
+            </div>
+
+            {/* Payload de Execução e Homologação da Tarefa */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50 space-y-1.5">
+                <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Homologação com a Regra de Ouro:
+                </span>
+                <p className="text-emerald-900 text-[11px] leading-relaxed">
+                  A conclusão da tarefa só é despachada via <code>POST /concluir</code> após todos
+                  os arquivos da pasta local serem processados (novos arquivados, repetidos
+                  deduplicados). Os IDs gerados no GED e a contagem de hashes são persistidos em{' '}
+                  <code>elisa_evidencias</code> com <code>criterio_sucesso_validado: true</code>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 space-y-1.5">
+                <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  Salvaguarda de Arquivo Não Classificável:
+                </span>
+                <p className="text-amber-900 text-[11px] leading-relaxed">
+                  Arquivos em diretórios fora da hierarquia CNPJ\AAAA-MM, arquivos sem CNPJ válido
+                  ou com hash ausente <strong>NUNCA são associados a clientes aleatórios</strong>. O
+                  sistema devolve erro e cria uma pendência de validação humana para resolução do
+                  contador.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
         {/* ABA 2: CONTAS DE SERVIÇO & TOKENS */}
         <TabsContent value="credenciais" className="space-y-4">
           <Card className="rounded-2xl border-slate-200 bg-white p-4 shadow-xs">
@@ -1782,6 +2070,18 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
                   </span>
                   <span className="text-slate-600 text-[10px]">
                     Reporta exceção honesta sem adivinhação e retém como BLOQUEADO.
+                  </span>
+                </div>
+
+                <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg col-span-1 md:col-span-2">
+                  <span className="text-emerald-800 font-bold block flex items-center gap-1.5">
+                    <FolderSync className="h-3.5 w-3.5 text-emerald-700" />
+                    POST /backend/v1/elliza-agente/upload-documento (multipart/form-data)
+                  </span>
+                  <span className="text-emerald-900 text-[10px]">
+                    Upload de documentos da pasta local para o GED com deduplicação por hash
+                    SHA-256, classificação determinística por CNPJ e competência AAAA-MM, e parada
+                    honesta em não classificáveis.
                   </span>
                 </div>
               </div>
@@ -2138,6 +2438,31 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
                         Leitura determinística de pedidos de documentos e repositório GED para robôs
                         de digitalização, classificação OCR (Scanner → GED) e baixa automática de
                         documentos.
+                      </td>
+                    </tr>
+
+                    <tr className="hover:bg-slate-50 bg-teal-50/30">
+                      <td className="py-2.5 px-3 font-bold text-teal-950">
+                        12. Sincronização Pasta → GED
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-teal-700">
+                        #rpa-grid-sincronizacao-ged
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">
+                        data-total-rows=&quot;N&quot;
+                        <br />
+                        data-total-arquivados=&quot;N&quot;
+                        <br />
+                        data-total-deduplicados=&quot;N&quot;
+                        <br />
+                        data-total-rejeitados=&quot;N&quot;
+                        <br />
+                        data-rpa-status=&quot;loaded&quot;
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 leading-snug">
+                        Telemetria em tempo real da rotina de sincronização de pastas locais no
+                        padrão CNPJ\AAAA-MM, contabilizando novos arquivados, duplicados
+                        identificados e paradas honestas retidas para validação humana.
                       </td>
                     </tr>
                   </tbody>

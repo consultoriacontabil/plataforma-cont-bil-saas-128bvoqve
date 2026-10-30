@@ -1283,6 +1283,28 @@ export const elisaOpsService = {
     }
   },
 
+  /**
+   * Dispara o endpoint oficial de upload de documento da ELLIZA Desktop RPA
+   * Rota: POST /backend/v1/elliza-agente/upload-documento
+   */
+  async testarEndpointUploadDocumento(
+    apiKey: string,
+    formData: FormData,
+  ): Promise<{ sucesso: boolean; dados?: any; erro?: string }> {
+    try {
+      const data = await pb.send('/backend/v1/elliza-agente/upload-documento', {
+        method: 'POST',
+        headers: {
+          'X-Elliza-Api-Key': apiKey,
+        },
+        body: formData,
+      })
+      return { sucesso: true, dados: data }
+    } catch (err: any) {
+      return { sucesso: false, erro: err.message || 'Falha no upload do documento' }
+    }
+  },
+
   // === RESUMO GERAL OPERACIONAL (KPIs para a Central de Operações) ===
   async getCentralOperacoesKPIs(tenantId: string) {
     try {

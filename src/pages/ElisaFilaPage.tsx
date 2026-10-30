@@ -895,8 +895,8 @@ export default function ElisaFilaPage() {
                             )}
                           </td>
 
-                          {/* 5. Próxima Ação */}
-                          <td className="py-3 px-3 align-top max-w-[260px]">
+                          {/* 5. Próxima Ação & Telemetria de Sincronização */}
+                          <td className="py-3 px-3 align-top max-w-[280px]">
                             <p className="text-[11px] text-slate-700 leading-snug line-clamp-2">
                               {job.proxima_acao}
                             </p>
@@ -908,6 +908,79 @@ export default function ElisaFilaPage() {
                                 ✓ {job.resultado}
                               </p>
                             )}
+
+                            {/* Contadores da Tarefa Sincronização Pasta -> GED */}
+                            {((job.payload_execucao_json as any)?.tipo_operacao ===
+                              'SINCRONIZACAO_PASTA_GED' ||
+                              (job.payload_execucao_json as any)?.tipo_tarefa ===
+                                'sincronizacao_pasta_ged') &&
+                              (() => {
+                                const payloadSync = (job.payload_execucao_json as any) || {}
+                                const statsSync = payloadSync.estatisticas || {}
+                                const totalArq = Number(statsSync.arquivados ?? 0)
+                                const totalDedup = Number(statsSync.deduplicados ?? 0)
+                                const totalRej = Number(statsSync.rejeitados ?? 0)
+                                const rejeitadosList: any[] = Array.isArray(
+                                  statsSync.arquivos_rejeitados_detalhes,
+                                )
+                                  ? statsSync.arquivos_rejeitados_detalhes
+                                  : []
+
+                                return (
+                                  <div
+                                    className="mt-1.5 p-2 rounded-lg border border-teal-200 bg-teal-50/70 text-[10px] space-y-1"
+                                    id={`rpa-job-sync-${job.id}`}
+                                    data-total-arquivados={totalArq}
+                                    data-total-deduplicados={totalDedup}
+                                    data-total-rejeitados={totalRej}
+                                  >
+                                    <div className="font-bold text-teal-950 flex items-center justify-between">
+                                      <span>Sincronização Pasta Local → GED</span>
+                                      <span className="text-[9px] font-mono text-teal-700">
+                                        {payloadSync.padrao_pastas || 'CNPJ\\AAAA-MM'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-0.5 font-medium">
+                                      <span className="text-emerald-800">
+                                        Arquivados: <strong>{totalArq}</strong>
+                                      </span>
+                                      <span className="text-slate-300">•</span>
+                                      <span className="text-blue-800">
+                                        Deduplicados: <strong>{totalDedup}</strong>
+                                      </span>
+                                      <span className="text-slate-300">•</span>
+                                      <span className="text-amber-800">
+                                        Rejeitados: <strong>{totalRej}</strong>
+                                      </span>
+                                    </div>
+
+                                    {rejeitadosList.length > 0 && (
+                                      <div className="pt-1 mt-1 border-t border-teal-200/80 text-[9px] text-amber-900 space-y-0.5">
+                                        <span className="font-bold block">
+                                          Arquivos Rejeitados (Validação Humana):
+                                        </span>
+                                        {rejeitadosList.map((arq: any, i: number) => (
+                                          <div
+                                            key={i}
+                                            className="bg-white/80 p-1 rounded border border-amber-200"
+                                          >
+                                            <span className="font-mono font-bold text-slate-900">
+                                              {arq.nome_arquivo || '—'}
+                                            </span>
+                                            <span className="text-slate-500 block">
+                                              CNPJ: {arq.cnpj || '—'} | Comp:{' '}
+                                              {arq.competencia || '—'}
+                                            </span>
+                                            <span className="text-amber-800 font-medium block">
+                                              Motivo: {arq.motivo || '—'}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                           </td>
 
                           {/* 6. Prioridade / Prazo */}

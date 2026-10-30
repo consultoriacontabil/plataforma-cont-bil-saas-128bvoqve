@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-14T20:47:20.857Z",
+  "generatedAt": "2026-10-30T11:38:48.761Z",
   "collections": [
     {
       "name": "users",
@@ -658,13 +658,26 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "hash_sha256",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_documentos_tenant_empresa ON documentos (tenant_id, empresa_id)",
         "CREATE INDEX idx_documentos_tipo_status ON documentos (tipo, status)",
         "CREATE INDEX idx_documentos_created ON documentos (created DESC)",
-        "CREATE INDEX `idx_documentos_chave_nfe` ON `documentos` (empresa_id, chave_acesso_nfe)"
+        "CREATE INDEX `idx_documentos_chave_nfe` ON `documentos` (empresa_id, chave_acesso_nfe)",
+        "CREATE INDEX `idx_documentos_hash_empresa` ON `documentos` (empresa_id, hash_sha256)"
       ]
     },
     {
