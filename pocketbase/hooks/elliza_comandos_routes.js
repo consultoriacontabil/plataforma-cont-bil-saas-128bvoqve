@@ -77,8 +77,13 @@ routerAdd('GET', '/backend/v1/elliza-agente/comandos/assinar', function (e) {
   var accept = String(headers['accept'] || '').toLowerCase()
   var nowIso = new Date().toISOString()
 
-  // Buscar comandos pendentes não expirados
-  var filter = "tenant_id = '" + tenantId + "' && status = 'pendente'"
+  // Buscar comandos pendentes não expirados (filtro estrito por expira_em)
+  var filter =
+    "tenant_id = '" +
+    tenantId +
+    "' && status = 'pendente' && (expira_em = '' || expira_em = null || expira_em > '" +
+    nowIso +
+    "')"
   var comandos = []
   try {
     comandos = app.findRecordsByFilter('elliza_comandos', filter, '-prioridade,created', 20, 0)
@@ -93,29 +98,7 @@ routerAdd('GET', '/backend/v1/elliza-agente/comandos/assinar', function (e) {
   for (var i = 0; i < comandos.length; i++) {
     var cmd = comandos[i]
     var expiraEm = cmd.getString('expira_em')
-    if (expiraEm && expiraEm < nowIso) {
-      try {
-        cmd.set('status', 'expirado')
-        cmd.set('erro', {
-          codigo: 'CMD_EXPIRADO',
-          motivo: 'Comando expirou antes do agente aceitar a execução.',
-          referencia_pendencia: null,
-        })
-        app.save(cmd)
-
-        var aCol = app.findCollectionByNameOrId('audit_log')
-        var aRec = new Record(aCol)
-        aRec.set('tenant_id', tenantId)
-        aRec.set('acao', 'COMANDO_EXPIRADO')
-        aRec.set('entidade_tipo', 'elliza_comandos')
-        aRec.set('entidade_id', cmd.id)
-        aRec.set(
-          'detalhes',
-          JSON.stringify({ nonce: cmd.getString('nonce'), tipo: cmd.getString('tipo') }),
-        )
-        app.save(aRec)
-      } catch (_) {}
-    } else {
+    if (!expiraEm || expiraEm > nowIso) {
       pendentesValidos.push({
         id: cmd.id,
         tenant_id: cmd.getString('tenant_id'),
@@ -220,11 +203,16 @@ routerAdd('GET', '/backend/v1/elliza-agente/comandos/obter', function (e) {
   var limit = parseInt(query['limit'], 10) || 50
   if (limit > 100) limit = 100
 
+  var nowIso = new Date().toISOString()
   var filter = "tenant_id = '" + tenantId + "'"
   if (nonce) {
     filter += " && nonce = '" + nonce + "'"
   } else if (status) {
     filter += " && status = '" + status + "'"
+    // Se o cliente pediu comandos entregáveis (pendente/aceito/em_execucao), nunca entregar expirados
+    if (status === 'pendente' || status === 'aceito' || status === 'em_execucao') {
+      filter += " && (expira_em = '' || expira_em = null || expira_em > '" + nowIso + "')"
+    }
   }
 
   var listRecords = []
@@ -241,20 +229,18 @@ routerAdd('GET', '/backend/v1/elliza-agente/comandos/obter', function (e) {
   }
 
   var lista = []
-  var nowIso = new Date().toISOString()
   for (var i = 0; i < listRecords.length; i++) {
     var cmd = listRecords[i]
     var expiraEm = cmd.getString('expira_em')
-    if (cmd.getString('status') === 'pendente' && expiraEm && expiraEm < nowIso) {
-      try {
-        cmd.set('status', 'expirado')
-        cmd.set('erro', {
-          codigo: 'CMD_EXPIRADO',
-          motivo: 'Comando expirou antes de ser aceito.',
-          referencia_pendencia: null,
-        })
-        app.save(cmd)
-      } catch (_) {}
+    var st = cmd.getString('status')
+
+    // Se foi buscado por nonce específico e já expirou no tempo, atualizar st
+    if (
+      expiraEm &&
+      expiraEm < nowIso &&
+      (st === 'pendente' || st === 'aceito' || st === 'em_execucao')
+    ) {
+      st = 'expirado'
     }
 
     lista.push({
@@ -265,7 +251,7 @@ routerAdd('GET', '/backend/v1/elliza-agente/comandos/obter', function (e) {
       tipo: cmd.getString('tipo'),
       payload: cmd.get('payload') || {},
       prioridade: cmd.getInt('prioridade'),
-      status: cmd.getString('status'),
+      status: st,
       nonce: cmd.getString('nonce'),
       expira_em: cmd.getString('expira_em'),
       resultado: cmd.get('resultado') || null,

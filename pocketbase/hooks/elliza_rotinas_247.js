@@ -245,6 +245,168 @@ cronAdd('elliza_rotinas_247_monitor', '0 * * * *', () => {
   } catch (err) {
     console.error('[ELLIZA-24/7] Falha geral ao executar rotina de monitoramento:', err)
   }
+
+  // 8. Varredura ativa de expiração de comandos da ELLIZA (Parada Honesta)
+  try {
+    const nowIsoVarredura = new Date().toISOString()
+    const filtroComandosVencidos = `(status = 'pendente' || status = 'aceito' || status = 'em_execucao') && expira_em != '' && expira_em != null && expira_em < '${nowIsoVarredura}'`
+    const comandosVencidos = app.findRecordsByFilter(
+      'elliza_comandos',
+      filtroComandosVencidos,
+      'created',
+      100,
+      0,
+    )
+
+    console.log(
+      `[ELLIZA-24/7] Varredura de comandos: ${comandosVencidos.length} comando(s) vencido(s) encontrado(s).`,
+    )
+
+    for (let cIdx = 0; cIdx < comandosVencidos.length; cIdx++) {
+      const cmd = comandosVencidos[cIdx]
+      const statusAnterior = cmd.getString('status')
+      const cmdTenantId = cmd.getString('tenant_id')
+      let cmdEmpresaId = cmd.getString('empresa_id')
+      const cmdNonce = cmd.getString('nonce')
+      const cmdTipo = cmd.getString('tipo')
+      const cmdAgente = cmd.getString('agente') || 'elliza-desktop-rpa'
+      const cmdExpiraEm = cmd.getString('expira_em')
+      const payloadCmd = cmd.get('payload') || {}
+
+      if (!cmdEmpresaId && payloadCmd.empresa_id) {
+        cmdEmpresaId = String(payloadCmd.empresa_id).trim()
+      }
+
+      // Localizar processo_id e empresa_id obrigatórios para criar pendência em processo_pendencias
+      let procId = ''
+      try {
+        const procs = app.findRecordsByFilter(
+          'processos_operacionais',
+          `tenant_id = '${cmdTenantId}'`,
+          '-created',
+          1,
+          0,
+        )
+        if (procs && procs.length > 0) {
+          procId = procs[0].id
+          if (!cmdEmpresaId) {
+            cmdEmpresaId = procs[0].getString('empresa_id')
+          }
+        }
+      } catch (_) {}
+
+      // Se empresa_id ainda estiver vazia, buscar a empresa recente do tenant
+      if (!cmdEmpresaId && cmdTenantId) {
+        try {
+          const empFallback = app.findRecordsByFilter(
+            'empresas',
+            `tenant_id = '${cmdTenantId}'`,
+            '-created',
+            1,
+            0,
+          )
+          if (empFallback && empFallback.length > 0) {
+            cmdEmpresaId = empFallback[0].id
+          }
+        } catch (_) {}
+      }
+
+      // Idempotência: Checar se já existe pendência estruturada para este comando/nonce
+      let pendenciaExistente = null
+      try {
+        const pExistentes = app.findRecordsByFilter(
+          'processo_pendencias',
+          `tenant_id = '${cmdTenantId}' && (por_que_parou ~ '${cmdNonce}' || titulo ~ '${cmdNonce}' || por_que_parou ~ '${cmd.id}')`,
+          '-created',
+          1,
+          0,
+        )
+        if (pExistentes && pExistentes.length > 0) {
+          pendenciaExistente = pExistentes[0]
+        }
+      } catch (_) {}
+
+      let pendRecId = pendenciaExistente ? pendenciaExistente.id : null
+
+      if (!pendenciaExistente && procId && cmdEmpresaId) {
+        try {
+          const pendCol = app.findCollectionByNameOrId('processo_pendencias')
+          const pendRec = new Record(pendCol)
+          pendRec.set('tenant_id', cmdTenantId)
+          pendRec.set('processo_id', procId)
+          pendRec.set('empresa_id', cmdEmpresaId)
+
+          const tituloPendencia = `Comando ${cmdTipo} expirou sem conclusão (Parada Honesta - Nonce ${cmdNonce})`
+          const motivoExp = `Comando ${cmdTipo} (id: ${cmd.id}, nonce: ${cmdNonce}) atingiu o prazo de expiração (${cmdExpiraEm}) com status '${statusAnterior}' e não foi concluído pelo agente desktop '${cmdAgente}'.`
+          const oQueFoiExecutado = `Comando foi enfileirado na collection elliza_comandos em ${cmd.getString('created')}, aguardando processamento da ELLIZA desktop.`
+          const oQueFalta = `Verificar disponibilidade do agente local '${cmdAgente}', avaliar se a instrução deve ser reemitida ou cancelada.`
+          const decisaoNecessaria = `Decidir se reabre o comando com novo prazo de expiração ou se encerra a solicitação operacional no Modo Humano.`
+
+          pendRec.set('titulo', tituloPendencia)
+          pendRec.set('por_que_parou', motivoExp)
+          pendRec.set('o_que_foi_executado', oQueFoiExecutado)
+          pendRec.set('o_que_falta', oQueFalta)
+          pendRec.set('decisao_necessaria', decisaoNecessaria)
+          pendRec.set('status', 'aberta')
+          app.save(pendRec)
+          pendRecId = pendRec.id
+        } catch (errPend) {
+          console.error(
+            `[ELLIZA-24/7] Erro ao criar pendência estruturada para comando ${cmd.id}:`,
+            errPend,
+          )
+        }
+      }
+
+      // Atualizar comando para status 'expirado' e erro estruturado COMANDO_EXPIRADO
+      try {
+        cmd.set('status', 'expirado')
+        cmd.set('erro', {
+          codigo: 'COMANDO_EXPIRADO',
+          motivo: `Comando expirou em ${cmdExpiraEm} antes da conclusão (status anterior: ${statusAnterior}). Parada honesta registrada.`,
+          referencia_pendencia: pendRecId,
+          timestamp: nowIsoVarredura,
+        })
+        app.save(cmd)
+      } catch (errCmd) {
+        console.error(
+          `[ELLIZA-24/7] Erro ao atualizar status do comando ${cmd.id} para expirado:`,
+          errCmd,
+        )
+      }
+
+      // Registrar no audit_log
+      try {
+        const aCol = app.findCollectionByNameOrId('audit_log')
+        const aRec = new Record(aCol)
+        aRec.set('tenant_id', cmdTenantId)
+        aRec.set('acao', 'COMANDO_EXPIRADO_PARADA_HONESTA')
+        aRec.set('entidade_tipo', 'elliza_comandos')
+        aRec.set('entidade_id', cmd.id)
+        aRec.set(
+          'detalhes',
+          JSON.stringify({
+            nonce: cmdNonce,
+            tipo: cmdTipo,
+            agente: cmdAgente,
+            status_anterior: statusAnterior,
+            status_novo: 'expirado',
+            expira_em: cmdExpiraEm,
+            pendencia_id: pendRecId,
+            timestamp: nowIsoVarredura,
+          }),
+        )
+        app.save(aRec)
+      } catch (errAudit) {
+        console.error(
+          `[ELLIZA-24/7] Erro ao registrar audit_log para comando expirado ${cmd.id}:`,
+          errAudit,
+        )
+      }
+    }
+  } catch (errVarredura) {
+    console.error('[ELLIZA-24/7] Falha na varredura de comandos expirados:', errVarredura)
+  }
 })
 
 // Endpoint manual autenticado para disparar o monitoramento sob demanda
@@ -431,6 +593,165 @@ routerAdd('POST', '/backend/v1/elliza/rotinas-247/executar', (e) => {
       totalNotificadas++
     }
 
+    // 8. Varredura ativa de comandos expirados (Parada Honesta sob demanda)
+    let totalComandosExpirados = 0
+    try {
+      const nowIsoVarredura = new Date().toISOString()
+      const filtroComandosVencidos = `(status = 'pendente' || status = 'aceito' || status = 'em_execucao') && expira_em != '' && expira_em != null && expira_em < '${nowIsoVarredura}'`
+      const comandosVencidos = app.findRecordsByFilter(
+        'elliza_comandos',
+        filtroComandosVencidos,
+        'created',
+        100,
+        0,
+      )
+
+      for (let cIdx = 0; cIdx < comandosVencidos.length; cIdx++) {
+        const cmd = comandosVencidos[cIdx]
+        const statusAnterior = cmd.getString('status')
+        const cmdTenantId = cmd.getString('tenant_id')
+        let cmdEmpresaId = cmd.getString('empresa_id')
+        const cmdNonce = cmd.getString('nonce')
+        const cmdTipo = cmd.getString('tipo')
+        const cmdAgente = cmd.getString('agente') || 'elliza-desktop-rpa'
+        const cmdExpiraEm = cmd.getString('expira_em')
+        const payloadCmd = cmd.get('payload') || {}
+
+        if (!cmdEmpresaId && payloadCmd.empresa_id) {
+          cmdEmpresaId = String(payloadCmd.empresa_id).trim()
+        }
+
+        let procId = ''
+        try {
+          const procs = app.findRecordsByFilter(
+            'processos_operacionais',
+            `tenant_id = '${cmdTenantId}'`,
+            '-created',
+            1,
+            0,
+          )
+          if (procs && procs.length > 0) {
+            procId = procs[0].id
+            if (!cmdEmpresaId) {
+              cmdEmpresaId = procs[0].getString('empresa_id')
+            }
+          }
+        } catch (_) {}
+
+        if (!cmdEmpresaId && cmdTenantId) {
+          try {
+            const empFallback = app.findRecordsByFilter(
+              'empresas',
+              `tenant_id = '${cmdTenantId}'`,
+              '-created',
+              1,
+              0,
+            )
+            if (empFallback && empFallback.length > 0) {
+              cmdEmpresaId = empFallback[0].id
+            }
+          } catch (_) {}
+        }
+
+        // Idempotência: Checar pendência existente
+        let pendenciaExistente = null
+        try {
+          const pExistentes = app.findRecordsByFilter(
+            'processo_pendencias',
+            `tenant_id = '${cmdTenantId}' && (por_que_parou ~ '${cmdNonce}' || titulo ~ '${cmdNonce}' || por_que_parou ~ '${cmd.id}')`,
+            '-created',
+            1,
+            0,
+          )
+          if (pExistentes && pExistentes.length > 0) {
+            pendenciaExistente = pExistentes[0]
+          }
+        } catch (_) {}
+
+        let pendRecId = pendenciaExistente ? pendenciaExistente.id : null
+
+        if (!pendenciaExistente && procId && cmdEmpresaId) {
+          try {
+            const pendCol = app.findCollectionByNameOrId('processo_pendencias')
+            const pendRec = new Record(pendCol)
+            pendRec.set('tenant_id', cmdTenantId)
+            pendRec.set('processo_id', procId)
+            pendRec.set('empresa_id', cmdEmpresaId)
+
+            const tituloPendencia = `Comando ${cmdTipo} expirou sem conclusão (Parada Honesta - Nonce ${cmdNonce})`
+            const motivoExp = `Comando ${cmdTipo} (id: ${cmd.id}, nonce: ${cmdNonce}) atingiu o prazo de expiração (${cmdExpiraEm}) com status '${statusAnterior}' e não foi concluído pelo agente desktop '${cmdAgente}'.`
+            const oQueFoiExecutado = `Comando foi enfileirado na collection elliza_comandos em ${cmd.getString('created')}, aguardando processamento da ELLIZA desktop.`
+            const oQueFalta = `Verificar disponibilidade do agente local '${cmdAgente}', avaliar se a instrução deve ser reemitida ou cancelada.`
+            const decisaoNecessaria = `Decidir se reabre o comando com novo prazo de expiração ou se encerra a solicitação operacional no Modo Humano.`
+
+            pendRec.set('titulo', tituloPendencia)
+            pendRec.set('por_que_parou', motivoExp)
+            pendRec.set('o_que_foi_executado', oQueFoiExecutado)
+            pendRec.set('o_que_falta', oQueFalta)
+            pendRec.set('decisao_necessaria', decisaoNecessaria)
+            pendRec.set('status', 'aberta')
+            app.save(pendRec)
+            pendRecId = pendRec.id
+          } catch (errPend) {
+            console.error(
+              `[ELLIZA-24/7] Erro ao criar pendência estruturada para comando ${cmd.id}:`,
+              errPend,
+            )
+          }
+        }
+
+        try {
+          cmd.set('status', 'expirado')
+          cmd.set('erro', {
+            codigo: 'COMANDO_EXPIRADO',
+            motivo: `Comando expirou em ${cmdExpiraEm} antes da conclusão (status anterior: ${statusAnterior}). Parada honesta registrada.`,
+            referencia_pendencia: pendRecId,
+            timestamp: nowIsoVarredura,
+          })
+          app.save(cmd)
+          totalComandosExpirados++
+        } catch (errCmd) {
+          console.error(
+            `[ELLIZA-24/7] Erro ao atualizar status do comando ${cmd.id} para expirado:`,
+            errCmd,
+          )
+        }
+
+        try {
+          const aCol = app.findCollectionByNameOrId('audit_log')
+          const aRec = new Record(aCol)
+          aRec.set('tenant_id', cmdTenantId)
+          aRec.set('acao', 'COMANDO_EXPIRADO_PARADA_HONESTA')
+          aRec.set('entidade_tipo', 'elliza_comandos')
+          aRec.set('entidade_id', cmd.id)
+          aRec.set(
+            'detalhes',
+            JSON.stringify({
+              nonce: cmdNonce,
+              tipo: cmdTipo,
+              agente: cmdAgente,
+              status_anterior: statusAnterior,
+              status_novo: 'expirado',
+              expira_em: cmdExpiraEm,
+              pendencia_id: pendRecId,
+              timestamp: nowIsoVarredura,
+            }),
+          )
+          app.save(aRec)
+        } catch (errAudit) {
+          console.error(
+            `[ELLIZA-24/7] Erro ao registrar audit_log para comando expirado ${cmd.id}:`,
+            errAudit,
+          )
+        }
+      }
+    } catch (errVarredura) {
+      console.error(
+        '[ELLIZA-24/7] Falha na varredura de comandos expirados (manual):',
+        errVarredura,
+      )
+    }
+
     return e.json(200, {
       sucesso: true,
       mensagem: 'Rotina proativa da ELLIZA executada com sucesso',
@@ -438,6 +759,7 @@ routerAdd('POST', '/backend/v1/elliza/rotinas-247/executar', (e) => {
         totalNotificadas,
         totalBloqueadasPorDiretiva,
         totalEnfileiradasAprovacao,
+        totalComandosExpirados,
       },
       executado_em: new Date().toISOString(),
     })
