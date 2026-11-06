@@ -10,195 +10,188 @@
  * qualquer escritório. O prompt dos agentes fala em "isolamento rigoroso",
  * mas quem impõe isso é a regra do banco, não o prompt.
  *
- * PRINCIPIO DE SEGURANCA DESTA MIGRATION: SO ESTREITAR, NUNCA ALARGAR.
- * Para cada uma das 5 regras de cada coleção:
- *   - regra era `null`   -> permanece `null` (já era superusuário apenas)
- *   - coleção tem fluxo público (regra vazia ou com `||`) -> PULADA, Fase 1b
- *   - regra era genérica -> substituída pela regra de tenant
- *   - regra era outra    -> composta: `(original) && (tenant)`
- * Assim nenhuma coleção passa a ser MAIS acessível do que era, e fluxos
- * públicos (link de token, portal) não são quebrados por esta migration.
+ * PRINCIPIO: SO ESTREITAR, NUNCA ALARGAR, e nunca gravar regra inválida.
+ * Por coleção:
+ *   - sem `tenant_id`  -> ignorada
+ *   - regra nula       -> permanece nula (só superusuário)
+ *   - fluxo público    -> PULADA (Fase 1b, exige ajuste de frontend)
+ *   - regra genérica   -> vira a regra de tenant
+ *   - regra específica -> composta `(original) && (tenant)`
+ * Cada coleção roda em try/catch próprio: uma falha não derruba as outras.
  *
- * SINTAXE
+ * SINTAXE (PocketBase 0.36)
  * `@request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id`
- * back-relation do PocketBase 0.36; `?=` = "pelo menos um", necessário
- * porque o usuário pode ter vínculo com mais de um escritório.
+ * back-relation; `?=` = "pelo menos um" (usuário pode ter mais de um vínculo).
  *
  * IMPACTO NO BACKEND
- * Hooks, jobs e agentes rodam como superusuário ($app.*) e não passam por
- * RLS — nenhuma rotina, cron ou agente deixa de funcionar. O que muda é o
- * acesso direto do cliente (SDK no navegador).
- *
- * FORA DE ESCOPO (Fase 1b, exige ajuste de frontend)
- * - pedidos_documentos, company_onboarding_workflow e demais fluxos por token
- * - portal_acessos / portal_empregado_acessos
- * Coleções sem `tenant_id` são ignoradas automaticamente.
+ * Hooks, jobs e agentes rodam como superusuário e não passam por RLS —
+ * nenhuma rotina ou agente deixa de funcionar. Muda o acesso direto do
+ * cliente (SDK no navegador).
  */
-
-const GENERICA = "@request.auth.id != ''"
-
-const VINCULO = '@request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id'
-const EH_STAFF = "@request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
-
-const R_LIST_VIEW = GENERICA + ' && ' + VINCULO
-const R_WRITE = GENERICA + ' && ' + VINCULO + ' && ' + EH_STAFF
-
-const COLECOES_NEGOCIO = [
-  'empresas',
-  'obrigacoes',
-  'lancamentos_contabeis',
-  'plano_contas',
-  'mapeamento_contabil',
-  'workflows',
-  'workflow_activity',
-  'fiscal',
-  'funcionarios',
-  'folha_pagamento',
-  'eventos_dp',
-  'verbas_lancamentos',
-  'ferias_periodos',
-  'decimo_terceiro',
-  'rescisoes',
-  'beneficios_concedidos',
-  'historico_salarial',
-  'convencoes_coletivas',
-  'ativos',
-  'baixas_ativos',
-  'fechamento_competencia',
-  'fechamento_checklist_itens',
-  'contas_bancarias',
-  'contas_financeiras',
-  'extratos_bancarios',
-  'integracoes_bancarias',
-  'integracoes_logs',
-  'demonstrativos',
-  'assinaturas_demonstrativos',
-  'impostos_retidos',
-  'pre_lancamentos',
-  'contratos_honorarios',
-  'certificados_digitais',
-  'company_formation',
-  'company_onboarding_workflow',
-  'empresa_cadastro_assistido',
-  'socios',
-  'pro_labore_lancamentos',
-  'prolabore_fator_r_alertas',
-  'guias_pagamentos',
-  'parcelamentos_federais',
-  'sped_arquivos',
-  'esocial_config',
-  'esocial_eventos',
-  'reinf_eventos',
-  'dctfweb_declaracoes',
-  'nfse_config',
-  'nfse_solicitacoes',
-  'nfse_notas_emitidas',
-  'nfe_config',
-  'nfe_recebidas',
-  'nfe_sync_logs',
-  'certidoes',
-  'ecac_comunicacoes',
-  'rfb_config',
-  'rfb_sync_logs',
-  'defis_declaracoes',
-  'patrimonio_transferencias',
-  'cobrancas',
-  'cobrancas_recorrentes',
-  'faturamentos_recorrentes',
-  'elliza_aprovacoes',
-  'elliza_diretivas',
-  'elliza_perfil',
-  'elisa_jobs',
-  'elisa_evidencias',
-  'processo_pendencias',
-  'processos_operacionais',
-  'processo_etapas',
-  'whatsapp_leads_contatos',
-  'whatsapp_templates',
-  'whatsapp_notificacoes_autorizadas',
-  'whatsapp_envios',
-  'wa_atendimento_conversas',
-  'wa_atendimento_mensagens',
-  'simulacoes_reforma',
-  'rankings_reforma_trimestral',
-  'pesquisas_tributarias',
-  'nfiscal',
-  'elliza_comandos',
-  'empresas_migracoes_lote',
-  'empresas_migracoes_onboarding',
-  'backups_execucoes',
-  'exclusoes_empresa_backup',
-]
-
-/** Aplica a regra de tenant preservando o que já era mais restrito. */
-function estreitar(atual, alvo) {
-  if (atual === null) return null
-  if (atual === '') return ''
-  if (atual === GENERICA) return alvo
-  return '(' + atual + ') && (' + alvo + ')'
-}
-
-/**
- * Detecta regra que concede acesso SEM autenticação (fluxo público):
- * regra vazia ou com `||` abre uma porta que o filtro de tenant quebraria.
- */
-function temFluxoPublico(regra) {
-  if (regra === null) return false
-  if (regra === '') return true
-  return regra.indexOf('||') >= 0
-}
 
 migrate(
   (app) => {
+    const GENERICA = "@request.auth.id != ''"
+    const VINCULO = '@request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id'
+    const EH_STAFF = "@request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
+    const R_LIST_VIEW = GENERICA + ' && ' + VINCULO
+    const R_WRITE = GENERICA + ' && ' + VINCULO + ' && ' + EH_STAFF
+
+    const COLECOES = [
+      'empresas',
+      'obrigacoes',
+      'lancamentos_contabeis',
+      'plano_contas',
+      'mapeamento_contabil',
+      'workflows',
+      'workflow_activity',
+      'fiscal',
+      'funcionarios',
+      'folha_pagamento',
+      'eventos_dp',
+      'verbas_lancamentos',
+      'ferias_periodos',
+      'decimo_terceiro',
+      'rescisoes',
+      'beneficios_concedidos',
+      'historico_salarial',
+      'convencoes_coletivas',
+      'ativos',
+      'baixas_ativos',
+      'fechamento_competencia',
+      'fechamento_checklist_itens',
+      'contas_bancarias',
+      'contas_financeiras',
+      'extratos_bancarios',
+      'integracoes_bancarias',
+      'integracoes_logs',
+      'demonstrativos',
+      'assinaturas_demonstrativos',
+      'impostos_retidos',
+      'pre_lancamentos',
+      'contratos_honorarios',
+      'company_formation',
+      'empresa_cadastro_assistido',
+      'socios',
+      'pro_labore_lancamentos',
+      'prolabore_fator_r_alertas',
+      'guias_pagamentos',
+      'parcelamentos_federais',
+      'sped_arquivos',
+      'esocial_config',
+      'esocial_eventos',
+      'reinf_eventos',
+      'dctfweb_declaracoes',
+      'nfse_config',
+      'nfse_solicitacoes',
+      'nfse_notas_emitidas',
+      'nfe_config',
+      'nfe_recebidas',
+      'nfe_sync_logs',
+      'certidoes',
+      'ecac_comunicacoes',
+      'rfb_config',
+      'rfb_sync_logs',
+      'defis_declaracoes',
+      'patrimonio_transferencias',
+      'cobrancas',
+      'cobrancas_recorrentes',
+      'faturamentos_recorrentes',
+      'elliza_aprovacoes',
+      'elliza_diretivas',
+      'elliza_perfil',
+      'elisa_jobs',
+      'elisa_evidencias',
+      'processo_pendencias',
+      'processos_operacionais',
+      'processo_etapas',
+      'whatsapp_leads_contatos',
+      'whatsapp_templates',
+      'whatsapp_notificacoes_autorizadas',
+      'whatsapp_envios',
+      'wa_atendimento_conversas',
+      'wa_atendimento_mensagens',
+      'simulacoes_reforma',
+      'rankings_reforma_trimestral',
+      'pesquisas_tributarias',
+      'nfiscal',
+      'elliza_comandos',
+      'empresas_migracoes_lote',
+      'empresas_migracoes_onboarding',
+      'backups_execucoes',
+      'exclusoes_empresa_backup',
+    ]
+
     let alteradas = 0
     let ignoradas = 0
-    let publicas = 0
+    let puladas = 0
+    let falhas = 0
 
-    for (const nome of COLECOES_NEGOCIO) {
-      let col
+    for (let i = 0; i < COLECOES.length; i++) {
+      const nome = COLECOES[i]
+
       try {
-        col = app.findCollectionByNameOrId(nome)
-      } catch (_) {
-        console.log('[0129] inexistente, ignorada: ' + nome)
-        continue
+        let col
+        try {
+          col = app.findCollectionByNameOrId(nome)
+        } catch (_) {
+          ignoradas++
+          continue
+        }
+
+        // Só faz sentido em coleção que tem o campo de tenant
+        if (!col.fields.getByName('tenant_id')) {
+          ignoradas++
+          continue
+        }
+
+        const regras = [col.listRule, col.viewRule, col.createRule, col.updateRule, col.deleteRule]
+
+        // Fluxo público em qualquer regra -> não tocar nesta fase
+        let publica = false
+        for (let r = 0; r < regras.length; r++) {
+          const v = regras[r]
+          if (v !== null && typeof v === 'string') {
+            if (v === '' || v.indexOf('||') >= 0) publica = true
+          }
+        }
+        if (publica) {
+          console.log('[0129] PULADA fluxo publico: ' + nome)
+          puladas++
+          continue
+        }
+
+        // Função local: estreita sem nunca produzir string vazia
+        const calc = function (atual, alvo) {
+          if (atual === null || typeof atual !== 'string') return null
+          if (atual === '') return null
+          if (atual === GENERICA) return alvo
+          if (atual.indexOf('||') >= 0) return atual
+          const composta = '(' + atual + ') && (' + alvo + ')'
+          return composta.length > 0 ? composta : null
+        }
+
+        const novoList = calc(col.listRule, R_LIST_VIEW)
+        const novoView = calc(col.viewRule, R_LIST_VIEW)
+        const novoCreate = calc(col.createRule, R_WRITE)
+        const novoUpdate = calc(col.updateRule, R_WRITE)
+        const novoDelete = calc(col.deleteRule, R_WRITE)
+
+        col.listRule = novoList
+        col.viewRule = novoView
+        col.createRule = novoCreate
+        col.updateRule = novoUpdate
+        col.deleteRule = novoDelete
+
+        app.save(col)
+        alteradas++
+      } catch (err) {
+        falhas++
+        console.log('[0129] FALHA em ' + nome + ': ' + err)
       }
-
-      if (!col.fields.getByName('tenant_id')) {
-        console.log('[0129] sem tenant_id, ignorada: ' + nome)
-        ignoradas++
-        continue
-      }
-
-      const antes = {
-        list: col.listRule,
-        view: col.viewRule,
-        create: col.createRule,
-        update: col.updateRule,
-        delete: col.deleteRule,
-      }
-
-      if (
-        temFluxoPublico(antes.list) ||
-        temFluxoPublico(antes.view) ||
-        temFluxoPublico(antes.create) ||
-        temFluxoPublico(antes.update) ||
-        temFluxoPublico(antes.delete)
-      ) {
-        console.log('[0129] PULADA com fluxo publico (Fase 1b): ' + nome)
-        publicas++
-        continue
-      }
-
-      col.listRule = estreitar(antes.list, R_LIST_VIEW)
-      col.viewRule = estreitar(antes.view, R_LIST_VIEW)
-      col.createRule = estreitar(antes.create, R_WRITE)
-      col.updateRule = estreitar(antes.update, R_WRITE)
-      col.deleteRule = estreitar(antes.delete, R_WRITE)
-
-      app.save(col)
-      alteradas++
     }
 
+    // ---- documentos: GED com fluxo de link público em origem_documento
     try {
       const col = app.findCollectionByNameOrId('documentos')
       col.listRule = R_LIST_VIEW
@@ -213,6 +206,7 @@ migrate(
       console.log('[0129] erro em documentos: ' + err)
     }
 
+    // ---- tenants: enxerga apenas os escritórios a que pertence
     try {
       const col = app.findCollectionByNameOrId('tenants')
       col.listRule = GENERICA + ' && @request.auth.tenant_members_via_user_id.tenant_id ?= id'
@@ -230,6 +224,7 @@ migrate(
       console.log('[0129] erro em tenants: ' + err)
     }
 
+    // ---- tenant_members: vê os membros do próprio escritório
     try {
       const col = app.findCollectionByNameOrId('tenant_members')
       col.listRule = R_LIST_VIEW
@@ -243,13 +238,13 @@ migrate(
       console.log('[0129] erro em tenant_members: ' + err)
     }
 
+    // ---- audit_log: leitura por tenant; create preservado (link público)
     try {
       const col = app.findCollectionByNameOrId('audit_log')
       col.listRule = R_LIST_VIEW
       col.viewRule = R_LIST_VIEW
       col.updateRule = null
       col.deleteRule = R_WRITE
-      // createRule preservado: fluxos de link público gravam auditoria
       app.save(col)
       alteradas++
     } catch (err) {
@@ -257,20 +252,107 @@ migrate(
     }
 
     console.log(
-      '[0129] aplicado em ' +
+      '[0129] alteradas=' +
         alteradas +
-        ' colecoes; ' +
+        ' ignoradas=' +
         ignoradas +
-        ' sem tenant_id; ' +
-        publicas +
-        ' puladas por fluxo publico',
+        ' puladasPublicas=' +
+        puladas +
+        ' falhas=' +
+        falhas,
     )
   },
   (app) => {
-    const todas = COLECOES_NEGOCIO.concat(['tenant_members'])
-    for (const nome of todas) {
+    const GENERICA = "@request.auth.id != ''"
+    const COLECOES = [
+      'empresas',
+      'obrigacoes',
+      'lancamentos_contabeis',
+      'plano_contas',
+      'mapeamento_contabil',
+      'workflows',
+      'workflow_activity',
+      'fiscal',
+      'funcionarios',
+      'folha_pagamento',
+      'eventos_dp',
+      'verbas_lancamentos',
+      'ferias_periodos',
+      'decimo_terceiro',
+      'rescisoes',
+      'beneficios_concedidos',
+      'historico_salarial',
+      'convencoes_coletivas',
+      'ativos',
+      'baixas_ativos',
+      'fechamento_competencia',
+      'fechamento_checklist_itens',
+      'contas_bancarias',
+      'contas_financeiras',
+      'extratos_bancarios',
+      'integracoes_bancarias',
+      'integracoes_logs',
+      'demonstrativos',
+      'assinaturas_demonstrativos',
+      'impostos_retidos',
+      'pre_lancamentos',
+      'contratos_honorarios',
+      'tenant_members',
+      'company_formation',
+      'empresa_cadastro_assistido',
+      'socios',
+      'pro_labore_lancamentos',
+      'prolabore_fator_r_alertas',
+      'guias_pagamentos',
+      'parcelamentos_federais',
+      'sped_arquivos',
+      'esocial_config',
+      'esocial_eventos',
+      'reinf_eventos',
+      'dctfweb_declaracoes',
+      'nfse_config',
+      'nfse_solicitacoes',
+      'nfse_notas_emitidas',
+      'nfe_config',
+      'nfe_recebidas',
+      'nfe_sync_logs',
+      'certidoes',
+      'ecac_comunicacoes',
+      'rfb_config',
+      'rfb_sync_logs',
+      'defis_declaracoes',
+      'patrimonio_transferencias',
+      'cobrancas',
+      'cobrancas_recorrentes',
+      'faturamentos_recorrentes',
+      'elliza_aprovacoes',
+      'elliza_diretivas',
+      'elliza_perfil',
+      'elisa_jobs',
+      'elisa_evidencias',
+      'processo_pendencias',
+      'processos_operacionais',
+      'processo_etapas',
+      'whatsapp_leads_contatos',
+      'whatsapp_templates',
+      'whatsapp_notificacoes_autorizadas',
+      'whatsapp_envios',
+      'wa_atendimento_conversas',
+      'wa_atendimento_mensagens',
+      'simulacoes_reforma',
+      'rankings_reforma_trimestral',
+      'pesquisas_tributarias',
+      'nfiscal',
+      'elliza_comandos',
+      'empresas_migracoes_lote',
+      'empresas_migracoes_onboarding',
+      'backups_execucoes',
+      'exclusoes_empresa_backup',
+    ]
+
+    for (let i = 0; i < COLECOES.length; i++) {
       try {
-        const col = app.findCollectionByNameOrId(nome)
+        const col = app.findCollectionByNameOrId(COLECOES[i])
         col.listRule = GENERICA
         col.viewRule = GENERICA
         col.createRule = GENERICA
