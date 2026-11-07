@@ -31,7 +31,7 @@ migrate(
       slug: 'operador-rumo',
       name: 'Operador Rumo',
       description:
-        'Agente operacional do escritório: acompanha obrigações, workflows e pendências, atualiza andamento e registra o que fez. Não altera dado contábil nem fiscal.',
+        'Agente operacional do escritório: acompanha obrigações, workflows e pendências e propõe alterações para aprovação humana. Não altera dado contábil nem fiscal.',
       tier: 'fast',
       systemPrompt: [
         'Você é o Operador Rumo, agente operacional de um escritório de contabilidade brasileiro.',
@@ -46,6 +46,17 @@ migrate(
         '- Nunca invente id de registro. Localize pelo nome/CNPJ/competência e confirme com o usuário qual registro será alterado.',
         '- Antes de mudar status, leia o registro e diga em voz alta o estado atual e o novo.',
         '- Se a operação envolver mais de 5 registros, apresente a lista e peça confirmação antes de executar.',
+        '',
+        'REGRA DE SUPERVISÃO (a mais importante)',
+        '- Você NÃO grava alteração direto nas coleções de negócio.',
+        '- Para mudar status, observação, responsável ou data, você PROPÕE a ação:',
+        '  registra em operador_acoes com coleção, registro_id, campo, valor_atual,',
+        '  valor_proposto e motivo, e informa o protocolo ao usuário.',
+        '- A alteração só acontece depois que uma pessoa com perfil Administrador ou',
+        '  Contador aprovar. Explique isso claramente e nunca diga que já alterou.',
+        '- Quem propõe não aprova. Você nunca aprova as próprias propostas.',
+        '- Administrativo de rotina que ainda pode fazer direto: criar atividade em',
+        '  workflow_activity, criar notificação e criar/atualizar elisa_jobs.',
         '',
         'O QUE VOCÊ NUNCA FAZ',
         '- Nunca apaga registro algum.',
@@ -72,26 +83,22 @@ migrate(
         { collection: 'fechamento_checklist_itens', perms: { list: true, read: true } },
         { collection: 'processos_operacionais', perms: { list: true, read: true } },
         { collection: 'processo_etapas', perms: { list: true, read: true } },
+        { collection: 'processo_pendencias', perms: { list: true, read: true, create: true } },
         { collection: 'sops', perms: { list: true, read: true } },
         { collection: 'funcionarios', perms: { list: true, read: true } },
         { collection: 'plano_contas', perms: { list: true, read: true } },
         { collection: 'fiscal', perms: { list: true, read: true } },
         { collection: 'elliza_diretivas', perms: { list: true, read: true } },
 
-        // ---- ESCRITA RESTRITA (nunca delete) ----
-        // Uma única tool por coleção: o runtime recusa duas linhas com o mesmo
-        // act_as. Leitura e escrita vão somadas na mesma linha.
-        //
-        // obrigacoes: ler e mover status (pendente -> em_andamento -> entregue)
-        { collection: 'obrigacoes', perms: { list: true, read: true, update: true } },
-        // workflows: ler e mover etapa
-        { collection: 'workflows', perms: { list: true, read: true, update: true } },
+        // ---- FASE 3: SUPERVISÃO ----
+        // `obrigacoes` e `workflows` NÃO têm mais update direto: alteração de
+        // dado de negócio passa por operador_acoes e exige aprovação humana.
+        { collection: 'obrigacoes', perms: { list: true, read: true } },
+        { collection: 'workflows', perms: { list: true, read: true } },
+        // A fila de aprovação: o agente propõe aqui e informa o protocolo.
+        { collection: 'operador_acoes', perms: { list: true, read: true, create: true } },
         // workflow_activity: registrar histórico de andamento
         { collection: 'workflow_activity', perms: { list: true, read: true, create: true } },
-        {
-          collection: 'processo_pendencias',
-          perms: { list: true, read: true, create: true, update: true },
-        },
         { collection: 'elisa_jobs', perms: { list: true, read: true, create: true, update: true } },
         { collection: 'notificacoes', perms: { list: true, read: true, create: true } },
         { collection: 'audit_log', perms: { list: true, read: true, create: true } },
