@@ -369,8 +369,33 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
     // Helper: Enviar resposta via Evolution API se configurada
     const despacharWhatsapp = (textoParaEnviar) => {
       let evoUrl = configRec.getString('evolution_api_url')
-      const evoKey = configRec.getString('evolution_api_key')
       const evoInstance = configRec.getString('evolution_instance')
+
+      // A chave da Evolution vive cifrada no cofre desde a 0140; o campo
+      // guarda apenas __COFRE__. Decifra em memoria — nunca logar o valor.
+      const evoKey = (() => {
+        const bruto = configRec.getString('evolution_api_key')
+        if (bruto && bruto !== '__COFRE__') return bruto
+        const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+        if (!chaveCofre) return ''
+        try {
+          const linhas = $app.findRecordsByFilter(
+            'credenciais_cofre',
+            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+            '',
+            1,
+            0,
+            { e: 'nfse_config', r: configRec.id, c: 'evolution_api_key' },
+          )
+          if (linhas.length === 0) return ''
+          return $security.decrypt(
+            linhas[0].getString('ciphertext').replace(/^v1:/, ''),
+            chaveCofre,
+          )
+        } catch (_) {
+          return ''
+        }
+      })()
       let destinatario = remoteJid
       if (!destinatario || !destinatario.includes('@')) {
         if (telefoneLimpo) destinatario = telefoneLimpo + '@s.whatsapp.net'
