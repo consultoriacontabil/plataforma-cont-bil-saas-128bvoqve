@@ -69,7 +69,10 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
 
   const [empresaPadrao, setEmpresaPadrao] = useState<string>(config?.empresa_padrao || '')
   const [evolutionUrl, setEvolutionUrl] = useState<string>(config?.evolution_api_url || '')
-  const [evolutionKey, setEvolutionKey] = useState<string>(config?.evolution_api_key || '')
+  // A chave vive cifrada no cofre: o registro devolve apenas o marcador
+  // __COFRE__. Deixar o campo vazio significa "manter a chave atual" — só é
+  // gravado o que o usuário digitar aqui.
+  const [evolutionKey, setEvolutionKey] = useState<string>('')
   const [evolutionInstance, setEvolutionInstance] = useState<string>(
     config?.evolution_instance || '',
   )
@@ -248,7 +251,8 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
         {
           empresa_padrao: empresaPadrao || undefined,
           evolution_api_url: evolutionUrl.trim(),
-          evolution_api_key: evolutionKey.trim(),
+          // Não sobrescreve a chave guardada quando o campo está vazio.
+          ...(evolutionKey.trim() ? { evolution_api_key: evolutionKey.trim() } : {}),
           evolution_instance: evolutionInstance.trim(),
           chave_pix_padrao: chavePixPadrao.trim(),
           beneficiario_padrao: beneficiarioPadrao.trim(),
@@ -303,10 +307,13 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
     setTestandoEvo(true)
     setResultadoTesteEvo(null)
     try {
+      // A chave da Evolution não é mais lida da tela: quando o campo está
+      // vazio, o servidor usa a que está no cofre cifrado.
       const res = await nfseWhatsappService.testarConexaoEvolution(
         evolutionUrl,
         evolutionKey,
         evolutionInstance,
+        tenantId,
       )
       setResultadoTesteEvo(res)
       if (res.sucesso) {
@@ -1247,7 +1254,8 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
                 type="password"
                 value={evolutionKey}
                 onChange={(e) => setEvolutionKey(e.target.value)}
-                placeholder="Ex: evo_live_xyz..."
+                placeholder="Deixe vazio para manter a chave atual"
+                autoComplete="new-password"
                 className="text-xs h-9"
                 disabled={!canEdit}
               />

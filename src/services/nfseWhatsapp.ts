@@ -1359,10 +1359,21 @@ export const nfseWhatsappService = {
   /**
    * Testar conexão com a Evolution API (validação honesta de credenciais)
    */
+  /**
+   * Testa a conexão com a Evolution API pelo SERVIDOR.
+   *
+   * Antes esta função chamava a Evolution direto do navegador com a chave
+   * lida de `nfse_config.evolution_api_key`. Com a chave no cofre cifrado, o
+   * navegador não recebe mais o valor; quem faz a chamada é o hook
+   * `nfse_testar_evolution.js`, que decifra no servidor. `key` continua
+   * aceita: quando o usuário digita uma chave nova para testar antes de
+   * salvar, ela é usada só naquele teste e não fica guardada no cliente.
+   */
   async testarConexaoEvolution(
     url: string,
     key: string,
     instance: string,
+    tenantId?: string,
   ): Promise<{
     sucesso: boolean
     status:
@@ -1374,74 +1385,38 @@ export const nfseWhatsappService = {
     mensagem: string
     detalhe?: string
   }> {
-    if (!url || !key || !instance) {
+    if (!url || !instance) {
       return {
         sucesso: false,
         status: 'incompleta',
-        mensagem: 'Informe a URL da Evolution API, a chave de API e o nome da instância.',
+        mensagem: 'Informe a URL da Evolution API e o nome da instância.',
       }
     }
 
     try {
-      const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url
-      const endpoint = `${cleanUrl}/instance/connectionState/${encodeURIComponent(instance)}`
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-
-      const res = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          apikey: key,
+      const res = await pb.send('/backend/v1/nfse/testar-evolution', {
+        method: 'POST',
+        body: {
+          tenant_id: tenantId || '',
+          url,
+          instance,
+          api_key: key || '',
         },
-        signal: controller.signal,
       })
-      clearTimeout(timeoutId)
 
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}))
-        const state = data?.instance?.state || data?.state || 'open'
-        return {
-          sucesso: true,
-          status: 'conectada',
-          mensagem: `Instância "${instance}" conectada com sucesso! Estado atual: ${state.toUpperCase()}`,
-          detalhe: JSON.stringify(data, null, 2),
-        }
-      }
-
-      if (res.status === 401 || res.status === 403) {
-        return {
-          sucesso: false,
-          status: 'falha_autenticacao',
-          mensagem:
-            'Falha de autenticação (HTTP ' +
-            res.status +
-            '): a chave de API informada é inválida ou não autorizada na Evolution API.',
-        }
-      }
-
-      if (res.status === 404) {
-        return {
-          sucesso: false,
-          status: 'instancia_nao_encontrada',
-          mensagem: `Instância não encontrada (HTTP 404): o nome de instância "${instance}" não existe na Evolution API. Verifique o nome digitado.`,
-        }
-      }
-
-      const bodyText = await res.text().catch(() => '')
       return {
-        sucesso: false,
-        status: 'instancia_nao_encontrada',
-        mensagem: `A Evolution API retornou HTTP ${res.status}. ${bodyText ? `Resposta: ${bodyText.slice(0, 150)}` : ''}`,
-        detalhe: bodyText,
+        sucesso: Boolean(res?.sucesso),
+        status: (res?.status as 'conectada') || 'incompleta',
+        mensagem: res?.mensagem || 'Teste concluído.',
+        detalhe: res?.detalhe,
       }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err)
+    } catch (errSend) {
+      const msg = errSend instanceof Error ? errSend.message : String(errSend)
       return {
         sucesso: false,
         status: 'url_inalcancavel',
-        mensagem:
-          'URL inalcançável: não foi possível conectar ao servidor da Evolution API. Verifique se o endereço está correto, com HTTPS e acessível via internet (sem bloqueio de CORS ou rede local/localhost).',
-        detalhe: errMsg,
+        mensagem: 'Não foi possível executar o teste no servidor.',
+        detalhe: msg,
       }
     }
   },
