@@ -140,11 +140,19 @@ export const integraContadorService = {
       ativo: input.ativo,
       ambiente: input.ambiente,
       consumer_key: input.consumer_key,
-      consumer_secret: input.consumer_secret,
       contratante_cnpj: input.contratante_cnpj,
       autor_pedido_dados_numero: input.autor_pedido_dados_numero || input.contratante_cnpj,
       certificado_a1: input.certificado_a1 || undefined,
-      senha_certificado: input.senha_certificado || '',
+      // Segredos ficam cifrados no cofre e o registro devolve apenas o
+      // marcador __COFRE__. Mandar string vazia apagaria o campo; mandar o
+      // marcador de volta o gravaria como se fosse o segredo. Só envia
+      // quando o usuário digitou um valor novo de verdade.
+      ...(input.consumer_secret && input.consumer_secret.trim().length >= 8
+        ? { consumer_secret: input.consumer_secret.trim() }
+        : {}),
+      ...(input.senha_certificado && input.senha_certificado !== '__COFRE__'
+        ? { senha_certificado: input.senha_certificado }
+        : {}),
       proxy_mtls_url: input.proxy_mtls_url || '',
       sincronizacao_automatica: input.sincronizacao_automatica,
       sincronizar_situacao_fiscal: input.sincronizar_situacao_fiscal,

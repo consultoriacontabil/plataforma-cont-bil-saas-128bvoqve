@@ -78,9 +78,7 @@ export function IntegraContadorSection() {
 
   // Controle de ofuscação (apenas últimos 4 caracteres visíveis por padrão)
   const [mostrarKey, setMostrarKey] = useState(false)
-  const [mostrarSecret, setMostrarSecret] = useState(false)
   const [keyOriginal, setKeyOriginal] = useState('')
-  const [secretOriginal, setSecretOriginal] = useState('')
 
   // Certificados e Empresas
   const [certificados, setCertificados] = useState<CertificadoDigitalRecord[]>([])
@@ -114,15 +112,16 @@ export function IntegraContadorSection() {
         setAtivo(Boolean(cfg.ativo))
         setAmbiente(cfg.ambiente || 'trial')
         setKeyOriginal(cfg.consumer_key || '')
-        setSecretOriginal(cfg.consumer_secret || '')
         setConsumerKey(cfg.consumer_key || '')
-        setConsumerSecret(cfg.consumer_secret || '')
+        // Segredos vivem cifrados no cofre: a tela nunca recebe o valor.
+        // Campo vazio = manter o segredo atual.
+        setConsumerSecret('')
         setContratanteCnpj(cfg.contratante_cnpj || '55.614.455/0001-99')
         setAutorPedidoDados(
           cfg.autor_pedido_dados_numero || cfg.contratante_cnpj || '55.614.455/0001-99',
         )
         setCertificadoA1Id(cfg.certificado_a1 || '')
-        setSenhaCertificado(cfg.senha_certificado || '')
+        setSenhaCertificado('')
         setProxyMtlsUrl(cfg.proxy_mtls_url || '')
         setSyncAutomatica(cfg.sincronizacao_automatica ?? true)
         setSyncSitFis(cfg.sincronizar_situacao_fiscal ?? true)
@@ -138,7 +137,6 @@ export function IntegraContadorSection() {
         const certRumo = certs.find((c) => c.titular.includes('55614455000199'))
         if (certRumo) {
           setCertificadoA1Id(certRumo.id)
-          setSenhaCertificado('eykbA7ZX')
         }
       }
     } catch (err) {
@@ -191,7 +189,8 @@ export function IntegraContadorSection() {
 
       setConfig(saved)
       setKeyOriginal(saved.consumer_key)
-      setSecretOriginal(saved.consumer_secret)
+      setConsumerSecret('')
+      setSenhaCertificado('')
 
       toast({
         title: 'Configurações salvas!',
@@ -555,32 +554,15 @@ export function IntegraContadorSection() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                   <span>Consumer Secret</span>
-                  <button
-                    type="button"
-                    onClick={() => setMostrarSecret(!mostrarSecret)}
-                    className="text-[10px] text-teal-700 hover:underline flex items-center gap-1 font-normal"
-                  >
-                    {mostrarSecret ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                    <span>{mostrarSecret ? 'Ocultar' : 'Exibir chave'}</span>
-                  </button>
                 </Label>
                 <div className="relative">
                   <Input
-                    type={mostrarSecret ? 'text' : 'password'}
-                    value={
-                      mostrarSecret
-                        ? consumerSecret
-                        : formatarCredencialOfuscada(consumerSecret, false)
-                    }
+                    type="password"
+                    value={consumerSecret}
                     onChange={(e) => {
                       setConsumerSecret(e.target.value)
                     }}
-                    onFocus={() => {
-                      if (!mostrarSecret && consumerSecret === secretOriginal) {
-                        setMostrarSecret(true)
-                      }
-                    }}
-                    placeholder="Segredo Consumer do SERPRO"
+                    placeholder="Deixe vazio para manter o segredo atual"
                     disabled={!isPrivileged}
                     className="h-9 text-xs rounded-xl font-mono pr-9"
                   />
@@ -646,7 +628,7 @@ export function IntegraContadorSection() {
                   type="password"
                   value={senhaCertificado}
                   onChange={(e) => setSenhaCertificado(e.target.value)}
-                  placeholder="Senha do arquivo .pfx"
+                  placeholder="Deixe vazio para manter a senha atual"
                   disabled={!isPrivileged}
                   className="h-9 text-xs rounded-xl font-mono"
                 />

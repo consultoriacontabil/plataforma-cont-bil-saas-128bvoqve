@@ -55,10 +55,39 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
     body.consumer_key !== undefined
       ? String(body.consumer_key || '').trim()
       : (config ? config.getString('consumer_key') : '') || ''
+  // Segredo pode estar cifrado no cofre: decifra no servidor, nunca no cliente.
+  var secretDoConfig = ''
+  if (config) {
+    var bruto = (config.getString('consumer_secret') || '').trim()
+    if (bruto && bruto !== '__COFRE__') {
+      secretDoConfig = bruto
+    } else {
+      var chaveCofreLeitura = $secrets.get('CREDENTIALS_VAULT_KEY')
+      if (chaveCofreLeitura) {
+        try {
+          var linhasSeg = app.findRecordsByFilter(
+            'credenciais_cofre',
+            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+            '',
+            1,
+            0,
+            { e: 'integra_contador_config', r: config.id, c: 'consumer_secret' },
+          )
+          if (linhasSeg.length > 0) {
+            secretDoConfig = $security.decrypt(
+              linhasSeg[0].getString('ciphertext').replace(/^v1:/, ''),
+              chaveCofreLeitura,
+            )
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
   var consumerSecret =
     body.consumer_secret !== undefined
       ? String(body.consumer_secret || '').trim()
-      : (config ? config.getString('consumer_secret') : '') || ''
+      : secretDoConfig || ''
   var contratanteCnpj =
     body.contratante_cnpj ||
     (config ? config.getString('contratante_cnpj') : '') ||
@@ -368,8 +397,42 @@ routerAdd('POST', '/backend/v1/integra-contador/testar-conexao', function (e) {
       if (body.consumer_key && body.consumer_key.trim().length >= 8) {
         config.set('consumer_key', body.consumer_key.trim())
       }
-      if (body.consumer_secret && body.consumer_secret.trim().length >= 8) {
-        config.set('consumer_secret', body.consumer_secret.trim())
+      // `consumer_secret` vive cifrado no cofre; o campo guarda __COFRE__.
+      // Só grava um valor novo quando o cliente realmente digitou algo (e o
+      // marcador nunca é gravado como se fosse segredo).
+      var segredoNovo = String(body.consumer_secret || '').trim()
+      if (segredoNovo.length >= 8 && segredoNovo !== '__COFRE__') {
+        var chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+        if (chaveCofre) {
+          try {
+            var linhaCofre = null
+            var achouCofre = app.findRecordsByFilter(
+              'credenciais_cofre',
+              'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+              '',
+              1,
+              0,
+              { e: 'integra_contador_config', r: config.id, c: 'consumer_secret' },
+            )
+            if (achouCofre.length > 0) {
+              linhaCofre = achouCofre[0]
+            } else {
+              linhaCofre = new Record(app.findCollectionByNameOrId('credenciais_cofre'))
+              linhaCofre.set('tenant_id', config.getString('tenant_id'))
+              linhaCofre.set('escopo', 'integra_contador_config')
+              linhaCofre.set('registro_id', config.id)
+              linhaCofre.set('campo', 'consumer_secret')
+            }
+            linhaCofre.set('ciphertext', 'v1:' + $security.encrypt(segredoNovo, chaveCofre))
+            linhaCofre.set('key_version', 1)
+            app.save(linhaCofre)
+            config.set('consumer_secret', '__COFRE__')
+          } catch (eCofre) {
+            console.log('[INTEGRA_CONTADOR] falha ao gravar segredo no cofre:', eCofre)
+          }
+        } else {
+          config.set('consumer_secret', segredoNovo)
+        }
       }
       if (body.ambiente) {
         config.set('ambiente', body.ambiente)
@@ -474,9 +537,30 @@ routerAdd('POST', '/backend/v1/integra-contador/consultar', function (e) {
     })
   }
 
+  // consumer_secret pode estar no cofre cifrado (marcador __COFRE__)
+  var secret = (function () {
+    var direto = (config.getString('consumer_secret') || '').trim()
+    if (direto && direto !== '__COFRE__') return direto
+    var chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+    if (!chaveCofre) return ''
+    try {
+      var linhas = $app.findRecordsByFilter(
+        'credenciais_cofre',
+        'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+        '',
+        1,
+        0,
+        { e: 'integra_contador_config', r: config.id, c: 'consumer_secret' },
+      )
+      if (linhas.length === 0) return ''
+      return $security.decrypt(linhas[0].getString('ciphertext').replace(/^v1:/, ''), chaveCofre)
+    } catch (_) {
+      return ''
+    }
+  })()
+
   var proxyMtls = (config.getString('proxy_mtls_url') || '').trim()
   var key = (config.getString('consumer_key') || '').trim()
-  var secret = (config.getString('consumer_secret') || '').trim()
   var ambiente = config.getString('ambiente') || 'trial'
   var contratanteNum = String(config.getString('contratante_cnpj') || '').replace(/\D/g, '')
   var autorNum = String(config.getString('autor_pedido_dados_numero') || contratanteNum).replace(
@@ -745,9 +829,30 @@ routerAdd('POST', '/backend/v1/integra-contador/emitir-das', function (e) {
     })
   }
 
+  // consumer_secret pode estar no cofre cifrado (marcador __COFRE__)
+  var secret = (function () {
+    var direto = (config.getString('consumer_secret') || '').trim()
+    if (direto && direto !== '__COFRE__') return direto
+    var chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+    if (!chaveCofre) return ''
+    try {
+      var linhas = $app.findRecordsByFilter(
+        'credenciais_cofre',
+        'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+        '',
+        1,
+        0,
+        { e: 'integra_contador_config', r: config.id, c: 'consumer_secret' },
+      )
+      if (linhas.length === 0) return ''
+      return $security.decrypt(linhas[0].getString('ciphertext').replace(/^v1:/, ''), chaveCofre)
+    } catch (_) {
+      return ''
+    }
+  })()
+
   var proxyMtls = (config.getString('proxy_mtls_url') || '').trim()
   var key = (config.getString('consumer_key') || '').trim()
-  var secret = (config.getString('consumer_secret') || '').trim()
   var ambiente = config.getString('ambiente') || 'trial'
   var contratanteNum = String(config.getString('contratante_cnpj') || '').replace(/\D/g, '')
   var autorNum = String(config.getString('autor_pedido_dados_numero') || contratanteNum).replace(
