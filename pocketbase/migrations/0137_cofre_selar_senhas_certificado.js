@@ -40,6 +40,7 @@ migrate(
 
     let selados = 0
     let semCofre = 0
+    let falharam = 0
 
     const nomes = Object.keys(ALVOS)
     for (let i = 0; i < nomes.length; i++) {
@@ -85,9 +86,31 @@ migrate(
             continue
           }
 
+          // Alguns registros de configuração apontam para uma empresa que já
+          // não existe; o PocketBase revalida a relação no save e recusaria a
+          // gravação inteira. Isola por registro: quem falhar fica como está
+          // (texto claro preservado) em vez de abortar a migration toda.
+          const anterior = atual
           rec.set(campo, '__COFRE__')
-          app.save(rec)
-          selados++
+          try {
+            app.save(rec)
+            selados++
+          } catch (eSave) {
+            try {
+              rec.set(campo, anterior)
+            } catch (_) {}
+            falharam++
+            console.log(
+              '[0137] save recusado, mantido em texto claro: ' +
+                escopo +
+                '.' +
+                campo +
+                ' ' +
+                rec.id +
+                ' -> ' +
+                String(eSave),
+            )
+          }
         }
       }
     }
