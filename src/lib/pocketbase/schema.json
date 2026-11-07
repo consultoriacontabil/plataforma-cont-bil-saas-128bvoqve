@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T15:16:04.590Z",
+  "generatedAt": "2026-11-07T15:16:42.756Z",
   "collections": [
     {
       "name": "users",
@@ -12727,11 +12727,11 @@
       "name": "portal_empregado_acessos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' || token_acesso != ''",
-        "view": "@request.auth.id != '' || token_acesso != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' || (token_acesso != '' && token_acesso = @request.body.token_acesso)",
-        "delete": "@request.auth.id != ''"
+        "list": "(@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id) || (@request.auth.id = '' && token_acesso != '' && token_acesso = @request.query.token_acesso)",
+        "view": "(@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id) || (@request.auth.id = '' && token_acesso != '' && token_acesso = @request.query.token_acesso)",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente' || (@request.auth.id = '' && token_acesso != '' && token_acesso = @request.query.token_acesso)",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
