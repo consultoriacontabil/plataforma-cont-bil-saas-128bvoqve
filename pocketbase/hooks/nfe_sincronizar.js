@@ -56,9 +56,33 @@ routerAdd(
         } catch (_) {}
       }
 
+      // Lê o segredo do cofre cifrado quando o campo está marcado como cofrado.
+      // Enquanto o valor original ainda estiver no campo, usa o valor direto.
+      const cofreLer = (rec, campo) => {
+        const direto = rec.getString(campo)
+        if (direto && direto.indexOf('__COFRE__') !== 0) return direto
+        const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+        if (!chaveCofre) return ''
+        try {
+          const linhas = $app.findRecordsByFilter(
+            'credenciais_cofre',
+            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+            '',
+            1,
+            0,
+            { e: rec.collection().name, r: rec.id, c: campo },
+          )
+          if (linhas.length === 0) return ''
+          const ct = linhas[0].getString('ciphertext')
+          return $security.decrypt(ct.replace(/^v1:/, ''), chaveCofre)
+        } catch (_) {
+          return ''
+        }
+      }
+
       const senhaCert =
-        (config && config.getString('senha_certificado')) ||
-        (certRecord ? certRecord.getString('senha') : '')
+        (config ? cofreLer(config, 'senha_certificado') : '') ||
+        (certRecord ? cofreLer(certRecord, 'senha') : '')
       const temCertificadoA1Valido =
         certRecord &&
         certRecord.getString('tipo') === 'a1' &&

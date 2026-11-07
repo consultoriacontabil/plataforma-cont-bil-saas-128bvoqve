@@ -84,8 +84,33 @@ routerAdd(
 
       // Analisar credenciais reais
       const ambiente = configRec ? configRec.getString('ambiente') : 'homologacao'
-      const senhaInformada = configRec ? configRec.getString('senha_certificado') || '' : ''
-      const senhaCertGravada = certRecord ? certRecord.getString('senha') : ''
+      const cofreLer = (rec, campo) => {
+        if (!rec) return ''
+        const direto = rec.getString(campo)
+        if (direto && direto.indexOf('__COFRE__') !== 0) return direto
+        const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+        if (!chaveCofre) return ''
+        try {
+          const linhas = $app.findRecordsByFilter(
+            'credenciais_cofre',
+            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+            '',
+            1,
+            0,
+            { e: rec.collection().name, r: rec.id, c: campo },
+          )
+          if (linhas.length === 0) return ''
+          return $security.decrypt(
+            linhas[0].getString('ciphertext').replace(/^v1:/, ''),
+            chaveCofre,
+          )
+        } catch (_) {
+          return ''
+        }
+      }
+
+      const senhaInformada = cofreLer(configRec, 'senha_certificado')
+      const senhaCertGravada = cofreLer(certRecord, 'senha')
       const senhaEfetiva = senhaInformada || senhaCertGravada || ''
       const contratoDteId = configRec ? configRec.getString('contrato_dte_id') || '' : ''
       const tokenAmbiente = configRec ? configRec.getString('token_ambiente_rfb') || '' : ''

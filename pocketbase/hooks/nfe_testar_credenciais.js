@@ -74,8 +74,33 @@ routerAdd(
         }
       }
 
-      const senhaEfetiva =
-        senhaInformada || (certificadoRecord ? certificadoRecord.getString('senha') : '')
+      const donoCofre = certificadoRecord
+      const senhaGravadaCert = (() => {
+        if (!donoCofre) return ''
+        const direto = donoCofre.getString('senha')
+        if (direto && direto.indexOf('__COFRE__') !== 0) return direto
+        const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+        if (!chaveCofre) return ''
+        try {
+          const linhas = $app.findRecordsByFilter(
+            'credenciais_cofre',
+            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+            '',
+            1,
+            0,
+            { e: 'certificados_digitais', r: donoCofre.id, c: 'senha' },
+          )
+          if (linhas.length === 0) return ''
+          return $security.decrypt(
+            linhas[0].getString('ciphertext').replace(/^v1:/, ''),
+            chaveCofre,
+          )
+        } catch (_) {
+          return ''
+        }
+      })()
+
+      const senhaEfetiva = senhaInformada || senhaGravadaCert
 
       // Avaliação transparente dos requisitos SEFAZ Distribuição DF-e (nfeDistDFeInteresse)
       const temCertificado = Boolean(certificadoRecord)

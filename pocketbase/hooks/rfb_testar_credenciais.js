@@ -82,7 +82,29 @@ routerAdd(
         const certTipo = certRecord.getString('tipo')
         const certStatus = certRecord.getString('status')
         const certValidadeStr = certRecord.getString('validade')
-        const certSenhaGravada = certRecord.getString('senha')
+        const certSenhaGravada = (() => {
+          const direto = certRecord.getString('senha')
+          if (direto && direto.indexOf('__COFRE__') !== 0) return direto
+          const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+          if (!chaveCofre) return ''
+          try {
+            const linhas = $app.findRecordsByFilter(
+              'credenciais_cofre',
+              'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+              '',
+              1,
+              0,
+              { e: 'certificados_digitais', r: certRecord.id, c: 'senha' },
+            )
+            if (linhas.length === 0) return ''
+            return $security.decrypt(
+              linhas[0].getString('ciphertext').replace(/^v1:/, ''),
+              chaveCofre,
+            )
+          } catch (_) {
+            return ''
+          }
+        })()
         const senhaEfetiva = senhaCertificado || certSenhaGravada
 
         temSenha = Boolean(senhaEfetiva && senhaEfetiva.trim().length > 0)

@@ -1,14 +1,16 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * VERIFICAÇÃO (somente leitura) — o cofre decifra exatamente o valor original?
+ * VERIFICAÇÃO PÓS-SELAGEM (somente leitura).
  *
- * Para cada linha do cofre: decifra com a chave mestra e compara com o valor
- * que ainda está no campo de origem. Não altera nada. Retorna só contagens e
- * o identificador do registro — nunca o valor do segredo.
+ * Depois que os campos de origem são marcados com `__COFRE__`, o valor claro
+ * deixa de existir no banco. Esta rota confere:
+ *  1. toda linha do cofre decifra com a chave mestra;
+ *  2. o campo de origem está marcado como cofrado (ou seja, não sobrou texto claro);
+ *  3. `rec.collection().name` funciona como escopo — é o que os hooks usam.
  *
+ * Não devolve valor de segredo: só contagens, ids e tamanhos.
  * Rota: GET /backend/v1/admin/credenciais/verificar?key=<CREDENTIALS_VAULT_KEY>
- * Remover depois da virada.
  */
 
 routerAdd('GET', '/backend/v1/admin/credenciais/verificar', (e) => {
@@ -18,13 +20,12 @@ routerAdd('GET', '/backend/v1/admin/credenciais/verificar', (e) => {
     return e.json(403, { error: 'Chave invalida.' })
   }
 
-  const linhas = $app.findRecordsByFilter('credenciais_cofre', '', '', 1000, 0)
+  const linhas = $app.findRecordsByFilter('credenciais_cofre', '', '', 2000, 0)
 
   const falhas = []
-  let conferidos = 0
-  let iguais = 0
-  let origemVazia = 0
-  let origemAusente = 0
+  let decifram = 0
+  let marcados = 0
+  let aindaEmTextoClaro = []
 
   for (let i = 0; i < linhas.length; i++) {
     const l = linhas[i]
@@ -33,7 +34,7 @@ routerAdd('GET', '/backend/v1/admin/credenciais/verificar', (e) => {
     const campo = l.getString('campo')
     const ct = l.getString('ciphertext')
 
-    let claro
+    let claro = ''
     try {
       claro = $security.decrypt(ct.replace(/^v1:/, ''), esperado)
     } catch (err) {
@@ -45,44 +46,64 @@ routerAdd('GET', '/backend/v1/admin/credenciais/verificar', (e) => {
       })
       continue
     }
+    if (!claro || claro.length === 0) {
+      falhas.push({ escopo: escopo, registro_id: registroId, campo: campo, erro: 'decifrou vazio' })
+      continue
+    }
+    decifram++
 
     let origem
     try {
       origem = $app.findRecordById(escopo, registroId)
     } catch (_) {
-      origemAusente++
+      falhas.push({ escopo: escopo, registro_id: registroId, campo: campo, erro: 'origem ausente' })
       continue
     }
 
-    const original = origem.getString(campo)
-    conferidos++
-
-    if (!original || original.trim().length === 0) {
-      origemVazia++
-      continue
-    }
-
-    if (original === claro) {
-      iguais++
+    const atual = origem.getString(campo)
+    if (atual === '__COFRE__') {
+      marcados++
+    } else if (atual && atual.trim().length > 0) {
+      // ainda tem valor em texto claro neste campo
+      aindaEmTextoClaro.push({ escopo: escopo, campo: campo, registro_id: registroId })
     } else {
-      falhas.push({
+      // campo ficou vazio: o hook cai no cofre de qualquer forma, mas registra
+      aindaEmTextoClaro.push({
         escopo: escopo,
-        registro_id: registroId,
         campo: campo,
-        erro: 'valor divergente',
-        tamanho_original: original.length,
-        tamanho_decifrado: claro.length,
+        registro_id: registroId,
+        nota: 'vazio',
       })
     }
   }
 
+  // Prova de que o escopo por `rec.collection().name` (usado nos hooks) funciona.
+  let escopoDinamicoOk = false
+  let escopoDinamicoNome = ''
+  try {
+    const algum = $app.findFirstRecordByData('credenciais_digitais', '', '')
+    escopoDinamicoNome = algum.collection().name
+    escopoDinamicoOk = escopoDinamicoNome === 'certificados_digitais'
+  } catch (_) {
+    try {
+      const lista = $app.findRecordsByFilter('certificados_digitais', '', '', 1, 0)
+      if (lista.length > 0) {
+        escopoDinamicoNome = lista[0].collection().name
+        escopoDinamicoOk = escopoDinamicoNome === 'certificados_digitais'
+      }
+    } catch (e2) {
+      escopoDinamicoNome = 'erro: ' + String(e2)
+    }
+  }
+
   return e.json(200, {
-    ok: falhas.length === 0,
+    ok: falhas.length === 0 && aindaEmTextoClaro.length === 0 && escopoDinamicoOk,
     linhas_cofre: linhas.length,
-    conferidos: conferidos,
-    iguais: iguais,
-    origem_vazia: origemVazia,
-    origem_ausente: origemAusente,
+    decifram: decifram,
+    marcados_cofrados: marcados,
+    ainda_em_texto_claro: aindaEmTextoClaro,
+    escopo_dinamico_ok: escopoDinamicoOk,
+    escopo_dinamico_nome: escopoDinamicoNome,
     falhas: falhas,
   })
 })
