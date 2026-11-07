@@ -129,8 +129,8 @@ export default function PortalEmpregadoPage() {
         description: `Olá, ${res.funcionario.nome_completo}. Seus holerites e benefícios estão disponíveis.`,
       })
 
-      // Carregar dados de folha, férias e rescisões
-      carregarDadosColaborador(res.funcionario.id)
+      // Carregar dados de folha, férias e rescisões pelo token do colaborador
+      carregarDadosColaborador(res.tokenAcesso || tokenOuCodigo)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao autenticar.'
       setErroLogin(msg)
@@ -139,13 +139,14 @@ export default function PortalEmpregadoPage() {
     }
   }
 
-  const carregarDadosColaborador = async (funcionarioId: string) => {
+  const carregarDadosColaborador = async (tokenColaborador: string) => {
     setLoadingDados(true)
     try {
+      // O servidor valida o token e devolve só os dados deste colaborador.
       const [hols, fers, rescs] = await Promise.all([
-        portalEmpregadoService.getHolerites(funcionarioId),
-        portalEmpregadoService.getFerias(funcionarioId),
-        portalEmpregadoService.getRescisoes(funcionarioId),
+        portalEmpregadoService.getHolerites(tokenColaborador),
+        portalEmpregadoService.getFerias(tokenColaborador),
+        portalEmpregadoService.getRescisoes(tokenColaborador),
       ])
       setHolerites(hols)
       setFeriasList(fers)

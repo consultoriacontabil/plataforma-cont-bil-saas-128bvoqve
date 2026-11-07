@@ -309,101 +309,39 @@ export const portalEmpregadoService = {
     }
 
     try {
-      // 1. Procurar em portal_empregado_acessos
-      const acessos = await pb
-        .collection('portal_empregado_acessos')
-        .getFullList<PortalEmpregadoAcessoRecord>({
-          filter: `cpf = "${cpfLimpo}" && (token_acesso = "${credencial}" || codigo_temporario = "${credencial}")`,
-          expand: 'empresa,funcionario_id',
-        })
-
-      if (acessos.length === 0) {
-        // Tentar buscar por token direto em funcionarios
-        const funcs = await pb.collection('funcionarios').getFullList<Funcionario>({
-          filter: `cpf = "${cpfLimpo}" && token_acesso_publico = "${credencial}"`,
-          expand: 'empresa',
-        })
-
-        if (funcs.length === 0) {
-          return {
-            sucesso: false,
-            erro: 'Credenciais inválidas. Verifique o CPF e o código fornecido pela contabilidade.',
-          }
-        }
-
-        const func = funcs[0]
-        const now = new Date().toISOString()
-        await pb.collection('funcionarios').update(func.id, {
-          primeiro_acesso_realizado: true,
-          ultimo_acesso_portal: now,
-        })
-
-        // Registrar auditoria pública do acesso
-        await this.registrarAuditoriaAcesso(func.tenant_id, func.id, func.nome_completo, 'LOGIN')
-
-        return {
-          sucesso: true,
-          funcionario: func,
-          empresa: func.expand?.empresa,
-          tokenAcesso: credencial,
-        }
-      }
-
-      const acesso = acessos[0]
-      if (acesso.ativo === false) {
-        return {
-          sucesso: false,
-          erro: 'Este acesso foi revogado pelo administrador ou contador.',
-        }
-      }
-
-      if (acesso.expira_em) {
-        const expTime = new Date(acesso.expira_em).getTime()
-        if (expTime < Date.now()) {
-          return {
-            sucesso: false,
-            erro: 'O código de acesso temporário expirou. Solicite um novo à contabilidade.',
-          }
-        }
-      }
-
-      // Marcar acesso realizado
-      const now = new Date().toISOString()
-      await pb.collection('portal_empregado_acessos').update(acesso.id, {
-        primeiro_acesso_realizado: true,
-        ultimo_acesso: now,
+      // A validação do CPF + código acontece no SERVIDOR.
+      // Antes o navegador consultava `portal_empregado_acessos` e
+      // `funcionarios` direto; isso só funcionava porque as coleções estavam
+      // abertas — e essa abertura expunha CPF e hash de senha de qualquer
+      // empregado. Hoje as coleções são fechadas e a rota pública faz a
+      // validação e devolve só os dados do próprio colaborador.
+      const res = await pb.send('/backend/v1/portal-empregado/autenticar', {
+        method: 'POST',
+        body: { cpf: cpfLimpo, credencial },
       })
 
-      if (acesso.funcionario_id) {
-        try {
-          await pb.collection('funcionarios').update(acesso.funcionario_id, {
-            primeiro_acesso_realizado: true,
-            ultimo_acesso_portal: now,
-          })
-        } catch {
-          /* intentionally ignored */
+      if (!res?.sucesso) {
+        return {
+          sucesso: false,
+          erro: res?.erro || 'Credenciais inválidas. Verifique o CPF e o código fornecido.',
         }
       }
 
-      const func =
-        acesso.expand?.funcionario_id ||
-        (await pb.collection('funcionarios').getOne<Funcionario>(acesso.funcionario_id, {
-          expand: 'empresa',
-        }))
-
-      await this.registrarAuditoriaAcesso(
-        acesso.tenant_id,
-        func.id,
-        acesso.nome_colaborador,
-        'LOGIN',
-      )
+      const func = res.funcionario
+      if (func && func.id) {
+        await this.registrarAuditoriaAcesso(
+          res.tenant_id || '',
+          func.id,
+          func.nome_completo || '',
+          'LOGIN',
+        )
+      }
 
       return {
         sucesso: true,
-        funcionario: func,
-        acesso,
-        empresa: acesso.expand?.empresa || func.expand?.empresa,
-        tokenAcesso: acesso.token_acesso,
+        funcionario: func as unknown as Funcionario,
+        empresa: (res.empresa || undefined) as Empresa | undefined,
+        tokenAcesso: res.token || credencial,
       }
     } catch (err) {
       console.error('Erro na autenticação do portal do empregado:', err)
@@ -417,34 +355,44 @@ export const portalEmpregadoService = {
   /**
    * Consulta holerites do colaborador autenticado
    */
-  async getHolerites(funcionarioId: string): Promise<FolhaPagamento[]> {
-    return pb.collection('folha_pagamento').getFullList<FolhaPagamento>({
-      filter: `funcionario = "${funcionarioId}"`,
-      sort: '-competencia',
-      expand: 'empresa,funcionario',
-    })
+  /**
+   * Busca os dados do próprio colaborador pelo servidor.
+   * O token é a credencial dele; o servidor decide o que aquele token vê.
+   * As coleções de DP continuam fechadas para acesso anônimo direto.
+   */
+  async getDadosPortal(
+    token: string,
+    recurso: 'holerites' | 'ferias' | 'rescisoes',
+  ): Promise<Record<string, unknown>[]> {
+    if (!token) return []
+    try {
+      const res = await pb.send('/backend/v1/portal-empregado/dados', {
+        method: 'POST',
+        body: { token, recurso },
+      })
+      return (res?.itens || []) as Record<string, unknown>[]
+    } catch (err) {
+      console.warn('[portalEmpregado] falha ao consultar ' + recurso, err)
+      return []
+    }
+  },
+
+  async getHolerites(token: string): Promise<FolhaPagamento[]> {
+    return (await this.getDadosPortal(token, 'holerites')) as unknown as FolhaPagamento[]
   },
 
   /**
    * Consulta férias do colaborador autenticado
    */
-  async getFerias(funcionarioId: string): Promise<FeriasPeriodoRecord[]> {
-    return pb.collection('ferias_periodos').getFullList<FeriasPeriodoRecord>({
-      filter: `funcionario = "${funcionarioId}"`,
-      sort: '-periodo_aquisitivo_inicio',
-      expand: 'empresa,funcionario',
-    })
+  async getFerias(token: string): Promise<FeriasPeriodoRecord[]> {
+    return (await this.getDadosPortal(token, 'ferias')) as unknown as FeriasPeriodoRecord[]
   },
 
   /**
    * Consulta rescisões / TRCT do colaborador autenticado
    */
-  async getRescisoes(funcionarioId: string): Promise<RescisaoRecord[]> {
-    return pb.collection('rescisoes').getFullList<RescisaoRecord>({
-      filter: `funcionario = "${funcionarioId}"`,
-      sort: '-data_desligamento',
-      expand: 'empresa,funcionario',
-    })
+  async getRescisoes(token: string): Promise<RescisaoRecord[]> {
+    return (await this.getDadosPortal(token, 'rescisoes')) as unknown as RescisaoRecord[]
   },
 
   /**
