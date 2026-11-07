@@ -64,19 +64,14 @@ migrate(
         '- Pedido de exclusão, de alteração em lançamento ou de transmissão oficial: recuse com clareza e explique que exige o humano responsável.',
       ].join('\n'),
       tools: [
-        // ---- LEITURA ----
+        // ---- LEITURA (uma tool por coleção; escrita é somada na mesma linha) ----
         { collection: 'empresas', perms: { list: true, read: true } },
-        { collection: 'obrigacoes', perms: { list: true, read: true } },
         { collection: 'documentos', perms: { list: true, read: true } },
-        { collection: 'workflows', perms: { list: true, read: true } },
-        { collection: 'workflow_activity', perms: { list: true, read: true } },
         { collection: 'lancamentos_contabeis', perms: { list: true, read: true } },
         { collection: 'fechamento_competencia', perms: { list: true, read: true } },
         { collection: 'fechamento_checklist_itens', perms: { list: true, read: true } },
         { collection: 'processos_operacionais', perms: { list: true, read: true } },
         { collection: 'processo_etapas', perms: { list: true, read: true } },
-        { collection: 'processo_pendencias', perms: { list: true, read: true } },
-        { collection: 'elisa_jobs', perms: { list: true, read: true } },
         { collection: 'sops', perms: { list: true, read: true } },
         { collection: 'funcionarios', perms: { list: true, read: true } },
         { collection: 'plano_contas', perms: { list: true, read: true } },
@@ -84,19 +79,22 @@ migrate(
         { collection: 'elliza_diretivas', perms: { list: true, read: true } },
 
         // ---- ESCRITA RESTRITA (nunca delete) ----
-        // status de obrigação: "pendente" -> "em andamento" -> "entregue"
-        { collection: 'obrigacoes', perms: { update: true } },
-        // andamento de workflow
-        { collection: 'workflows', perms: { update: true } },
-        { collection: 'workflow_activity', perms: { create: true, update: true } },
-        // pendências: abrir e resolver
-        { collection: 'processo_pendencias', perms: { create: true, update: true } },
-        // jobs: registrar andamento da própria execução
-        { collection: 'elisa_jobs', perms: { create: true, update: true } },
-        // notificação ao time
-        { collection: 'notificacoes', perms: { create: true } },
-        // auditoria: registrar o que fez, nunca reescrever
-        { collection: 'audit_log', perms: { create: true } },
+        // Uma única tool por coleção: o runtime recusa duas linhas com o mesmo
+        // act_as. Leitura e escrita vão somadas na mesma linha.
+        //
+        // obrigacoes: ler e mover status (pendente -> em_andamento -> entregue)
+        { collection: 'obrigacoes', perms: { list: true, read: true, update: true } },
+        // workflows: ler e mover etapa
+        { collection: 'workflows', perms: { list: true, read: true, update: true } },
+        // workflow_activity: registrar histórico de andamento
+        { collection: 'workflow_activity', perms: { list: true, read: true, create: true } },
+        {
+          collection: 'processo_pendencias',
+          perms: { list: true, read: true, create: true, update: true },
+        },
+        { collection: 'elisa_jobs', perms: { list: true, read: true, create: true, update: true } },
+        { collection: 'notificacoes', perms: { list: true, read: true, create: true } },
+        { collection: 'audit_log', perms: { list: true, read: true, create: true } },
       ],
       memory: [
         {
