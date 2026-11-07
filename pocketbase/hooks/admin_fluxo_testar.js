@@ -12,11 +12,11 @@ routerAdd('GET', '/backend/v1/admin/fluxo/testar', (e) => {
 
   const out = { passos: [] }
 
-  // precisa de uma obrigação real para propor
-  const obs = $app.findRecordsByFilter('obrigacoes', '', '', 1, 0)
-  if (obs.length === 0) return e.json(200, { erro: 'sem obrigacoes para testar' })
-  const obrig = obs[0]
-  const tenantId = obrig.getString('tenant_id')
+  // usa uma empresa real como alvo de tenant (obrigações foram limpas)
+  const emps = $app.findRecordsByFilter('empresas', '', '', 1, 0)
+  if (emps.length === 0) return e.json(200, { erro: 'sem empresas para testar' })
+  const tenantId = emps[0].getString('tenant_id')
+  const alvoId = emps[0].id
 
   const vinculos = $app.findRecordsByFilter(
     'tenant_members',
@@ -37,9 +37,9 @@ routerAdd('GET', '/backend/v1/admin/fluxo/testar', (e) => {
     rec.set('tenant_id', tenantId)
     rec.set('solicitado_por', proponente)
     rec.set('colecao', 'obrigacoes')
-    rec.set('registro_id', obrig.id)
+    rec.set('registro_id', alvoId)
     rec.set('campo', 'observacoes')
-    rec.set('valor_atual', obrig.getString('observacoes'))
+    rec.set('valor_atual', '(teste)')
     rec.set('valor_proposto', 'TESTE TELA ' + Date.now())
     rec.set('motivo', 'teste automatizado da tela de aprovacao')
     rec.set('status', 'pendente')
