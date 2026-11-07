@@ -10,6 +10,7 @@ import Login from '@/pages/Login'
 import SignUp from '@/pages/SignUp'
 import Dashboard from '@/pages/Dashboard'
 import ElisaFilaPage from '@/pages/ElisaFilaPage'
+import AprovacoesPage from '@/pages/AprovacoesPage'
 import ProcessosSopsPage from '@/pages/ProcessosSopsPage'
 import ProcessoDetailExecucaoPage from '@/pages/ProcessoDetailExecucaoPage'
 import Empresas from '@/pages/Empresas'
@@ -88,6 +89,7 @@ export default function App() {
 
             {/* Nova Arquitetura Operacional Elliza */}
             <Route path="/elisa-fila" element={<ElisaFilaPage />} />
+            <Route path="/aprovacoes" element={<AprovacoesPage />} />
             <Route path="/processos" element={<ProcessosSopsPage />} />
             <Route path="/processos/:id" element={<ProcessoDetailExecucaoPage />} />
 

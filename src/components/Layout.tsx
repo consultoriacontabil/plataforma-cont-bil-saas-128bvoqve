@@ -143,6 +143,7 @@ export default function Layout() {
     const path = location.pathname
     if (path.startsWith('/dashboard') || path === '/') return 'Rumo | Central de Operações'
     if (path.startsWith('/elisa-fila')) return 'Fila Operacional da Elliza'
+    if (path.startsWith('/aprovacoes')) return 'Aprovações do Operador'
     if (path.startsWith('/processos/')) return 'Execução de Processo (Checklist Executável)'
     if (path.startsWith('/processos')) return 'Processos & SOPs Executáveis'
     if (path.startsWith('/empresas/nova')) return 'Nova Empresa'
@@ -292,6 +293,7 @@ export default function Layout() {
           badge: 'OPERACIONAL',
         },
         { label: 'Fila da Elliza', to: '/elisa-fila', icon: Bot, badge: 'ROBÔ' },
+        { label: 'Aprovações do Agente', to: '/aprovacoes', icon: ShieldCheck, badge: 'NOVO' },
         { label: 'Processos & SOPs', to: '/processos', icon: GitPullRequest, badge: 'SOPs' },
       ],
     },
