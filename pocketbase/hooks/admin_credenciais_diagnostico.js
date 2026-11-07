@@ -12,9 +12,10 @@
  */
 
 routerAdd('GET', '/backend/v1/admin/credenciais/diagnostico', (e) => {
-  const auth = e.auth
-  if (!auth || auth.collection().name !== '_superusers') {
-    return e.json(403, { error: 'Apenas superusuário.' })
+  const esperado = $secrets.get('CREDENTIALS_VAULT_KEY')
+  const recebido = e.request.url.query().get('key') || ''
+  if (!esperado || recebido !== esperado) {
+    return e.json(403, { error: 'Chave invalida.' })
   }
 
   // coleção -> campos que guardam segredo
