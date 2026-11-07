@@ -167,8 +167,26 @@ export const pedidosDocumentosService = {
         })
     } catch (err) {
       console.warn('[pedidosDocumentosService] Pedido não encontrado:', idOrToken, err)
-      return null
     }
+
+    // Link público: a coleção não é mais legível por anônimo. O servidor
+    // valida o token exato e devolve só o pedido daquele token.
+    try {
+      const res = await pb.send('/backend/v1/publico/pedido', {
+        method: 'POST',
+        body: { token: idOrToken },
+      })
+      if (res?.pedido) {
+        return {
+          ...(res.pedido as PedidoDocumentoRecord),
+          expand: res.empresa ? { empresa: res.empresa } : undefined,
+        } as PedidoDocumentoRecord
+      }
+    } catch (errPub) {
+      console.warn('[pedidosDocumentosService] Link público inválido:', idOrToken, errPub)
+    }
+
+    return null
   },
 
   /**

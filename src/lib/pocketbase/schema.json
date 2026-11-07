@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T21:16:30.653Z",
+  "generatedAt": "2026-11-07T21:17:59.687Z",
   "collections": [
     {
       "name": "users",
@@ -10558,11 +10558,11 @@
       "name": "company_onboarding_workflow",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' || token != ''",
-        "view": "@request.auth.id != '' || token != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' || (token != '' && token = @request.body.token)",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -12328,11 +12328,11 @@
       "name": "pedidos_documentos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' || token_publico != ''",
-        "view": "@request.auth.id != '' || token_publico != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' || token_publico != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {

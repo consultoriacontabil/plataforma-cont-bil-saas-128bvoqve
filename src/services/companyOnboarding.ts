@@ -114,12 +114,18 @@ export const companyOnboardingService = {
   async getByToken(token: string): Promise<CompanyOnboardingWorkflowRecord | null> {
     try {
       const cleanToken = token.trim()
-      const record = await pb
-        .collection('company_onboarding_workflow')
-        .getFirstListItem<CompanyOnboardingWorkflowRecord>(`token = "${cleanToken}"`, {
-          expand: 'empresa_id,tenant_id',
-        })
-      return record
+
+      // A coleção não é mais legível por anônimo: a regra antiga
+      // (`token != ''`) deixava qualquer visitante listar TODAS as aberturas,
+      // com CNPJ e sócios. O servidor valida o token exato.
+      const res = await pb.send('/backend/v1/publico/abertura', {
+        method: 'POST',
+        body: { token: cleanToken },
+      })
+      if (res?.workflow) {
+        return res.workflow as CompanyOnboardingWorkflowRecord
+      }
+      return null
     } catch (_) {
       return null
     }
@@ -574,6 +580,8 @@ export const companyOnboardingService = {
     dados: DadosPreliminaresOnboarding,
     clienteInfo?: { nome?: string; email?: string; telefone?: string },
   ): Promise<CompanyOnboardingWorkflowRecord> {
+    // Caminho público: grava pelo servidor, validando o token. As demais
+    // atualizações (razao social, cliente) vao junto no mesmo payload.
     const updatePayload: Partial<CompanyOnboardingWorkflowRecord> = {
       dados_preliminares_json: dados,
       token: workflow.token,
@@ -592,9 +600,27 @@ export const companyOnboardingService = {
     if (clienteInfo?.email) updatePayload.cliente_email = clienteInfo.email
     if (clienteInfo?.telefone) updatePayload.cliente_telefone = clienteInfo.telefone
 
-    const updated = await pb
-      .collection('company_onboarding_workflow')
-      .update<CompanyOnboardingWorkflowRecord>(workflow.id, updatePayload)
+    // Atualiza pelo servidor (a coleção exige vínculo de tenant desde 0144;
+    // o cliente público não tem login, então a escrita passa por esta rota).
+    const resSalvar = await pb.send('/backend/v1/publico/abertura/salvar', {
+      method: 'POST',
+      body: {
+        token: workflow.token,
+        dados: {
+          ...dados,
+          ...(clienteInfo?.nome ? { cliente_nome: clienteInfo.nome } : {}),
+          ...(clienteInfo?.email ? { cliente_email: clienteInfo.email } : {}),
+          ...(clienteInfo?.telefone ? { cliente_telefone: clienteInfo.telefone } : {}),
+        },
+      },
+    })
+    const updated = {
+      ...workflow,
+      ...updatePayload,
+    } as CompanyOnboardingWorkflowRecord
+    if (!resSalvar?.ok) {
+      console.warn('[companyOnboarding] falha ao salvar dados publicos')
+    }
 
     await auditService.log(
       workflow.tenant_id,
