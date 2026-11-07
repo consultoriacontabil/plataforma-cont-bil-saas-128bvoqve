@@ -93,9 +93,7 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
     config?.provedor_ambiente || 'producao',
   )
   const [govbrClientId, setGovbrClientId] = useState<string>(config?.govbr_client_id || '')
-  const [govbrClientSecret, setGovbrClientSecret] = useState<string>(
-    config?.govbr_client_secret || '',
-  )
+  const [govbrClientSecret, setGovbrClientSecret] = useState<string>('')
   const [govbrApiUrl, setGovbrApiUrl] = useState<string>(
     config?.govbr_api_url || 'https://nfse.receita.fazenda.gov.br/portalnfse',
   )
@@ -105,20 +103,20 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
 
   // Credenciais Betha Gerais
   const [bethaUsuario, setBethaUsuario] = useState<string>(config?.betha_usuario || '')
-  const [bethaSenhaToken, setBethaSenhaToken] = useState<string>(config?.betha_senha_token || '')
+  const [bethaSenhaToken, setBethaSenhaToken] = useState<string>('')
   const [bethaApiUrl, setBethaApiUrl] = useState<string>(
     config?.betha_api_url || 'https://e-gov.betha.com.br/e-nota-contribuinte-ws/nfseWS',
   )
 
   // Credenciais Ginfes Gerais
   const [ginfesUsuario, setGinfesUsuario] = useState<string>(config?.ginfes_usuario || '')
-  const [ginfesSenha, setGinfesSenha] = useState<string>(config?.ginfes_senha || '')
+  const [ginfesSenha, setGinfesSenha] = useState<string>('')
   const [ginfesApiUrl, setGinfesApiUrl] = useState<string>(
     config?.ginfes_api_url || 'https://homologacao.ginfes.com.br/ServiceGinfesImpl',
   )
 
   // Credenciais NFE.io Gerais
-  const [nfeioApiKey, setNfeioApiKey] = useState<string>(config?.nfeio_api_key || '')
+  const [nfeioApiKey, setNfeioApiKey] = useState<string>('')
   const [nfeioCompanyId, setNfeioCompanyId] = useState<string>(config?.nfeio_company_id || '')
 
   // Configuração por Empresa (Override Individual)
@@ -261,16 +259,16 @@ export const NfseConfigTab: React.FC<NfseConfigTabProps> = ({
           provedor_fiscal: provedorFiscal,
           provedor_ambiente: provedorAmbiente,
           govbr_client_id: govbrClientId.trim(),
-          govbr_client_secret: govbrClientSecret.trim(),
+          ...(govbrClientSecret.trim() ? { govbr_client_secret: govbrClientSecret.trim() } : {}),
           govbr_api_url: govbrApiUrl.trim(),
           provedor_municipio_ibge: municipioIbge.trim(),
           betha_usuario: bethaUsuario.trim(),
-          betha_senha_token: bethaSenhaToken.trim(),
+          ...(bethaSenhaToken.trim() ? { betha_senha_token: bethaSenhaToken.trim() } : {}),
           betha_api_url: bethaApiUrl.trim(),
           ginfes_usuario: ginfesUsuario.trim(),
-          ginfes_senha: ginfesSenha.trim(),
+          ...(ginfesSenha.trim() ? { ginfes_senha: ginfesSenha.trim() } : {}),
           ginfes_api_url: ginfesApiUrl.trim(),
-          nfeio_api_key: nfeioApiKey.trim(),
+          ...(nfeioApiKey.trim() ? { nfeio_api_key: nfeioApiKey.trim() } : {}),
           nfeio_company_id: nfeioCompanyId.trim(),
           provedores_empresas_json: provedoresEmpresas,
           msg_saudacao: msgSaudacao.trim(),
