@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T21:23:54.326Z",
+  "generatedAt": "2026-11-07T21:25:22.547Z",
   "collections": [
     {
       "name": "users",
@@ -59,10 +59,10 @@
       "name": "tenants",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "@request.auth.id != '' && id ?= @request.auth.tenant_members_via_user_id.tenant_id",
+        "view": "@request.auth.id != '' && id ?= @request.auth.tenant_members_via_user_id.tenant_id",
         "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && id ?= @request.auth.tenant_members_via_user_id.tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
         "delete": null
       },
       "fields": [
@@ -153,11 +153,11 @@
       "name": "tenant_members",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -227,11 +227,11 @@
       "name": "empresas",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -596,11 +596,11 @@
       "name": "documentos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != '' || origem_documento = 'link_publico'",
-        "create": "@request.auth.id != '' || @request.body.origem_documento = 'link_publico'",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != '' || origem_documento = 'link_publico'"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente' || (@request.body.origem_documento = 'link_publico')",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -744,11 +744,11 @@
       "name": "workflows",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -862,11 +862,11 @@
       "name": "workflow_activity",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -1135,11 +1135,11 @@
       "name": "agent_conversations",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && user_id = @request.auth.id",
-        "view": "@request.auth.id != '' && user_id = @request.auth.id",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && user_id = @request.auth.id",
-        "delete": "@request.auth.id != '' && user_id = @request.auth.id"
+        "list": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "delete": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id"
       },
       "fields": [
         {
@@ -1197,11 +1197,11 @@
       "name": "agent_messages",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && user_id = @request.auth.id",
-        "view": "@request.auth.id != '' && user_id = @request.auth.id",
-        "create": "@request.auth.id != ''",
-        "update": null,
-        "delete": null
+        "list": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "delete": "@request.auth.id != '' && user_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id"
       },
       "fields": [
         {
@@ -1270,11 +1270,11 @@
       "name": "obrigacoes",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
@@ -1404,11 +1404,11 @@
       "name": "notificacoes",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
-        "view": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
-        "create": "",
-        "update": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')",
-        "delete": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '')"
+        "list": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '') && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "view": "@request.auth.id != '' && (usuario_destino_id = @request.auth.id || usuario_destino_id = '') && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "create": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'",
+        "update": "@request.auth.id != '' && usuario_destino_id ?= @request.auth.id && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id",
+        "delete": "@request.auth.id != '' && @request.auth.tenant_members_via_user_id.tenant_id ?= tenant_id && @request.auth.tenant_members_via_user_id.perfil ?!= 'cliente'"
       },
       "fields": [
         {
