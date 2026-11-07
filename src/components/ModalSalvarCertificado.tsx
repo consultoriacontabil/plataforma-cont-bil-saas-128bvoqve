@@ -89,7 +89,10 @@ export function ModalSalvarCertificado({
         setValidade(
           certificadoExistente.validade ? certificadoExistente.validade.split('T')[0] : '',
         )
-        setSenha(certificadoExistente.senha || '')
+        // A senha vive cifrada no cofre: o campo nunca devolve texto claro.
+        // Carregar o marcador aqui faria a tela exibir "__COFRE__" e reenviá-lo
+        // no próximo Salvar. Deixa vazio = "manter a senha atual".
+        setSenha('')
         setStatus(certificadoExistente.status || 'ativo')
         setObservacoes(certificadoExistente.observacoes || '')
         setArquivoFile(null)
