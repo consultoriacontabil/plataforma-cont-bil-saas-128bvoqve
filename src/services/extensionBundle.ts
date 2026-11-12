@@ -40,7 +40,7 @@ export const EXTENSION_SOURCE_FILES = {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Rumo Contábil - Conexão</title>
+  <title>Rumo Consultoria Contábil - Conexão</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
