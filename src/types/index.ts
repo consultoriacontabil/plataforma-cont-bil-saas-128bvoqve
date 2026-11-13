@@ -118,14 +118,15 @@ export interface CertidaoElliza extends RecordModel {
   tenant_id: string
   empresa_id: string
   comando_id?: string
-  tipo: 'cnd_federal' | 'cnd_estadual' | 'cnd_municipal' | 'cndt' | 'comprovante_cnpj'
+  tipo_certidao: 'cnd_federal' | 'cnd_estadual' | 'cnd_municipal' | 'cndt' | 'comprovante_cnpj'
   situacao: 'negativa' | 'positiva' | 'positiva_com_efeitos'
-  emissao?: string
-  validade?: string
+  data_emissao?: string
+  data_validade?: string
   pdf_url?: string
   pdf_sha256?: string
   documento_id?: string
   uf?: string
+  deduplicado?: boolean
   protocolo?: string
   created: string
   updated: string

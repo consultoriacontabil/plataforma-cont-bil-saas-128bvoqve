@@ -16,8 +16,21 @@ import {
   Plus,
   Trash2,
   Download,
+  AlertTriangle,
+  CloudDownload,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { useAuth } from '@/contexts/AuthContext'
+import {
+  CERTIDAO_TIPO_LABEL,
+  CERTIDAO_SITUACAO_LABEL,
+  listarCertidoesPorEmpresa,
+  urlPdfCertidao,
+} from '@/services/ellizaCertidoes'
+import { ellizaComandosService } from '@/services/ellizaComandosService'
+import type { CertidaoElliza } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -52,9 +65,13 @@ export function FichaCadastralEmpresa({
   onEmpresaAtualizada,
 }: FichaCadastralEmpresaProps) {
   const { toast } = useToast()
+  const { tenant } = useAuth()
 
   // Estado de edição da Ficha
   const [modoEdicao, setModoEdicao] = useState(false)
+  const [dispachandoCnpj, setDispachandoCnpj] = useState(false)
+  const [certidoes, setCertidoes] = useState<CertidaoElliza[]>([])
+  const [loadingCertidoes, setLoadingCertidoes] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
   // Sócios da empresa
@@ -95,6 +112,56 @@ export function FichaCadastralEmpresa({
   useEffect(() => {
     carregarSocios()
   }, [empresa.id, tenantId])
+
+  // Certidões ELLIZA (Fase 1) — recarrega junto com a empresa
+  useEffect(() => {
+    let ativo = true
+    setLoadingCertidoes(true)
+    listarCertidoesPorEmpresa(empresa.id)
+      .then((lista) => {
+        if (ativo) setCertidoes(lista)
+      })
+      .finally(() => {
+        if (ativo) setLoadingCertidoes(false)
+      })
+    return () => {
+      ativo = false
+    }
+  }, [empresa.id])
+
+  // Situação cadastral RFB: alerta quando não ativa/nula
+  const situacaoRfb = (empresa.situacao_cadastral_rfb || '').trim().toLowerCase()
+  const cnpjBaixado = Boolean(situacaoRfb) && situacaoRfb !== 'ativa' && situacaoRfb !== 'nula'
+  const situacaoRfbLabel = situacaoRfb
+    ? situacaoRfb.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+    : '—'
+
+  // Dispara comando consultar_cnpj para a fila da ELLIZA desktop (Fase 1)
+  const handleConsultarCnpjElliza = async () => {
+    if (!tenant?.id || !empresa.id) return
+    setDispachandoCnpj(true)
+    try {
+      await ellizaComandosService.dispararConsultarCnpj({
+        tenant_id: tenant.id,
+        empresa_id: empresa.id,
+        cnpj: empresa.cnpj || undefined,
+      })
+      toast({
+        title: 'Comando enviado para a fila da ELLIZA',
+        description:
+          'A consulta do CNPJ foi enfileirada; a situação cadastral será atualizada ao concluir.',
+      })
+    } catch (err: any) {
+      console.error('[FichaCadastral] Erro ao disparar consultar_cnpj:', err)
+      toast({
+        title: 'Erro ao enfileirar comando',
+        description: err?.message || 'Não foi possível enviar o comando para a ELLIZA.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDispachandoCnpj(false)
+    }
+  }
 
   // Sincronizar form local quando empresa muda
   useEffect(() => {
@@ -431,6 +498,58 @@ export function FichaCadastralEmpresa({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-5 space-y-5 text-xs">
+          {/* FASE 1 ELLIZA — Alerta de CNPJ baixado (situação cadastral RFB ≠ ativa/nula) */}
+          {cnpjBaixado && (
+            <div
+              id="rpa-alerta-cnpj-baixado"
+              data-rpa-field="alerta_situacao_cadastral"
+              data-rpa-value={situacaoRfb}
+              className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3"
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900">
+                <p className="font-bold">
+                  Atenção: CNPJ com situação &quot;{situacaoRfbLabel}&quot; na Receita Federal.
+                </p>
+                <p className="mt-0.5 text-amber-800">
+                  Situação informada pela consulta ELLIZA em{' '}
+                  {formatDataPtBr(empresa.situacao_cadastral_atualizada_em)}. Verifique a
+                  regularidade antes de emitir guias e obrigações desta empresa.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* FASE 1 ELLIZA — Ação: Consultar CNPJ via ELLIZA desktop */}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-200 bg-teal-50/60 px-4 py-3">
+            <div>
+              <p className="text-xs font-bold text-teal-900">Consulta de CNPJ (Receita Federal)</p>
+              <p className="text-[11px] text-teal-800 mt-0.5">
+                Enfileira o comando <span className="font-mono">consultar_cnpj</span> para a ELLIZA
+                desktop; o resultado atualiza a situação cadastral desta ficha.
+              </p>
+            </div>
+            <Button
+              id="rpa-btn-consultar-cnpj"
+              size="sm"
+              onClick={handleConsultarCnpjElliza}
+              disabled={dispachandoCnpj || !tenant?.id}
+              className="gap-1.5 rounded-xl bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs font-semibold h-8 shrink-0"
+            >
+              {dispachandoCnpj ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Enviando...</span>
+                </>
+              ) : (
+                <>
+                  <CloudDownload className="h-3.5 w-3.5" />
+                  <span>Consultar CNPJ via ELLIZA</span>
+                </>
+              )}
+            </Button>
+          </div>
+
           {/* Linha 1: Tag, Código, % Contratual, Cód. Externo */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
@@ -2163,6 +2282,101 @@ export function FichaCadastralEmpresa({
                 {displayVal(formDataEmpresa.subsegmento)}
               </div>
             )}
+          </div>
+
+          {/* FASE 1 ELLIZA — Certidões obtidas pela ELLIZA desktop (CNDs, CNDT, Comprovante CNPJ) */}
+          <div id="rpa-grid-certidoes-elliza" className="pt-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Certidões (ELLIZA):
+              </label>
+              <span
+                className="text-[10px] font-mono text-slate-400"
+                data-total-certidoes={certidoes.length}
+              >
+                {loadingCertidoes ? 'Carregando...' : `${certidoes.length} registro(s)`}
+              </span>
+            </div>
+            <div
+              className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/50"
+              data-total-certidoes={certidoes.length}
+            >
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold text-[11px] border-b border-slate-200">
+                  <tr>
+                    <th className="py-2 px-3">Certidão</th>
+                    <th className="py-2 px-3">Situação</th>
+                    <th className="py-2 px-3">Emissão</th>
+                    <th className="py-2 px-3">Validade</th>
+                    <th className="py-2 px-3 text-right">PDF</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-[11px]">
+                  {certidoes.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-3 px-3 text-slate-400 italic">
+                        {loadingCertidoes
+                          ? 'Carregando certidões...'
+                          : 'Nenhuma certidão registrada.'}
+                      </td>
+                    </tr>
+                  )}
+                  {certidoes.map((cert) => {
+                    const urlPdf = urlPdfCertidao(cert)
+                    return (
+                      <tr key={cert.id} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 font-medium text-slate-800">
+                          {CERTIDAO_TIPO_LABEL[cert.tipo_certidao] || cert.tipo_certidao}
+                          {cert.uf ? ` (${cert.uf})` : ''}
+                          {cert.deduplicado ? (
+                            <span
+                              className="ml-2 text-[10px] text-slate-400 font-mono"
+                              title="PDF idêntico já arquivado no GED"
+                            >
+                              dedup
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="py-2 px-3">
+                          <Badge
+                            className={
+                              cert.situacao === 'negativa'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]'
+                                : cert.situacao === 'positiva_com_efeitos'
+                                  ? 'bg-amber-100 text-amber-800 border-amber-200 text-[10px]'
+                                  : 'bg-red-100 text-red-800 border-red-200 text-[10px]'
+                            }
+                          >
+                            {CERTIDAO_SITUACAO_LABEL[cert.situacao] || cert.situacao}
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-3 font-mono text-slate-600">
+                          {formatDataPtBr(cert.data_emissao)}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-slate-600">
+                          {formatDataPtBr(cert.data_validade)}
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          {urlPdf ? (
+                            <a
+                              href={urlPdf}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[#0FA3A3] hover:text-[#0C8585] font-semibold"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span>Ver PDF</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Natureza Jurídica, Capital Social */}

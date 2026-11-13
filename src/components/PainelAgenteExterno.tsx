@@ -2268,6 +2268,65 @@ curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/
   }'`}</pre>
 
                 <div className="text-slate-400 pt-1">
+                  # 3.2. FASE 1 — Concluir Comando consultar_cnpj com Resumo Cadastral (evidência
+                  obrigatória):
+                </div>
+                <pre className="text-teal-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/concluir" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "nonce": "f1cnpj-0001-conforme-recebido-no-obter",
+    "evidencias": ["evi_cartao_cnpj_rfb_2026"],
+    "resultado": {
+      "cnpj": "12345678000199",
+      "razao_social": "EMPRESA EXEMPLO LTDA",
+      "situacao_cadastral": "ATIVA",
+      "data_situacao_cadastral": "2015-03-10",
+      "natureza_juridica": "206-2 - Sociedade Empresária Limitada",
+      "capital_social": 100000.00,
+      "endereco": {"logradouro": "AV PAULISTA", "numero": "1000", "municipio": "SAO PAULO", "uf": "SP", "cep": "01310200"},
+      "cnae_principal": {"codigo": "6920601", "descricao": "Atividades de contabilidade"}
+    }
+  }'
+# Sem resumo_cadastral válido, a conclusão é recusada com HTTP 422 e vira pendência em processo_pendencias.`}</pre>
+
+                <div className="text-slate-400 pt-1">
+                  # 3.3. FASE 1 — Concluir Comando cnd_federal (mesmo formato para cnd_estadual com
+                  "uf", cnd_municipal, cndt e comprovante_cnpj):
+                </div>
+                <pre className="text-teal-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/concluir" \\
+  -H "X-Elliza-Api-Key: ${rawKeyEllizaDesktopPadrao}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "nonce": "f1cndfed-0001-conforme-recebido-no-obter",
+    "evidencias": ["evi_pdf_cnd_federal_sha256"],
+    "resultado": {
+      "pdf_url": "https://cav.receita.fazenda.gov.br/autenticacao/CERTIDAOS/print-CERTIDAOCPFPJEX.aspx?tip=2&id=EXEMPLO",
+      "pdf_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "situacao": "negativa",
+      "data_emissao": "2026-11-13",
+      "data_validade": "2027-01-11",
+      "nome_arquivo": "cnd_federal_12345678000199_2026-11-13.pdf"
+    }
+  }'
+# Exigência dura: PDF real (pdf_url + pdf_sha256, ou documento_id do GED) + situacao (negativa | positiva | positiva_com_efeitos).
+# cnd_estadual: incluir "uf" no payload do comando e na conclusão (ex.: "uf": "SP"); comprovante_cnpj não tem situacao de débitos? tem: usar a situação do comprovante.`}</pre>
+
+                <div className="text-slate-400 pt-1">
+                  # 3.4. FASE 1 — Disparo manual (equivalente ao botão da ficha) e demais tipos de
+                  comando da Fase 1 no canal:
+                </div>
+                <pre className="text-slate-300">{`# Os 6 tipos da Fase 1 são enfileirados pela Rumo em elliza_comandos (status pendente):
+#   consultar_cnpj    — Consulta cartão CNPJ na RFB (via botão "Consultar CNPJ via ELLIZA" na ficha).
+#   cnd_federal       — CND Federal (Receita/PGFN).
+#   cnd_estadual      — CND Estadual SEFAZ (payload do comando carrega "uf", ex.: "uf": "SP").
+#   cnd_municipal     — CND Municipal (prefeitura da sede).
+#   cndt              — CNDT (Tribunal Superior do Trabalho).
+#   comprovante_cnpj  — Comprovante de Inscrição e Situação Cadastral (cartão CNPJ completo).
+# A ELLIZA desktop os recebe em GET .../comandos/assinar e responde em POST .../comandos/concluir
+# com a evidência do item 3.2 (CNPJ) ou 3.3 (certidões). Sem evidência: HTTP 422 + pendência.`}</pre>
+
+                <div className="text-slate-400 pt-1">
                   # 4. Reportar Erro Honesto com Pendência Estruturada:
                 </div>
                 <pre className="text-amber-300">{`curl -X POST "https://plataforma-contabil-saas-091ba.shrd00.internal.goskip.dev/backend/v1/elliza-agente/comandos/erro" \\

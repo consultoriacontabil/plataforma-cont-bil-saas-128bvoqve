@@ -6,12 +6,7 @@ import type { CertidaoElliza } from '@/types'
  * Leitura pela ficha da empresa: lista por empresa com situação e PDF arquivado no GED.
  */
 
-export type CertidaoTipo =
-  | 'cnd_federal'
-  | 'cnd_estadual'
-  | 'cnd_municipal'
-  | 'cndt'
-  | 'comprovante_cnpj'
+export type CertidaoTipo = CertidaoElliza['tipo_certidao']
 
 export const CERTIDAO_TIPO_LABEL: Record<CertidaoTipo, string> = {
   cnd_federal: 'CND Federal (Receita/PGFN)',
