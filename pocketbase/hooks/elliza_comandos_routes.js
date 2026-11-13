@@ -975,6 +975,411 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
     } catch (_) {}
   }
 
+  // FASE 1 ELLIZA: consultar_cnpj + certidões (cnd_federal, cnd_estadual, cnd_municipal, cndt, comprovante_cnpj)
+  var isFase1Cnpj = tipoComando === 'consultar_cnpj'
+  var tiposCertidaoFase1 = {
+    cnd_federal: true,
+    cnd_estadual: true,
+    cnd_municipal: true,
+    cndt: true,
+    comprovante_cnpj: true,
+  }
+  var isFase1Certidao = !!tiposCertidaoFase1[tipoComando]
+
+  // Parada honesta comum da Fase 1: pendência estruturada + comando em erro + auditoria + HTTP 422
+  var fase1ParadaHonesta = function (codigoErro, motivoErro, detalhesExtra) {
+    var pendColF1 = app.findCollectionByNameOrId('processo_pendencias')
+    var pendRecF1 = new Record(pendColF1)
+    pendRecF1.set('tenant_id', tenantId)
+    if (empresaId) pendRecF1.set('empresa_id', empresaId)
+    pendRecF1.set(
+      'titulo',
+      'Fase 1 ELLIZA (' + tipoComando + ') rejeitada: evidência mínima ausente',
+    )
+    pendRecF1.set('por_que_parou', motivoErro)
+    pendRecF1.set(
+      'o_que_foi_executado',
+      'ELLIZA desktop (' +
+        agentIdent +
+        ') tentou concluir o comando ' +
+        cmd.id +
+        ' (' +
+        tipoComando +
+        '), mas o resultado não contém a evidência mínima exigida.',
+    )
+    pendRecF1.set(
+      'o_que_falta',
+      isFase1Cnpj
+        ? 'Reenviar conclusão com resumo_cadastral estruturado (cnpj 14 dígitos, razao_social, situacao_cadastral; idealmente endereço e CNAE).'
+        : 'Reenviar conclusão com PDF real (pdf_url http(s) + pdf_sha256, ou documento_id do GED) e situacao (negativa | positiva | positiva_com_efeitos).',
+    )
+    pendRecF1.set(
+      'decisao_necessaria',
+      'Conferir execução na ELLIZA desktop e reemitir consulta/certidão com evidência real nos portais oficiais.',
+    )
+    pendRecF1.set('status', 'aberta')
+    app.save(pendRecF1)
+
+    cmd.set('status', 'erro')
+    cmd.set('resultado', resultado)
+    cmd.set('evidencias', evidenciasArray)
+    var erroF1 = {
+      codigo: codigoErro,
+      motivo: motivoErro,
+      referencia_pendencia: pendRecF1.id,
+      timestamp: nowIso,
+    }
+    if (detalhesExtra) erroF1.detalhes_extra = detalhesExtra
+    cmd.set('erro', erroF1)
+    app.save(cmd)
+
+    try {
+      var aColF1 = app.findCollectionByNameOrId('audit_log')
+      var aRecF1 = new Record(aColF1)
+      aRecF1.set('tenant_id', tenantId)
+      aRecF1.set('acao', 'FASE1_ELLIZA_PARADA_HONESTA')
+      aRecF1.set('entidade_tipo', 'elliza_comandos')
+      aRecF1.set('entidade_id', cmd.id)
+      aRecF1.set(
+        'detalhes',
+        JSON.stringify({
+          nonce: cmd.getString('nonce'),
+          tipo: tipoComando,
+          codigo_erro: codigoErro,
+          motivo: motivoErro,
+          pendencia_id: pendRecF1.id,
+          agente: agentIdent,
+        }),
+      )
+      app.save(aRecF1)
+    } catch (_) {}
+
+    return e.json(422, {
+      sucesso: false,
+      status: 'erro',
+      parada_honesta: true,
+      erro: motivoErro,
+      codigo_erro: codigoErro,
+      detalhes: detalhesExtra || null,
+      pendencia_id: pendRecF1.id,
+      comando_id: cmd.id,
+      nonce: cmd.getString('nonce'),
+    })
+  }
+
+  // FASE 1 - consultar_cnpj: validação dura do resumo cadastral estruturado
+  var resumoCadastralAplicado = false
+  if (isFase1Cnpj) {
+    var dadosCnpj = resultado && typeof resultado === 'object' ? resultado : {}
+    var resumo = dadosCnpj.resumo_cadastral || dadosCnpj
+    var cnpjRes = String(resumo.cnpj || '').replace(/\D/g, '')
+    var razaoSocialRes = String(resumo.razao_social || '').trim()
+    var situacaoCad = String(resumo.situacao_cadastral || '').trim()
+
+    var errosF1Cnpj = []
+    if (cnpjRes.length !== 14) errosF1Cnpj.push('resumo_cadastral.cnpj (14 dígitos)')
+    if (!razaoSocialRes) errosF1Cnpj.push('resumo_cadastral.razao_social')
+    if (!situacaoCad) errosF1Cnpj.push('resumo_cadastral.situacao_cadastral')
+
+    if (errosF1Cnpj.length > 0) {
+      var motivoCnpjInvalido =
+        'Validação dura falhou para consultar_cnpj. Campos ausentes ou inválidos no resumo cadastral: ' +
+        errosF1Cnpj.join(', ') +
+        '.'
+      return fase1ParadaHonesta('RESUMO_CADASTRAL_INVALIDO', motivoCnpjInvalido, {
+        campos_faltantes: errosF1Cnpj,
+      })
+    }
+
+    // Resolver empresa: por empresa_id do comando, ou pelo CNPJ do resumo
+    var empAlvo = null
+    try {
+      if (empresaId) empAlvo = app.findRecordById('empresas', empresaId)
+    } catch (_) {}
+    if (!empAlvo && cnpjRes) {
+      try {
+        var empMatchF1 = app.findRecordsByFilter(
+          'empresas',
+          "tenant_id = '" + tenantId + "' && cnpj = '" + cnpjRes + "'",
+          '',
+          1,
+          0,
+        )
+        if (empMatchF1 && empMatchF1.length > 0) empAlvo = empMatchF1[0]
+      } catch (_) {}
+    }
+
+    if (empAlvo) {
+      if (razaoSocialRes) empAlvo.set('razao_social', razaoSocialRes)
+      if (resumo.nome_fantasia) empAlvo.set('nome_fantasia', String(resumo.nome_fantasia).trim())
+      if (resumo.natureza_juridica)
+        empAlvo.set('natureza_juridica', String(resumo.natureza_juridica).trim())
+      if (resumo.capital_social && !isNaN(parseFloat(resumo.capital_social)))
+        empAlvo.set('capital_social', parseFloat(resumo.capital_social))
+      if (resumo.data_abertura) empAlvo.set('data_abertura', String(resumo.data_abertura).trim())
+
+      var end = resumo.endereco || resumo.endereco_completo || {}
+      if (end && typeof end === 'object') {
+        if (end.logradouro) empAlvo.set('logradouro', String(end.logradouro).trim())
+        if (end.numero) empAlvo.set('numero', String(end.numero).trim())
+        if (end.complemento) empAlvo.set('complemento', String(end.complemento).trim())
+        if (end.bairro) empAlvo.set('bairro', String(end.bairro).trim())
+        if (end.cep) empAlvo.set('cep', String(end.cep).replace(/\D/g, ''))
+        if (end.municipio || end.cidade)
+          empAlvo.set('cidade', String(end.municipio || end.cidade).trim())
+        if (end.uf) empAlvo.set('uf', String(end.uf).trim())
+      } else if (end && typeof end === 'string' && end.trim()) {
+        empAlvo.set('logradouro', end.trim())
+      }
+
+      var cnae = resumo.cnae || resumo.atividade_principal || {}
+      if (cnae && typeof cnae === 'object') {
+        if (cnae.codigo) empAlvo.set('cnae_principal', String(cnae.codigo).trim())
+        if (cnae.descricao) empAlvo.set('atividade_descricao', String(cnae.descricao).trim())
+      } else if (cnae && typeof cnae === 'string' && cnae.trim()) {
+        empAlvo.set('cnae_principal', cnae.trim())
+      }
+      if (Array.isArray(resumo.cnaes_secundarios) && resumo.cnaes_secundarios.length > 0) {
+        var cnaesSec = []
+        for (var cs = 0; cs < resumo.cnaes_secundarios.length; cs++) {
+          var itemCs = resumo.cnaes_secundarios[cs]
+          if (typeof itemCs === 'string') cnaesSec.push(itemCs)
+          else if (itemCs && itemCs.codigo) cnaesSec.push(String(itemCs.codigo).trim())
+        }
+        if (cnaesSec.length > 0) empAlvo.set('cnaes_secundarios', cnaesSec.join('; '))
+      }
+
+      var situacaoNormalizada = situacaoCad.toLowerCase()
+      empAlvo.set('situacao_cadastral_rfb', situacaoNormalizada)
+      empAlvo.set('situacao_cadastral_atualizada_em', nowIso)
+      app.save(empAlvo)
+      resumoCadastralAplicado = true
+
+      // Alerta estruturado quando a situação não é ativa (baixado, inapto, nulo, suspenso)
+      var situacoesAtivas = { ativa: true, ativo: true }
+      if (!situacoesAtivas[situacaoNormalizada]) {
+        try {
+          var aColBaixa = app.findCollectionByNameOrId('audit_log')
+          var aRecBaixa = new Record(aColBaixa)
+          aRecBaixa.set('tenant_id', tenantId)
+          aRecBaixa.set('acao', 'ALERTA_CNPJ_SITUACAO_NAO_ATIVA')
+          aRecBaixa.set('entidade_tipo', 'empresas')
+          aRecBaixa.set('entidade_id', empAlvo.id)
+          aRecBaixa.set(
+            'detalhes',
+            JSON.stringify({
+              comando_id: cmd.id,
+              cnpj: cnpjRes,
+              situacao_cadastral: situacaoNormalizada,
+              mensagem:
+                'CNPJ ' +
+                cnpjRes +
+                ' consultado pela ELLIZA está com situação "' +
+                situacaoNormalizada +
+                '" — requer atenção imediata na ficha da empresa.',
+            }),
+          )
+          app.save(aRecBaixa)
+        } catch (_) {}
+      }
+    }
+
+    try {
+      var aColCnpjOk = app.findCollectionByNameOrId('audit_log')
+      var aRecCnpjOk = new Record(aColCnpjOk)
+      aRecCnpjOk.set('tenant_id', tenantId)
+      aRecCnpjOk.set('acao', 'CONSULTAR_CNPJ_CONCLUIDO_ELLIZA_DESKTOP')
+      aRecCnpjOk.set('entidade_tipo', 'elliza_comandos')
+      aRecCnpjOk.set('entidade_id', cmd.id)
+      aRecCnpjOk.set(
+        'detalhes',
+        JSON.stringify({
+          nonce: cmd.getString('nonce'),
+          cnpj: cnpjRes,
+          situacao_cadastral: situacaoCad,
+          empresa_id: empAlvo ? empAlvo.id : null,
+          resumo_aplicado: resumoCadastralAplicado,
+          agente: agentIdent,
+        }),
+      )
+      app.save(aRecCnpjOk)
+    } catch (_) {}
+  }
+
+  // FASE 1 - certidões: validação dura do PDF real + situação, arquivamento no GED (dedup SHA-256) e registro em elliza_certidoes
+  var certidaoId = null
+  var certidaoDeduplicada = false
+  if (isFase1Certidao) {
+    var dadosCert = resultado && typeof resultado === 'object' ? resultado : {}
+    var situacaoCert = String(dadosCert.situacao || '').trim()
+    var situacoesValidasCert = {
+      negativa: true,
+      positiva: true,
+      positiva_com_efeitos: true,
+      // sinônimos aceitos, normalizados
+      'positiva com efeitos': true,
+      positiva_com_efeito: true,
+    }
+    if (situacoesValidasCert['positiva com efeitos'] && situacaoCert === 'positiva com efeitos')
+      situacaoCert = 'positiva_com_efeitos'
+    if (situacaoCert === 'positiva_com_efeito') situacaoCert = 'positiva_com_efeitos'
+
+    var pdfUrl = String(dadosCert.pdf_url || '').trim()
+    var pdfSha = String(dadosCert.pdf_sha256 || dadosCert.hash_sha256 || '').trim()
+    var docIdCert = String(dadosCert.documento_id || payloadCmd.documento_id || '').trim()
+
+    var errosF1Cert = []
+    if (!situacoesValidasCert[situacaoCert.toLowerCase()])
+      errosF1Cert.push('situacao (negativa | positiva | positiva_com_efeitos)')
+    if (!pdfUrl && !docIdCert) errosF1Cert.push('pdf_url + pdf_sha256 ou documento_id (PDF real)')
+    if (pdfUrl && pdfUrl.indexOf('http') !== 0)
+      errosF1Cert.push('pdf_url deve ser URL http(s) válida')
+    if (pdfUrl && !pdfSha) errosF1Cert.push('pdf_sha256 (hash do PDF real)')
+
+    if (errosF1Cert.length > 0) {
+      var motivoCertInvalida =
+        'Validação dura falhou para ' +
+        tipoComando +
+        '. Evidência de certidão ausente ou inválida: ' +
+        errosF1Cert.join(', ') +
+        '.'
+      return fase1ParadaHonesta('EVIDENCIA_PDF_AUSENTE', motivoCertInvalida, {
+        campos_faltantes: errosF1Cert,
+      })
+    }
+
+    // Resolver empresa (comando ou CNPJ informado na conclusão)
+    var empAlvoCert = null
+    var cnpjCert = String(dadosCert.cnpj || payloadCmd.cnpj || '').replace(/\D/g, '')
+    try {
+      if (empresaId) empAlvoCert = app.findRecordById('empresas', empresaId)
+    } catch (_) {}
+    if (!empAlvoCert && cnpjCert) {
+      try {
+        var empMatchCert = app.findRecordsByFilter(
+          'empresas',
+          "tenant_id = '" + tenantId + "' && cnpj = '" + cnpjCert + "'",
+          '',
+          1,
+          0,
+        )
+        if (empMatchCert && empMatchCert.length > 0) empAlvoCert = empMatchCert[0]
+      } catch (_) {}
+    }
+
+    // Arquivar PDF no GED (documentos) com dedup por hash SHA-256 — mesma lógica do /upload-documento (migration 0122)
+    var docGedId = docIdCert
+    if (pdfUrl && pdfSha) {
+      var dedup = null
+      try {
+        var dedupFilter =
+          "tenant_id = '" +
+          tenantId +
+          "' && hash_sha256 = '" +
+          pdfSha +
+          "'" +
+          (empAlvoCert ? " && empresa_id = '" + empAlvoCert.id + "'" : '')
+        dedup = app.findRecordsByFilter('documentos', dedupFilter, '', 1, 0)
+      } catch (_) {}
+
+      if (dedup && dedup.length > 0) {
+        docGedId = dedup[0].id
+        certidaoDeduplicada = true
+      } else {
+        var docsColF1 = app.findCollectionByNameOrId('documentos')
+        var docF1Rec = new Record(docsColF1)
+        docF1Rec.set('tenant_id', tenantId)
+        if (empAlvoCert) docF1Rec.set('empresa_id', empAlvoCert.id)
+        var nomeArquivoCert = String(
+          dadosCert.nome_arquivo ||
+            tipoComando + '_' + (cnpjCert || empresaId) + '_' + nowIso.slice(0, 10) + '.pdf',
+        ).trim()
+        docF1Rec.set('nome_arquivo', nomeArquivoCert)
+        docF1Rec.set('tipo', 'outros')
+        docF1Rec.set('status', 'processado')
+        docF1Rec.set('hash_sha256', pdfSha)
+        docF1Rec.set('origem_documento', 'sistema')
+        docF1Rec.set(
+          'observacoes',
+          'Certidão ' + tipoComando + ' obtida via ELLIZA desktop (Fase 1). Fonte: ' + pdfUrl,
+        )
+        docF1Rec.set('metadados_json', {
+          comando_id: cmd.id,
+          nonce: cmd.getString('nonce'),
+          tipo_certidao: tipoComando,
+          pdf_url: pdfUrl,
+          pdf_sha256: pdfSha,
+          arquivado_em: nowIso,
+          agente: agentIdent,
+        })
+        app.save(docF1Rec)
+        docGedId = docF1Rec.id
+      }
+    }
+
+    // Registro da certidão em elliza_certidoes (dedup por comando: 1 certidão por comando)
+    var certColF1 = app.findCollectionByNameOrId('elliza_certidoes')
+    var certExistente = null
+    try {
+      var certEx = app.findRecordsByFilter(
+        'elliza_certidoes',
+        "tenant_id = '" + tenantId + "' && comando_id = '" + cmd.id + "'",
+        '',
+        1,
+        0,
+      )
+      if (certEx && certEx.length > 0) certExistente = certEx[0]
+    } catch (_) {}
+
+    var certRec = certExistente || new Record(certColF1)
+    certRec.set('tenant_id', tenantId)
+    if (empAlvoCert) certRec.set('empresa_id', empAlvoCert.id)
+    certRec.set('comando_id', cmd.id)
+    certRec.set('tipo_certidao', tipoComando)
+    if (String(payloadCmd.uf || '').trim()) certRec.set('uf', String(payloadCmd.uf).trim())
+    else if (String(dadosCert.uf || '').trim()) certRec.set('uf', String(dadosCert.uf).trim())
+    certRec.set('situacao', situacaoCert)
+    if (dadosCert.data_emissao) certRec.set('data_emissao', String(dadosCert.data_emissao).trim())
+    if (dadosCert.data_validade)
+      certRec.set('data_validade', String(dadosCert.data_validade).trim())
+    if (pdfUrl) certRec.set('pdf_url', pdfUrl)
+    if (pdfSha) certRec.set('pdf_sha256', pdfSha)
+    if (docGedId) certRec.set('documento_id', docGedId)
+    certRec.set('deduplicado', certidaoDeduplicada)
+    if (dadosCert.emitido_por) certRec.set('emitido_por', String(dadosCert.emitido_por).trim())
+    certRec.set('metadados_json', {
+      comando_id: cmd.id,
+      nonce: cmd.getString('nonce'),
+      agente: agentIdent,
+      registrado_em: nowIso,
+      evidencias: evidenciasArray,
+    })
+    app.save(certRec)
+    certidaoId = certRec.id
+
+    try {
+      var aColCertOk = app.findCollectionByNameOrId('audit_log')
+      var aRecCertOk = new Record(aColCertOk)
+      aRecCertOk.set('tenant_id', tenantId)
+      aRecCertOk.set('acao', 'CERTIDAO_FASE1_CONCLUIDA_ELLIZA_DESKTOP')
+      aRecCertOk.set('entidade_tipo', 'elliza_certidoes')
+      aRecCertOk.set('entidade_id', certRec.id)
+      aRecCertOk.set(
+        'detalhes',
+        JSON.stringify({
+          nonce: cmd.getString('nonce'),
+          tipo: tipoComando,
+          situacao: situacaoCert,
+          documento_id: docGedId,
+          deduplicado: certidaoDeduplicada,
+          empresa_id: empAlvoCert ? empAlvoCert.id : null,
+          agente: agentIdent,
+        }),
+      )
+      app.save(aRecCertOk)
+    } catch (_) {}
+  }
+
   cmd.set('status', 'concluido')
   cmd.set('resultado', resultado)
   cmd.set('evidencias', evidenciasArray)
