@@ -555,6 +555,80 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
     empresaId = String(payloadCmd.empresa_id).trim()
   }
 
+  // processo_pendencias exige processo_id (relation obrigatória). Segue o padrão de
+  // elliza_rotinas_247.js: localizar processo operacional do tenant (e empresa de
+  // fallback) antes de gravar qualquer pendência — sem isso a gravação estoura 500.
+  var procIdParaPendencia = ''
+  try {
+    var procsPend = app.findRecordsByFilter(
+      'processos_operacionais',
+      empresaId
+        ? "tenant_id = '" + tenantId + "' && (empresa_id = '" + empresaId + "' || empresa_id = '')"
+        : "tenant_id = '" + tenantId + "'",
+      '-created',
+      1,
+      0,
+    )
+    if (procsPend && procsPend.length > 0) {
+      procIdParaPendencia = procsPend[0].id
+      if (!empresaId && procsPend[0].getString('empresa_id')) {
+        empresaId = procsPend[0].getString('empresa_id')
+      }
+    }
+  } catch (_) {}
+  if (!procIdParaPendencia) {
+    try {
+      var procsPendAny = app.findRecordsByFilter(
+        'processos_operacionais',
+        "tenant_id = '" + tenantId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (procsPendAny && procsPendAny.length > 0) procIdParaPendencia = procsPendAny[0].id
+    } catch (_) {}
+  }
+  if (!empresaId) {
+    try {
+      var empFallbackPend = app.findRecordsByFilter(
+        'empresas',
+        "tenant_id = '" + tenantId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (empFallbackPend && empFallbackPend.length > 0) empresaId = empFallbackPend[0].id
+    } catch (_) {}
+  }
+  var registrarPendenciaComando = function (tituloPend, porQueParou, oQueFoi, oQueFalta, decisao) {
+    // Retorna id da pendência ou null (erro de gravação não propaga: 422 garantido, nunca 500)
+    if (!procIdParaPendencia || !empresaId) {
+      console.error(
+        '[elliza-comandos] Pendência não gravada: processo_id/empresa_id indisponíveis para tenant ' +
+          tenantId,
+      )
+      return null
+    }
+    try {
+      var pendColTmp = app.findCollectionByNameOrId('processo_pendencias')
+      var pendRecTmp = new Record(pendColTmp)
+      pendRecTmp.set('tenant_id', tenantId)
+      pendRecTmp.set('processo_id', procIdParaPendencia)
+      pendRecTmp.set('empresa_id', empresaId)
+      pendRecTmp.set('titulo', tituloPend)
+      pendRecTmp.set('por_que_parou', porQueParou)
+      pendRecTmp.set('o_que_foi_executado', oQueFoi)
+      pendRecTmp.set('o_que_falta', oQueFalta)
+      pendRecTmp.set('decisao_necessaria', decisao)
+      pendRecTmp.set('status', 'aberta')
+      app.save(pendRecTmp)
+      return pendRecTmp.id
+    } catch (errPend) {
+      console.error('[elliza-comandos] Erro ao gravar pendência:', errPend)
+      return null
+    }
+  }
+
   // REGRA DE OURO 1: Evidência real obrigatória para concluir
   var evidenciasArray = []
   if (Array.isArray(evidencias)) {
@@ -572,36 +646,23 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
     var motivoSemEvidencia =
       'Regra de Ouro violada: tentativa de concluir comando sem evidência auditável real anexada.'
 
-    var pendCol = app.findCollectionByNameOrId('processo_pendencias')
-    var pendRec = new Record(pendCol)
-    pendRec.set('tenant_id', tenantId)
-    if (empresaId) pendRec.set('empresa_id', empresaId)
-    pendRec.set('titulo', 'Comando ' + tipoComando + ' finalizado sem evidência (Regra de Ouro)')
-    pendRec.set('por_que_parou', motivoSemEvidencia)
-    pendRec.set(
-      'o_que_foi_executado',
+    var pendIdSemEv = registrarPendenciaComando(
+      'Comando ' + tipoComando + ' finalizado sem evidência (Regra de Ouro)',
+      motivoSemEvidencia,
       'ELLIZA desktop tentou finalizar o comando ' +
         cmd.id +
         ' (' +
         tipoComando +
         ') sem submeter a lista de IDs de evidência.',
-    )
-    pendRec.set(
-      'o_que_falta',
       'Anexar evidência real (screenshot, protocolo ou hash da execução) e reenviar conclusão.',
-    )
-    pendRec.set(
-      'decisao_necessaria',
       'Verificar logs da ELLIZA desktop e anexar evidência do processo.',
     )
-    pendRec.set('status', 'aberta')
-    app.save(pendRec)
 
     cmd.set('status', 'erro')
     cmd.set('erro', {
       codigo: 'SEM_EVIDENCIA',
       motivo: motivoSemEvidencia,
-      referencia_pendencia: pendRec.id,
+      referencia_pendencia: pendIdSemEv || '',
       timestamp: nowIso,
     })
     app.save(cmd)
@@ -618,7 +679,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         JSON.stringify({
           nonce: cmd.getString('nonce'),
           motivo: motivoSemEvidencia,
-          pendencia_id: pendRec.id,
+          pendencia_id: pendIdSemEv,
         }),
       )
       app.save(aRec)
@@ -630,7 +691,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
       parada_honesta: true,
       erro: motivoSemEvidencia,
       codigo_erro: 'SEM_EVIDENCIA',
-      pendencia_id: pendRec.id,
+      pendencia_id: pendIdSemEv,
       comando_id: cmd.id,
       nonce: cmd.getString('nonce'),
     })
@@ -670,31 +731,15 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         errosValidacaoPesquisa.join(', ') +
         '.'
 
-      var pendColPesq = app.findCollectionByNameOrId('processo_pendencias')
-      var pendRecPesq = new Record(pendColPesq)
-      pendRecPesq.set('tenant_id', tenantId)
-      if (empresaId) pendRecPesq.set('empresa_id', empresaId)
-      pendRecPesq.set(
-        'titulo',
+      var pendIdPesq = registrarPendenciaComando(
         'Pesquisa Tributária sem relatório técnico consistente (Regra de Ouro)',
-      )
-      pendRecPesq.set('por_que_parou', motivoPesquisaInvalida)
-      pendRecPesq.set(
-        'o_que_foi_executado',
+        motivoPesquisaInvalida,
         'ELLIZA desktop tentou finalizar o comando de pesquisa tributária ' +
           cmd.id +
           ', mas não forneceu relatório técnico fundamentado.',
-      )
-      pendRecPesq.set(
-        'o_que_falta',
         'ELLIZA desktop deve executar a pesquisa normativa completa e retornar o relatório técnico fundamentado (Markdown) com fontes.',
-      )
-      pendRecPesq.set(
-        'decisao_necessaria',
         'Verificar conectividade com fontes da RFB/SEFAZ na ELLIZA desktop e reenviar conclusão com relatório real.',
       )
-      pendRecPesq.set('status', 'aberta')
-      app.save(pendRecPesq)
 
       cmd.set('status', 'erro')
       cmd.set('resultado', resultado)
@@ -703,7 +748,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         codigo: 'RELATORIO_TECNICO_INSUFICIENTE',
         motivo: motivoPesquisaInvalida,
         erros_validacao: errosValidacaoPesquisa,
-        referencia_pendencia: pendRecPesq.id,
+        referencia_pendencia: pendIdPesq || '',
         timestamp: nowIso,
       })
       app.save(cmd)
@@ -720,7 +765,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
           JSON.stringify({
             nonce: cmd.getString('nonce'),
             erros: errosValidacaoPesquisa,
-            pendencia_id: pendRecPesq.id,
+            pendencia_id: pendIdPesq,
           }),
         )
         app.save(aRecPesqErr)
@@ -733,7 +778,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         erro: motivoPesquisaInvalida,
         codigo_erro: 'RELATORIO_TECNICO_INSUFICIENTE',
         erros_validacao: errosValidacaoPesquisa,
-        pendencia_id: pendRecPesq.id,
+        pendencia_id: pendIdPesq,
         comando_id: cmd.id,
         nonce: cmd.getString('nonce'),
       })
@@ -815,28 +860,15 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         camposFaltantes.join(', ') +
         '.'
 
-      var pendColDura = app.findCollectionByNameOrId('processo_pendencias')
-      var pendRecDura = new Record(pendColDura)
-      pendRecDura.set('tenant_id', tenantId)
-      if (empresaId) pendRecDura.set('empresa_id', empresaId)
-      pendRecDura.set('titulo', 'Inconsistência na extração fiscal (Scanner ELLIZA Desktop)')
-      pendRecDura.set('por_que_parou', motivoDivergencia)
-      pendRecDura.set(
-        'o_que_foi_executado',
+      var pendIdDura = registrarPendenciaComando(
+        'Inconsistência na extração fiscal (Scanner ELLIZA Desktop)',
+        motivoDivergencia,
         'ELLIZA desktop executou OCR/Scanner local sobre o documento ' +
           (documentoId || 'não especificado') +
           ', mas os dados estruturados retornados violam a validação dura.',
-      )
-      pendRecDura.set(
-        'o_que_falta',
         'Preenchimento ou conferência manual dos campos: ' + camposFaltantes.join(', ') + '.',
-      )
-      pendRecDura.set(
-        'decisao_necessaria',
         'Conferir documento original no GED e complementar dados fiscais faltantes.',
       )
-      pendRecDura.set('status', 'aberta')
-      app.save(pendRecDura)
 
       cmd.set('status', 'erro')
       cmd.set('resultado', resultado)
@@ -845,7 +877,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         codigo: 'DADOS_FISCAIS_INCOMPLETOS',
         motivo: motivoDivergencia,
         campos_faltantes: camposFaltantes,
-        referencia_pendencia: pendRecDura.id,
+        referencia_pendencia: pendIdDura || '',
         timestamp: nowIso,
       })
       app.save(cmd)
@@ -862,7 +894,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
           JSON.stringify({
             nonce: cmd.getString('nonce'),
             campos_faltantes: camposFaltantes,
-            pendencia_id: pendRecDura.id,
+            pendencia_id: pendIdDura,
           }),
         )
         app.save(aRec2)
@@ -875,7 +907,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         erro: motivoDivergencia,
         codigo_erro: 'DADOS_FISCAIS_INCOMPLETOS',
         campos_faltantes: camposFaltantes,
-        pendencia_id: pendRecDura.id,
+        pendencia_id: pendIdDura,
         comando_id: cmd.id,
         nonce: cmd.getString('nonce'),
       })
@@ -988,17 +1020,9 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
 
   // Parada honesta comum da Fase 1: pendência estruturada + comando em erro + auditoria + HTTP 422
   var fase1ParadaHonesta = function (codigoErro, motivoErro, detalhesExtra) {
-    var pendColF1 = app.findCollectionByNameOrId('processo_pendencias')
-    var pendRecF1 = new Record(pendColF1)
-    pendRecF1.set('tenant_id', tenantId)
-    if (empresaId) pendRecF1.set('empresa_id', empresaId)
-    pendRecF1.set(
-      'titulo',
+    var pendIdF1 = registrarPendenciaComando(
       'Fase 1 ELLIZA (' + tipoComando + ') rejeitada: evidência mínima ausente',
-    )
-    pendRecF1.set('por_que_parou', motivoErro)
-    pendRecF1.set(
-      'o_que_foi_executado',
+      motivoErro,
       'ELLIZA desktop (' +
         agentIdent +
         ') tentou concluir o comando ' +
@@ -1006,19 +1030,11 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
         ' (' +
         tipoComando +
         '), mas o resultado não contém a evidência mínima exigida.',
-    )
-    pendRecF1.set(
-      'o_que_falta',
       isFase1Cnpj
         ? 'Reenviar conclusão com resumo_cadastral estruturado (cnpj 14 dígitos, razao_social, situacao_cadastral; idealmente endereço e CNAE).'
         : 'Reenviar conclusão com PDF real (pdf_url http(s) + pdf_sha256, ou documento_id do GED) e situacao (negativa | positiva | positiva_com_efeitos).',
-    )
-    pendRecF1.set(
-      'decisao_necessaria',
       'Conferir execução na ELLIZA desktop e reemitir consulta/certidão com evidência real nos portais oficiais.',
     )
-    pendRecF1.set('status', 'aberta')
-    app.save(pendRecF1)
 
     cmd.set('status', 'erro')
     cmd.set('resultado', resultado)
@@ -1026,7 +1042,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
     var erroF1 = {
       codigo: codigoErro,
       motivo: motivoErro,
-      referencia_pendencia: pendRecF1.id,
+      referencia_pendencia: pendIdF1 || '',
       timestamp: nowIso,
     }
     if (detalhesExtra) erroF1.detalhes_extra = detalhesExtra
@@ -1047,7 +1063,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
           tipo: tipoComando,
           codigo_erro: codigoErro,
           motivo: motivoErro,
-          pendencia_id: pendRecF1.id,
+          pendencia_id: pendIdF1,
           agente: agentIdent,
         }),
       )
@@ -1061,7 +1077,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/concluir', function (e) {
       erro: motivoErro,
       codigo_erro: codigoErro,
       detalhes: detalhesExtra || null,
-      pendencia_id: pendRecF1.id,
+      pendencia_id: pendIdF1,
       comando_id: cmd.id,
       nonce: cmd.getString('nonce'),
     })
@@ -1522,23 +1538,81 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/erro', function (e) {
   var empresaId = cmd.getString('empresa_id')
   var nowIso = new Date().toISOString()
 
-  var pendCol = app.findCollectionByNameOrId('processo_pendencias')
-  var pendRec = new Record(pendCol)
-  pendRec.set('tenant_id', tenantId)
-  if (empresaId) pendRec.set('empresa_id', empresaId)
-  pendRec.set('titulo', 'Erro no comando ' + tipoComando + ': ' + codigoErro)
-  pendRec.set('por_que_parou', motivo)
-  pendRec.set('o_que_foi_executado', oQueFoiExecutado)
-  pendRec.set('o_que_falta', oQueFalta)
-  pendRec.set('decisao_necessaria', decisaoNecessaria)
-  pendRec.set('status', 'aberta')
-  app.save(pendRec)
+  // processo_pendencias exige processo_id (relation obrigatória) — padrão elliza_rotinas_247.js
+  var procIdPendErro = ''
+  try {
+    var procsErro = app.findRecordsByFilter(
+      'processos_operacionais',
+      empresaId
+        ? "tenant_id = '" + tenantId + "' && (empresa_id = '" + empresaId + "' || empresa_id = '')"
+        : "tenant_id = '" + tenantId + "'",
+      '-created',
+      1,
+      0,
+    )
+    if (procsErro && procsErro.length > 0) {
+      procIdPendErro = procsErro[0].id
+      if (!empresaId && procsErro[0].getString('empresa_id')) {
+        empresaId = procsErro[0].getString('empresa_id')
+      }
+    }
+  } catch (_) {}
+  if (!procIdPendErro) {
+    try {
+      var procsErroAny = app.findRecordsByFilter(
+        'processos_operacionais',
+        "tenant_id = '" + tenantId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (procsErroAny && procsErroAny.length > 0) procIdPendErro = procsErroAny[0].id
+    } catch (_) {}
+  }
+  if (!empresaId) {
+    try {
+      var empErroFb = app.findRecordsByFilter(
+        'empresas',
+        "tenant_id = '" + tenantId + "'",
+        '-created',
+        1,
+        0,
+      )
+      if (empErroFb && empErroFb.length > 0) empresaId = empErroFb[0].id
+    } catch (_) {}
+  }
+
+  var pendIdErro = null
+  if (procIdPendErro && empresaId) {
+    try {
+      var pendCol = app.findCollectionByNameOrId('processo_pendencias')
+      var pendRec = new Record(pendCol)
+      pendRec.set('tenant_id', tenantId)
+      pendRec.set('processo_id', procIdPendErro)
+      pendRec.set('empresa_id', empresaId)
+      pendRec.set('titulo', 'Erro no comando ' + tipoComando + ': ' + codigoErro)
+      pendRec.set('por_que_parou', motivo)
+      pendRec.set('o_que_foi_executado', oQueFoiExecutado)
+      pendRec.set('o_que_falta', oQueFalta)
+      pendRec.set('decisao_necessaria', decisaoNecessaria)
+      pendRec.set('status', 'aberta')
+      app.save(pendRec)
+      pendIdErro = pendRec.id
+    } catch (errPendErro) {
+      console.error('[elliza-comandos] Erro ao gravar pendência (/erro):', errPendErro)
+    }
+  } else {
+    console.error(
+      '[elliza-comandos] Pendência não gravada (/erro): processo_id/empresa_id indisponíveis para tenant ' +
+        tenantId,
+    )
+  }
 
   cmd.set('status', 'erro')
   cmd.set('erro', {
     codigo: codigoErro,
     motivo: motivo,
-    referencia_pendencia: pendRec.id,
+    referencia_pendencia: pendIdErro || '',
     detalhes: detalhes,
     timestamp: nowIso,
   })
@@ -1558,7 +1632,7 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/erro', function (e) {
         tipo: tipoComando,
         codigo: codigoErro,
         motivo: motivo,
-        pendencia_id: pendRec.id,
+        pendencia_id: pendIdErro,
         agente: agentIdent,
       }),
     )
@@ -1574,6 +1648,6 @@ routerAdd('POST', '/backend/v1/elliza-agente/comandos/erro', function (e) {
     nonce: cmd.getString('nonce'),
     codigo_erro: codigoErro,
     motivo: motivo,
-    pendencia_id: pendRec.id,
+    pendencia_id: pendIdErro,
   })
 })

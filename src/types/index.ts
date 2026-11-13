@@ -108,6 +108,30 @@ export interface Empresa extends RecordModel {
   anexo_simples?: string
   tipo_de_nota?: string
   servicos_config_json?: any
+  // Fase 1 ELLIZA (migration 0152)
+  situacao_cadastral_rfb?: string
+  situacao_cadastral_atualizada_em?: string
+}
+
+/** Certidão da Fase 1 ELLIZA (coleção elliza_certidoes, migration 0152). */
+export interface CertidaoElliza extends RecordModel {
+  tenant_id: string
+  empresa_id: string
+  comando_id?: string
+  tipo: 'cnd_federal' | 'cnd_estadual' | 'cnd_municipal' | 'cndt' | 'comprovante_cnpj'
+  situacao: 'negativa' | 'positiva' | 'positiva_com_efeitos'
+  emissao?: string
+  validade?: string
+  pdf_url?: string
+  pdf_sha256?: string
+  documento_id?: string
+  uf?: string
+  protocolo?: string
+  created: string
+  updated: string
+  expand?: {
+    documento_id?: RecordModel & { arquivo?: string; metadados_json?: Record<string, unknown> }
+  }
 }
 
 export type ExclusaoBackupStatus = 'retido' | 'purgado' | 'restaurado'

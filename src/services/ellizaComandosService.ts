@@ -9,6 +9,13 @@ export type EllizaComandoTipo =
   | 'consultar_api'
   | 'sync_ged'
   | 'pesquisa_tributaria'
+  // Fase 1 ELLIZA (migration 0152)
+  | 'consultar_cnpj'
+  | 'cnd_federal'
+  | 'cnd_estadual'
+  | 'cnd_municipal'
+  | 'cndt'
+  | 'comprovante_cnpj'
 
 export type EllizaComandoStatus =
   | 'pendente'
@@ -141,6 +148,53 @@ export const ellizaComandosService = {
         acao: 'ocr_classificacao_fiscal',
         instrucao:
           'Executar Scanner OCR e extração fiscal estruturada no cliente ELLIZA desktop local.',
+      },
+    })
+  },
+
+  /** Fase 1 — enfileira consulta de situação cadastral do CNPJ via ELLIZA desktop. */
+  async dispararConsultarCnpj(params: {
+    tenant_id: string
+    empresa_id: string
+    cnpj?: string
+    prioridade?: number
+  }): Promise<EllizaComando> {
+    return this.criarComando({
+      tenant_id: params.tenant_id,
+      empresa_id: params.empresa_id,
+      tipo: 'consultar_cnpj',
+      prioridade: params.prioridade || 3,
+      payload: {
+        empresa_id: params.empresa_id,
+        cnpj: params.cnpj ? params.cnpj.replace(/\D/g, '') : undefined,
+        acao: 'consulta_situacao_cadastral_rfb',
+        instrucao:
+          'Consultar o CNPJ na Receita Federal (cartão CNPJ) e concluir com resumo_cadastral estruturado (cnpj 14 dígitos, razao_social, situacao_cadastral, endereço e CNAE). Sem evidência real não há conclusão (parada honesta, HTTP 422).',
+      },
+    })
+  },
+
+  /** Fase 1 — enfileira emissão de certidão (CND federal/estadual/municipal, CNDT ou comprovante CNPJ). */
+  async dispararCertidao(params: {
+    tenant_id: string
+    empresa_id: string
+    tipo: 'cnd_federal' | 'cnd_estadual' | 'cnd_municipal' | 'cndt' | 'comprovante_cnpj'
+    cnpj?: string
+    uf?: string
+    prioridade?: number
+  }): Promise<EllizaComando> {
+    return this.criarComando({
+      tenant_id: params.tenant_id,
+      empresa_id: params.empresa_id,
+      tipo: params.tipo,
+      prioridade: params.prioridade || 3,
+      payload: {
+        empresa_id: params.empresa_id,
+        cnpj: params.cnpj ? params.cnpj.replace(/\D/g, '') : undefined,
+        uf: params.uf,
+        acao: 'emissao_certidao',
+        instrucao:
+          'Emitir a certidão no portal oficial (credenciais apenas na ELLIZA desktop) e concluir com PDF real (pdf_url + pdf_sha256, ou documento_id do GED) e situacao (negativa | positiva | positiva_com_efeitos).',
       },
     })
   },
