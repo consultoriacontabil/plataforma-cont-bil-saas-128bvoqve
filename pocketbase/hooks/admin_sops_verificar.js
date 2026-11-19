@@ -15,8 +15,11 @@ routerAdd('GET', '/backend/v1/admin/sops/verificar', (e) => {
     pops_numbra: nb.length,
     lista: nb.map(function (r) {
       let etapas = 0
+      let tipoCampo = 'desconhecido'
       try {
-        const j = r.get('etapas_template_json')
+        const bruto = r.getString('etapas_template_json')
+        tipoCampo = typeof bruto
+        const j = JSON.parse(bruto)
         etapas = Array.isArray(j) ? j.length : 0
       } catch (_) {}
       return {
@@ -26,6 +29,7 @@ routerAdd('GET', '/backend/v1/admin/sops/verificar', (e) => {
         nivel: r.getString('nivel_autonomia'),
         aprovacao: r.getBool('requer_aprovacao'),
         etapas: etapas,
+        tipo_campo: tipoCampo,
         ativo: r.getBool('ativo'),
       }
     }),
