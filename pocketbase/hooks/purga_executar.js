@@ -7,15 +7,19 @@
  * Body: {
  *   confirmar: true,              // ausente/false => DRY-RUN (só conta, não apaga)
  *   backup_confirmado: true,      // obrigatório para confirmar
- *   backup_ref: "..."            // hash/identificador do backup verificado
+ *   backup_ref: "...",            // hash/identificador do backup verificado
+ *   ambiente: "production",       // default: preview
+ *   producao_autorizada: true     // obrigatório quando ambiente = production
  * }
  *
  * Regras:
  *  - DRY-RUN é o padrão: devolve contagem por coleção e o plano, sem escrever.
  *  - Exigir backup_confirmado + backup_ref para executar (sem backup não apaga).
+ *  - Produção exige, além do token, producao_autorizada=true no corpo.
  *  - PRESERVA: certificados_digitais (A1), credenciais do cofre desses
- *    certificados e do Integra Contador (SERPRO), o usuário dono e uma única
- *    tenant limpa com o dono como administrador.
+ *    certificados e do Integra Contador (SERPRO), o usuário dono, uma única
+ *    tenant limpa com o dono como administrador e os parametros_normativos
+ *    (decisão do dono: tabela de norma, não dado de cliente).
  *  - Idempotente: rodar de novo chega ao mesmo estado (contagens antes = 0).
  *  - Escrita por SQL direto: não dispara hooks de aplicação (sem efeitos
  *    colaterais como e-mails/crons); as travas de FK/cascade continuam ativas.
@@ -29,12 +33,7 @@ routerAdd('POST', '/backend/v1/purga/executar', (e) => {
     recebido =
       (info.headers && (info.headers['x_purga_token'] || info.headers['x-purga-token'])) || ''
     corpo = info.body || {}
-
-  // Gate do backup: a referência tem de existir no log de backups ANTES de apagar.
-=======
-  }
-
-  // Gate do backup: a referência tem de existir no log de backups ANTES de apagar. catch (_) {}
+  } catch (_) {}
   if (!esperado || recebido !== esperado) {
     return e.json(401, { erro: 'token inválido' })
   }
@@ -52,10 +51,10 @@ routerAdd('POST', '/backend/v1/purga/executar', (e) => {
       erro: 'purga bloqueada: informe backup_confirmado=true e backup_ref (hash do backup verificado)',
     })
   }
-  // Bloqueio de ambiente: produção só executa com autorização explícita no corpo
-  // (producao_autorizada === true), além do token. Sem essa flag, a rota recusa
-  // qualquer execução em produção. Autorizado pelo dono em 24/11/2026 para a
-  // purga única desta data; a rota é removida do código logo depois de usada.
+
+  // Bloqueio de ambiente: produção só executa com autorização explícita no corpo.
+  // Autorizado pelo dono em 24/11/2026 para esta purga; a rota é removida do
+  // código logo depois de usada.
   if (confirmar && env === 'production' && corpo.producao_autorizada !== true) {
     return e.json(409, {
       erro:
@@ -63,7 +62,6 @@ routerAdd('POST', '/backend/v1/purga/executar', (e) => {
         'além de backup_confirmado=true e backup_ref',
     })
   }
-=======
 
   // Gate do backup: a referência tem de existir no log de backups ANTES de apagar.
   // Sem registro confirmado, nada é excluído.
@@ -99,7 +97,6 @@ routerAdd('POST', '/backend/v1/purga/executar', (e) => {
     parametros_normativos: true,
     audit_log: false,
   }
-  var ESCOPOS_COFRE = ['certificados_digitais', 'integra_contador_config']
 
   function tabela(nome) {
     if (!/^[a-z0-9_]+$/.test(nome)) throw new Error('nome de coleção inválida: ' + nome)
