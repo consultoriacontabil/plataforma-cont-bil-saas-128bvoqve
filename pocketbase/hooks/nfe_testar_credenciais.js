@@ -165,7 +165,7 @@ routerAdd(
           })
           let retorno = {}
           try {
-            retorno = JSON.parse(res.body ? String(res.body) : '{}')
+            retorno = res.json || {}
           } catch (_) {}
           cStatReal = String(retorno.cStat || '')
           xMotivoReal = String(retorno.xMotivo || '')

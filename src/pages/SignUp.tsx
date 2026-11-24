@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   Mail,
   Lock,
@@ -19,7 +19,6 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function SignUp() {
   const { signUp } = useAuth()
-  const navigate = useNavigate()
   const { toast } = useToast()
 
   const [nome, setNome] = useState('')
@@ -55,13 +54,15 @@ export default function SignUp() {
       })
 
       toast({
-        title: 'Bem-vindo(a) à Rumo!',
-        description: 'Seu escritório contábil foi criado com sucesso. Vamos ao onboarding!',
+        title: 'Cadastro indisponível',
+        description: 'O acesso é feito somente por convite.',
       })
-      navigate('/dashboard', { replace: true, state: { showOnboarding: true } })
     } catch (err: unknown) {
       console.error('Sign up error:', err)
-      const msg = err instanceof Error ? err.message : 'Falha ao criar conta. Tente novamente.'
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Cadastro indisponível: o acesso é feito somente por convite de um administrador.'
       setErrorMsg(msg)
     } finally {
       setLoading(false)
@@ -132,11 +133,25 @@ export default function SignUp() {
         <div className="w-full max-w-md rounded-2xl border border-[#E2E8F0] bg-white p-8 shadow-xl">
           <div className="mb-6">
             <h3 className="text-2xl font-bold tracking-tight text-[#1A2333]">
-              Criar seu escritório
+              Acesso somente por convite
             </h3>
             <p className="mt-1 text-sm text-[#64748B]">
-              Cadastre seu usuário administrador e configure sua organização.
+              O cadastro aberto foi desativado por segurança: criar um escritório exige convite de
+              um administrador. Se você recebeu um convite, use o e-mail convidado para se
+              cadastrar.
             </p>
+            <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              <p className="font-semibold">Por que mudou</p>
+              <p className="mt-1">
+                Antes, qualquer visitante que abrisse esta página criava um escritório e virava
+                administrador dele. Um escritório contábil não pode ser criado por quem não foi
+                autorizado — os dados de clientes ficariam expostos.
+              </p>
+              <p className="mt-2">
+                Não tem convite? Peça ao administrador do seu escritório para convidar seu e-mail em{' '}
+                <strong>Gestão → Usuários → Convidar Usuário</strong>.
+              </p>
+            </div>
           </div>
 
           {errorMsg && (

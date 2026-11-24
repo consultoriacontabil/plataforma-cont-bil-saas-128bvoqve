@@ -281,7 +281,11 @@ export const preLancamentoService = {
       let creditoId: string | undefined
       let confianca = 50
       let historico = ''
-      let valorSugerido = 1000.0 // valor padrão estimado caso não haja extrator OCR específico
+      // ATENÇÃO: valor ESTIMADO. Não há leitura do conteúdo do documento (sem OCR nem
+      // extrator): o número abaixo vem de uma faixa por tipo de documento. É por isso que
+      // a tela mostra "VALOR ESTIMADO — não lido do documento" e exige conferência antes
+      // de aceitar. Nunca apresentar este valor como valor do documento.
+      let valorSugerido = 1000.0
 
       // Verificar mapeamento explícito por tipo de documento
       const mapTipo = mapDocs.get(tipo)

@@ -375,6 +375,11 @@ export default function PreLancamentoPage() {
             Sugestão automática de partidas dobradas a partir de documentos fiscais classificados no
             GED com anti-duplicidade e bloqueio de competências
           </p>
+          <p className="text-[11px] text-amber-700 mt-1">
+            <strong>Os valores sugeridos são ESTIMADOS:</strong> não há leitura do conteúdo do
+            documento (sem OCR/extrator). O sistema usa uma faixa de valor por tipo de documento e o
+            que você digitar. Confira o valor real antes de aceitar a sugestão.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -461,7 +466,9 @@ export default function PreLancamentoPage() {
                   currency: 'BRL',
                 })}
               </h3>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">Soma dos valores a classificar</p>
+              <p className="text-[11px] font-semibold text-amber-700 mt-0.5">
+                VALOR ESTIMADO — não lido do documento
+              </p>
             </div>
             <div className="h-11 w-11 rounded-2xl bg-sky-50 text-[#0284C7] flex items-center justify-center">
               <TrendingUp className="h-5 w-5" />

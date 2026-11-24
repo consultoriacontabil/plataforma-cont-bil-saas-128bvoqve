@@ -246,10 +246,14 @@ routerAdd(
             res.statusCode +
             ' (consulta não realizada).'
         } else {
+          // res.json é o corpo já interpretado pelo runtime ($http.send).
           try {
-            resposta = JSON.parse(res.body ? String(res.body) : '{}')
+            resposta = res.json
           } catch (eJson) {
-            erroTransporte = 'Resposta do serviço DFe não é JSON válido: ' + String(eJson)
+            resposta = null
+          }
+          if (!resposta || typeof resposta !== 'object') {
+            erroTransporte = 'O serviço DFe respondeu 200 sem JSON interpretável.'
           }
         }
       } catch (eHttp) {

@@ -148,37 +148,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await loadTenantData(authData.record.id)
   }
 
-  const signUp = async (data: {
+  /**
+   * AUTO-CADASTRO FECHADO (24/11/2026)
+   *
+   * Antes esta função criava usuário + tenant + vínculo `administrador` direto
+   * do navegador: qualquer pessoa que abrisse /signup virava administrador de
+   * um escritório novo, com acesso a dado de terceiros.
+   *
+   * Agora a entrada numa organização só acontece por convite emitido por um
+   * administrador (coleção `convites` + hook tenant_signup). O backend também
+   * está fechado: `users.createRule = null`, então a criação direta de conta
+   * pela API pública é recusada de qualquer forma.
+   */
+  const signUp = async (_data: {
     nome: string
     email: string
     pass: string
     escritorio: string
-  }) => {
-    // 1. Create user
-    const newUser = await pb.collection('users').create<User>({
-      email: data.email,
-      password: data.pass,
-      passwordConfirm: data.pass,
-      name: data.nome,
-    })
-
-    // 2. Create tenant
-    const newTenant = await pb.collection('tenants').create<Tenant>({
-      nome: data.escritorio || `${data.nome} Contabilidade`,
-      plano: 'starter',
-      ativo: true,
-    })
-
-    // 3. Link as owner/administrador
-    await pb.collection('tenant_members').create<TenantMember>({
-      user_id: newUser.id,
-      tenant_id: newTenant.id,
-      perfil: 'administrador',
-      status: 'ativo',
-    })
-
-    // 4. Auto login
-    await signIn(data.email, data.pass)
+  }): Promise<void> => {
+    throw new Error(
+      'O auto-cadastro está desativado: a entrada em um escritório só acontece por convite ' +
+        'enviado por um administrador. Peça o convite ao responsável pelo seu escritório e ' +
+        'acesse com o e-mail convidado.',
+    )
   }
 
   const createEscritorio = async (nome: string, cnpj?: string): Promise<Tenant> => {

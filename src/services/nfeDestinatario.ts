@@ -200,14 +200,20 @@ export const nfeDestinatarioService = {
   },
 
   /**
-   * Consulta pública por chave de 44 dígitos e importa para o GED
+   * Registra uma nota a partir da chave de 44 dígitos + dados do documento
+   */
+  /**
+   * Lançamento manual por chave de acesso.
+   * A chave prova CNPJ/modelo/série/número. Valor, emitente e data precisam ser
+   * informados do documento — o backend recusa (422) sem eles.
    */
   async consultarChaveManual(params: {
     tenant_id: string
     empresa_id: string
     chave_acesso: string
-    razao_social_emitente?: string
-    valor_total?: number
+    razao_social_emitente: string
+    valor_total: number
+    data_emissao: string
     valor_icms?: number
     cfop_principal?: string
     natureza_operacao?: string

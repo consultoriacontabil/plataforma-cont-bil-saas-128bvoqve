@@ -100,7 +100,7 @@ routerAdd(
           if (res.statusCode === 200) {
             let retorno = {}
             try {
-              retorno = JSON.parse(res.body ? String(res.body) : '{}')
+              retorno = res.json || {}
             } catch (_) {}
             // Só considera transmitido com protocolo real devolvido pela SEFAZ.
             if (retorno && retorno.protocolo) {

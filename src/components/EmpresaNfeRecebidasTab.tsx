@@ -132,6 +132,7 @@ export function EmpresaNfeRecebidasTab({
   const [chaveManualInput, setChaveManualInput] = useState('')
   const [razaoEmitManual, setRazaoEmitManual] = useState('')
   const [valorManual, setValorManual] = useState('')
+  const [dataEmissaoManual, setDataEmissaoManual] = useState('')
   const [importandoChaveManual, setImportandoChaveManual] = useState(false)
 
   // Carregar dados iniciais
@@ -419,25 +420,38 @@ export function EmpresaNfeRecebidasTab({
       return
     }
 
+    // A chave prova CNPJ, número e série. Ela NÃO prova valor, emitente nem data.
+    if (!razaoEmitManual.trim() || !valorManual.trim() || !dataEmissaoManual.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Dados do documento obrigatórios',
+        description:
+          'Informe emitente, valor total e data de emissão lidos do próprio documento. A chave de acesso não contém esses dados e o sistema não vai inventá-los.',
+      })
+      return
+    }
+
     setImportandoChaveManual(true)
     try {
       const res = await nfeDestinatarioService.consultarChaveManual({
         tenant_id: tenant.id,
         empresa_id: empresa.id,
         chave_acesso: chaveLimpa,
-        razao_social_emitente: razaoEmitManual.trim() || undefined,
-        valor_total: valorManual ? parseFloat(valorManual.replace(',', '.')) : undefined,
+        razao_social_emitente: razaoEmitManual.trim(),
+        valor_total: parseFloat(valorManual.replace(',', '.')),
+        data_emissao: dataEmissaoManual.trim(),
       })
 
       toast({
-        title: 'NF-e importada no GED!',
-        description: `${res.mensagem} (NF ${res.numero} - ${res.emitente})`,
+        title: 'Nota registrada a partir da chave',
+        description: `NF ${res.numero} — ${res.emitente}. Valores digitados por você, não lidos do XML. Para escrituração oficial, anexe o XML da NF-e.`,
       })
 
       setChaveManualModalOpen(false)
       setChaveManualInput('')
       setRazaoEmitManual('')
       setValorManual('')
+      setDataEmissaoManual('')
       await Promise.all([loadNotas(), loadLogs(), loadInitialData()])
       if (onSyncCompleted) onSyncCompleted()
     } catch (err: unknown) {
@@ -1513,8 +1527,11 @@ export function EmpresaNfeRecebidasTab({
               Importar NF-e por Chave Pública de 44 Dígitos
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Permite importar qualquer nota fiscal eletrônica colando a chave de acesso. Os
-              metadados principais são extraídos e o documento é arquivado no GED.
+              Lançamento manual de uma nota conhecida. A chave de acesso revela o CNPJ do emitente,
+              o modelo, a série e o número —{' '}
+              <strong>não revela valor, razão social nem data</strong>. Por isso esses três campos
+              são digitados por você a partir do documento. Sem o XML, a nota fica marcada como
+              lançamento manual.
             </DialogDescription>
           </DialogHeader>
 
@@ -1539,35 +1556,52 @@ export function EmpresaNfeRecebidasTab({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-900">
-                  Fornecedor / Emitente (Opcional)
+                  Fornecedor / Emitente (do documento) *
                 </Label>
                 <Input
                   value={razaoEmitManual}
                   onChange={(e) => setRazaoEmitManual(e.target.value)}
-                  placeholder="Nome do fornecedor"
+                  placeholder="Razão social do emitente"
                   className="h-10 text-xs rounded-xl border-[#E2E8F0]"
+                  required
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-900">
-                  Valor Total R$ (Opcional)
+                  Valor Total R$ (do documento) *
                 </Label>
                 <Input
                   value={valorManual}
                   onChange={(e) => setValorManual(e.target.value)}
                   placeholder="Ex: 1250,00"
                   className="h-10 text-xs rounded-xl border-[#E2E8F0]"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold text-slate-900">
+                  Data de emissão (do documento) *
+                </Label>
+                <Input
+                  type="date"
+                  value={dataEmissaoManual}
+                  onChange={(e) => setDataEmissaoManual(e.target.value)}
+                  className="h-10 text-xs rounded-xl border-[#E2E8F0]"
+                  required
                 />
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
-              <span className="font-semibold text-slate-900">Como funciona:</span>
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-[11px] text-amber-900 space-y-1">
+              <span className="font-semibold">Atenção:</span>
               <p>
-                O sistema valida a chave, extrai a UF, CNPJ do emitente, número e série da nota,
-                verifica a anti-duplicidade e cria automaticamente o registro na coleção do GED com
-                a flag de origem &quot;Busca SEFAZ&quot;.
+                Isto é um <strong>lançamento manual</strong>, não uma importação da SEFAZ. O sistema
+                valida a chave, decodifica UF/CNPJ/número/série e confere a anti-duplicidade. Valor,
+                emitente e data vêm do que você digitar. Nenhuma consulta à SEFAZ é feita (o Skip
+                não consegue apresentar o certificado A1 na conexão exigida). Para escrituração
+                oficial, importe o XML da NF-e.
               </p>
             </div>
 
@@ -1589,7 +1623,7 @@ export function EmpresaNfeRecebidasTab({
                 }
                 className="bg-[#0FA3A3] hover:bg-[#0C8585] text-white text-xs rounded-xl font-semibold shadow-xs"
               >
-                {importandoChaveManual ? 'Importando...' : 'Importar para o GED'}
+                {importandoChaveManual ? 'Registrando...' : 'Registrar nota'}
               </Button>
             </DialogFooter>
           </form>
