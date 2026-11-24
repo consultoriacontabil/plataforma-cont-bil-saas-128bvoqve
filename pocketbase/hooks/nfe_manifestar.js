@@ -75,8 +75,21 @@ routerAdd(
       })
     }
 
+    let nfe = null
     try {
-      const nfe = $app.findRecordById('nfe_recebidas', nfeId)
+      nfe = $app.findRecordById('nfe_recebidas', nfeId)
+    } catch (_) {
+      nfe = null
+    }
+    if (!nfe) {
+      return c.json(404, {
+        error: 'NF-e não encontrada para o id informado. Nenhuma manifestação foi registrada.',
+        nfe_id: nfeId,
+        nada_foi_gravado: true,
+      })
+    }
+
+    try {
       const chaveAcesso = nfe.getString('chave_acesso')
       const tenantId = nfe.getString('tenant_id')
 
