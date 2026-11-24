@@ -13,7 +13,8 @@ routerAdd('GET', '/backend/v1/purga/backup/{colecao}', (e) => {
   var recebido = ''
   try {
     var info = e.requestInfo()
-    recebido = (info.headers && (info.headers['x_purga_token'] || info.headers['x-purga-token'])) || ''
+    recebido =
+      (info.headers && (info.headers['x_purga_token'] || info.headers['x-purga-token'])) || ''
   } catch (_) {}
   if (!esperado || recebido !== esperado) {
     return e.json(401, { erro: 'token inválido' })
