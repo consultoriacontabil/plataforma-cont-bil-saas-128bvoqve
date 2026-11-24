@@ -47,11 +47,18 @@ routerAdd('POST', '/backend/v1/purga/executar', (e) => {
       erro: 'purga bloqueada: informe backup_confirmado=true e backup_ref (hash do backup verificado)',
     })
   }
-  if (confirmar && env === 'production') {
+  // Bloqueio de ambiente: produção só executa com autorização explícita no corpo
+  // (producao_autorizada === true), além do token. Sem essa flag, a rota recusa
+  // qualquer execução em produção. Autorizado pelo dono em 24/11/2026 para a
+  // purga única desta data; a rota é removida do código logo depois de usada.
+  if (confirmar && env === 'production' && corpo.producao_autorizada !== true) {
     return e.json(409, {
-      erro: 'purga em produção exige aprovação do dono: esta rota só executa no preview',
+      erro:
+        'purga em produção bloqueada: exige producao_autorizada=true no corpo, ' +
+        'além de backup_confirmado=true e backup_ref',
     })
   }
+=======
 
   // Gate do backup: a referência tem de existir no log de backups ANTES de apagar.
   // Sem registro confirmado, nada é excluído.
