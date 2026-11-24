@@ -8,7 +8,7 @@
  * Pagina por offset para não estourar memória. Devolve os registros crus,
  * incluindo campos sensíveis (necessários para restauração).
  */
-routerAdd('GET', '/backend/v1/purga/backup/{colecao}', (e) => {
+routerAdd('GET', '/backend/v1/purga/backup', (e) => {
   var esperado = $secrets.get('PURGA_TOKEN')
   var recebido = ''
   try {
@@ -20,7 +20,10 @@ routerAdd('GET', '/backend/v1/purga/backup/{colecao}', (e) => {
     return e.json(401, { erro: 'token inválido' })
   }
 
-  var colecao = String(e.request.pathValue('colecao') || '')
+  var colecao = ''
+  try {
+    colecao = String(e.request.url.query().get('colecao') || '')
+  } catch (_) {}
   if (!colecao) return e.json(400, { erro: 'coleção obrigatória' })
 
   var offset = 0
