@@ -29,7 +29,12 @@ routerAdd('POST', '/backend/v1/purga/executar', (e) => {
     recebido =
       (info.headers && (info.headers['x_purga_token'] || info.headers['x-purga-token'])) || ''
     corpo = info.body || {}
-  } catch (_) {}
+
+  // Gate do backup: a referência tem de existir no log de backups ANTES de apagar.
+=======
+  }
+
+  // Gate do backup: a referência tem de existir no log de backups ANTES de apagar. catch (_) {}
   if (!esperado || recebido !== esperado) {
     return e.json(401, { erro: 'token inválido' })
   }
