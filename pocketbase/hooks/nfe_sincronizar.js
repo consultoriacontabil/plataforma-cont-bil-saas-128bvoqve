@@ -29,7 +29,23 @@
 routerAdd(
   'POST',
   '/backend/v1/nfe/sincronizar',
-  (c) => {
+  (e) => {
+    // Adaptador para a API do PocketBase v0.36.
+    // A lógica abaixo foi escrita na forma pré-0.23 (`c.get('authRecord')`,
+    // `c.get('body')`, `c.json(...)`), que não existe mais neste runtime:
+    // `c.get('authRecord')` devolve undefined, `$apis.requestInfo` não existe e
+    // `$apis.activityLogger` (que estava no middleware da rota) nem é função —
+    // era isso que fazia o arquivo falhar ao carregar e a rota responder 404.
+    // O adaptador traduz apenas esses três pontos; o corpo do handler, já
+    // auditado, não foi reescrito.
+    const c = {
+      json: (status, corpo) => e.json(status, corpo),
+      get: (chave) => {
+        if (chave === 'authRecord') return e.auth
+        if (chave === 'body') return e.requestInfo().body || {}
+        return undefined
+      },
+    }
     const authRecord = c.get('authRecord')
     if (!authRecord) {
       return c.json(401, { error: 'Não autorizado.' })
@@ -38,7 +54,7 @@ routerAdd(
     const start = Date.now()
     let body = {}
     try {
-      body = c.get('body') || $apis.requestInfo(c).data || {}
+      body = c.get('body') || {}
     } catch (_) {
       body = {}
     }
@@ -539,5 +555,5 @@ routerAdd(
       })
     }
   },
-  $apis.activityLogger($app),
+  $apis.requireAuth(),
 )

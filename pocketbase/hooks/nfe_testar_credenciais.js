@@ -22,7 +22,19 @@
 routerAdd(
   'POST',
   '/backend/v1/nfe/testar-credenciais',
-  (c) => {
+  (e) => {
+    // Adaptador para a API do PocketBase v0.36 — ver comentário em nfe_sincronizar.js.
+    // O handler foi escrito na forma pré-0.23 (`c.get('authRecord')`, `c.json`),
+    // que não existe neste runtime; `$apis.activityLogger` no middleware nem é
+    // função, e era isso que impedia o arquivo de carregar (rota em 404).
+    const c = {
+      json: (status, corpo) => e.json(status, corpo),
+      get: (chave) => {
+        if (chave === 'authRecord') return e.auth
+        if (chave === 'body') return e.requestInfo().body || {}
+        return undefined
+      },
+    }
     const start = Date.now()
     const authRecord = c.get('authRecord')
     if (!authRecord) {
@@ -31,7 +43,7 @@ routerAdd(
 
     let body = {}
     try {
-      body = c.get('body') || $apis.requestInfo(c).data || {}
+      body = c.get('body') || {}
     } catch (_) {
       body = {}
     }
@@ -285,5 +297,5 @@ routerAdd(
       })
     }
   },
-  $apis.activityLogger($app),
+  $apis.requireAuth(),
 )
