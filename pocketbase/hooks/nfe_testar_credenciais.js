@@ -1,13 +1,29 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Endpoint server-side para diagnóstico e teste de credenciais da SEFAZ Distribuição DF-e (nfeDistDFeInteresse)
- * Rota: POST /backend/v1/nfe/testar-credenciais
+ * POST /backend/v1/nfe/testar-credenciais
+ *
+ * CORREÇÃO 24/11/2026 — o diagnóstico declarava "conexão testada com sucesso".
+ *
+ * Antes: com certificado A1 e senha presentes, o hook marcava
+ * status_conexao = 'conectado', imprimia "canal mTLS homologado" e gravava
+ * `comunicacao_sefaz_dist_dfe: true` — sem nunca ter feito uma conexão. Além
+ * disso `duracao_ms` era fixo em 145 (número inventado).
+ *
+ * Agora o teste é honesto em camadas:
+ *  1. Verifica o que o sistema REALMENTE sabe (certificado cadastrado, tipo,
+ *     validade, senha presente). Isso não é conexão.
+ *  2. Só declara comunicação com a SEFAZ quando existe serviço DFe configurado
+ *     (NFE_DFE_PROXY_URL) e ele responde OK — com cStat real na resposta.
+ *  3. Sem esse serviço, o status é `modo_supervisao` e a mensagem diz que a
+ *     SEFAZ não foi consultada, porque o runtime não apresenta o certificado
+ *     A1 na conexão TLS.
  */
 routerAdd(
   'POST',
   '/backend/v1/nfe/testar-credenciais',
   (c) => {
+    const start = Date.now()
     const authRecord = c.get('authRecord')
     if (!authRecord) {
       return c.json(401, { error: 'Não autorizado.' })
@@ -29,22 +45,38 @@ routerAdd(
       return c.json(400, { error: 'empresa_id é obrigatório.' })
     }
 
+    const cofreLer = (rec, campo) => {
+      if (!rec) return ''
+      const direto = rec.getString(campo)
+      if (direto && direto.indexOf('__COFRE__') !== 0) return direto
+      const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
+      if (!chaveCofre) return ''
+      try {
+        const linhas = $app.findRecordsByFilter(
+          'credenciais_cofre',
+          'escopo = {:e} && registro_id = {:r} && campo = {:c}',
+          '',
+          1,
+          0,
+          { e: 'certificados_digitais', r: rec.id, c: campo },
+        )
+        if (linhas.length === 0) return ''
+        return $security.decrypt(linhas[0].getString('ciphertext').replace(/^v1:/, ''), chaveCofre)
+      } catch (_) {
+        return ''
+      }
+    }
+
     try {
       const empresa = $app.findRecordById('empresas', empresaId)
       const cnpjEmpresa = empresa.getString('cnpj')
 
-      // Verificar se há certificado A1 cadastrado para a empresa
       let certificadoRecord = null
-      let certificadoValido = false
-      let validadeCert = null
-      let diasRestantes = 0
-
       if (body.certificado_a1) {
         try {
           certificadoRecord = $app.findRecordById('certificados_digitais', body.certificado_a1)
         } catch (_) {}
       }
-
       if (!certificadoRecord) {
         try {
           certificadoRecord = $app.findFirstRecordByData(
@@ -58,6 +90,8 @@ routerAdd(
       let temArquivoPfx = false
       let titularCert = ''
       let emissorCert = ''
+      let diasRestantes = null
+      let certificadoVencido = false
 
       if (certificadoRecord) {
         titularCert = certificadoRecord.getString('titular')
@@ -65,110 +99,135 @@ routerAdd(
         temArquivoPfx = !!certificadoRecord.getString('arquivo_pfx')
         const validadeStr = certificadoRecord.getString('validade')
         if (validadeStr) {
-          validadeCert = new Date(validadeStr)
-          const agora = new Date()
-          diasRestantes = Math.round(
-            (validadeCert.getTime() - agora.getTime()) / (1000 * 60 * 60 * 24),
-          )
-          certificadoValido = diasRestantes > 0
+          const d = new Date(validadeStr).getTime()
+          if (isFinite(d)) {
+            diasRestantes = Math.round((d - Date.now()) / 86400000)
+            certificadoVencido = diasRestantes <= 0
+          }
         }
       }
 
-      const donoCofre = certificadoRecord
-      const senhaGravadaCert = (() => {
-        if (!donoCofre) return ''
-        const direto = donoCofre.getString('senha')
-        if (direto && direto.indexOf('__COFRE__') !== 0) return direto
-        const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
-        if (!chaveCofre) return ''
-        try {
-          const linhas = $app.findRecordsByFilter(
-            'credenciais_cofre',
-            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
-            '',
-            1,
-            0,
-            { e: 'certificados_digitais', r: donoCofre.id, c: 'senha' },
-          )
-          if (linhas.length === 0) return ''
-          return $security.decrypt(
-            linhas[0].getString('ciphertext').replace(/^v1:/, ''),
-            chaveCofre,
-          )
-        } catch (_) {
-          return ''
-        }
-      })()
+      const senhaGravada = cofreLer(certificadoRecord, 'senha')
+      const senhaEfetiva = senhaInformada || senhaGravada
 
-      const senhaEfetiva = senhaInformada || senhaGravadaCert
-
-      // Avaliação transparente dos requisitos SEFAZ Distribuição DF-e (nfeDistDFeInteresse)
-      const temCertificado = Boolean(certificadoRecord)
-      const temSenha = Boolean(senhaEfetiva && senhaEfetiva.trim().length > 0)
+      const temCertificado = !!certificadoRecord
+      const temSenha = !!senhaEfetiva && senhaEfetiva.trim().length > 0
       const isA1 = certificadoRecord ? certificadoRecord.getString('tipo') === 'a1' : false
+
+      const proxyUrl = ($secrets.get('NFE_DFE_PROXY_URL') || '').replace(/\/+$/, '')
+      const proxyToken = $secrets.get('NFE_DFE_PROXY_TOKEN') || ''
 
       let statusConexao = 'modo_supervisao'
       let mensagem = ''
-      const itensChecados = {
-        empresa_cnpj: cnpjEmpresa,
-        certificado_detectado: temCertificado,
-        certificado_tipo_a1: isA1,
-        certificado_arquivo_pfx: temArquivoPfx,
-        certificado_valido: certificadoValido,
-        dias_restantes: diasRestantes,
-        titular: titularCert,
-        emissor: emissorCert,
-        senha_presente: temSenha,
-        ambiente: ambiente,
-        comunicacao_sefaz_dist_dfe: false,
-        suporte_consulta_publica_chave: true,
-      }
+      let comunicacaoReal = false
+      let cStatReal = ''
+      let xMotivoReal = ''
+
+      const preRequisitosOk = temCertificado && isA1 && temSenha && !certificadoVencido
 
       if (!temCertificado) {
-        statusConexao = 'modo_supervisao'
+        statusConexao = 'erro_credenciais'
         mensagem =
-          'Certificado digital não detectado na ficha da empresa. A busca automática oficial SEFAZ via WebService DFe exige e-CNPJ A1. Operando em Modo Supervisão com suporte a consulta pública de chave de 44 dígitos.'
+          'Nenhum certificado digital cadastrado para esta empresa. A consulta SEFAZ DFe exige e-CNPJ A1. Nenhuma consulta à SEFAZ foi realizada neste teste.'
       } else if (!isA1) {
         statusConexao = 'modo_supervisao'
         mensagem =
-          'O certificado cadastrado é do tipo A3 (Token/Smartcard físico). A busca automática contínua em nuvem requer certificado A1 em arquivo (.pfx). Operando em Modo Supervisão assistido.'
-      } else if (!certificadoValido) {
+          'O certificado cadastrado é A3 (token/smartcard). Ele não pode ser usado por um serviço em nuvem. Nenhuma consulta à SEFAZ foi realizada.'
+      } else if (certificadoVencido) {
         statusConexao = 'erro_credenciais'
-        mensagem =
-          'Certificado e-CNPJ A1 com data de validade expirada. Atualize o certificado da empresa para restabelecer a consulta SEFAZ.'
+        mensagem = 'O certificado e-CNPJ A1 está vencido. Nenhuma consulta à SEFAZ foi realizada.'
       } else if (!temSenha) {
         statusConexao = 'modo_supervisao'
         mensagem =
-          'Certificado e-CNPJ A1 localizado, porém a senha da chave privada não está configurada. A SEFAZ exige assinatura mTLS/DFe com chave privada. Operando em Modo Supervisão com consulta pública de chave.'
-      } else {
-        // Credenciais completas: simula handshake mTLS bem-sucedido com a SEFAZ Ambiente Nacional DFe
-        statusConexao = 'conectado'
-        itensChecados.comunicacao_sefaz_dist_dfe = true
+          'Certificado A1 localizado, mas a senha da chave privada não está configurada. Nenhuma consulta à SEFAZ foi realizada.'
+      } else if (!proxyUrl) {
+        statusConexao = 'modo_supervisao'
         mensagem =
-          'Conexão com WebService SEFAZ Distribuição DF-e (nfeDistDFeInteresse) testada com sucesso! Certificado A1 validado, canal mTLS homologado e pronto para buscar notas contra o CNPJ ' +
-          cnpjEmpresa +
-          '.'
+          'Certificado A1 e senha estão presentes, mas NÃO existe canal de consulta configurado. ' +
+          'O Skip não apresenta o certificado A1 na conexão TLS exigida pelo webservice NFeDistribuicaoDFe, ' +
+          'portanto este teste apenas conferiu o cadastro do certificado — a SEFAZ não foi consultada. ' +
+          'Para consultar de verdade, configure o serviço DFe do escritório.'
+      } else {
+        // Existe canal: tentar de verdade.
+        try {
+          const res = $http.send({
+            url: proxyUrl + '/dfe/ping',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Nfe-Token': proxyToken,
+            },
+            body: JSON.stringify({
+              cnpj: cnpjEmpresa.replace(/\D/g, ''),
+              ambiente: ambiente,
+            }),
+            timeout: 45,
+          })
+          let retorno = {}
+          try {
+            retorno = JSON.parse(res.body ? String(res.body) : '{}')
+          } catch (_) {}
+          cStatReal = String(retorno.cStat || '')
+          xMotivoReal = String(retorno.xMotivo || '')
+          if (res.statusCode === 200 && retorno.sucesso === true) {
+            comunicacaoReal = true
+            statusConexao = 'conectado'
+            mensagem =
+              'Serviço DFe respondeu para o CNPJ ' +
+              cnpjEmpresa +
+              (cStatReal ? ' (cStat ' + cStatReal + ')' : '') +
+              '. O certificado A1 está em uso pelo serviço do escritório — o Skip continua sem apresentar o certificado na conexão TLS.'
+          } else {
+            statusConexao = 'erro_credenciais'
+            mensagem =
+              'O serviço DFe respondeu HTTP ' +
+              res.statusCode +
+              ' sem sucesso' +
+              (cStatReal ? ' (cStat ' + cStatReal + ')' : '') +
+              '. A SEFAZ não confirmou a comunicação.'
+          }
+        } catch (eHttp) {
+          statusConexao = 'erro_credenciais'
+          mensagem = 'Falha de comunicação com o serviço DFe: ' + String(eHttp)
+        }
       }
 
       const resultado = {
         status: statusConexao,
         mensagem: mensagem,
         data_verificacao: new Date().toISOString(),
-        itens_checados: itensChecados,
+        comunicacao_sefaz_testada: !!proxyUrl && preRequisitosOk,
+        comunicacao_sefaz_confirmada: comunicacaoReal,
+        itens_checados: {
+          empresa_cnpj: cnpjEmpresa,
+          certificado_detectado: temCertificado,
+          certificado_tipo_a1: isA1,
+          certificado_arquivo_pfx: temArquivoPfx,
+          certificado_vencido: certificadoVencido,
+          dias_restantes: diasRestantes,
+          titular: titularCert,
+          emissor: emissorCert,
+          senha_presente: temSenha,
+          servico_consulta_configurado: !!proxyUrl,
+          ambiente: ambiente,
+          cStat_retornado: cStatReal,
+          xMotivo_retornado: xMotivoReal,
+          mTLS_direto_indisponivel: 'runtime não aceita certificado de cliente em $http.send',
+        },
+        duracao_ms: Date.now() - start,
       }
 
-      // Atualizar ou salvar em nfe_config
       try {
         let configRec = null
         try {
           configRec = $app.findFirstRecordByData('nfe_config', 'empresa', empresaId)
         } catch (_) {}
-
         if (configRec) {
           configRec.set('status_conexao', statusConexao)
           configRec.set('ultimo_diagnostico_json', resultado)
-          if (temSenha && !configRec.getString('senha_certificado')) {
-            configRec.set('senha_certificado', senhaEfetiva)
+          // Grava a senha apenas se veio do formulário e ainda não havia nenhuma.
+          if (senhaInformada && !configRec.getString('senha_certificado')) {
+            configRec.set('senha_certificado', senhaInformada)
           }
           if (certificadoRecord && !configRec.getString('certificado_a1')) {
             configRec.set('certificado_a1', certificadoRecord.id)
@@ -179,22 +238,18 @@ routerAdd(
         console.log('[NFE] Erro ao atualizar nfe_config com diagnostico:', eConfig)
       }
 
-      // Registrar log do teste
       try {
         const logsCol = $app.findCollectionByNameOrId('nfe_sync_logs')
         const log = new Record(logsCol)
         log.set('tenant_id', tenantId || empresa.getString('tenant_id'))
         log.set('empresa', empresaId)
         log.set('origem_acionamento', 'teste_credenciais')
-        log.set('sucesso', statusConexao === 'conectado')
-        log.set(
-          'modo_operacao',
-          statusConexao === 'conectado' ? 'sefaz_distribuicao_real' : 'modo_supervisao',
-        )
+        log.set('sucesso', comunicacaoReal)
+        log.set('modo_operacao', comunicacaoReal ? 'sefaz_distribuicao_real' : 'modo_supervisao')
         log.set('notas_encontradas', 0)
         log.set('notas_novas_importadas', 0)
         log.set('ultimo_nsu_consultado', '0')
-        log.set('duracao_ms', 145)
+        log.set('duracao_ms', resultado.duracao_ms)
         log.set('mensagem', mensagem)
         log.set('detalhes_json', resultado)
         log.set('executado_por', authRecord.id)
@@ -202,6 +257,24 @@ routerAdd(
       } catch (eLog) {
         console.log('[NFE] Erro ao salvar log de teste:', eLog)
       }
+
+      try {
+        const auditCol = $app.findCollectionByNameOrId('audit_log')
+        const audit = new Record(auditCol)
+        audit.set('tenant_id', tenantId || empresa.getString('tenant_id'))
+        audit.set('usuario_id', authRecord.id)
+        audit.set('acao', 'diagnostico_credenciais_nfe')
+        audit.set('entidade_tipo', 'nfe_config')
+        audit.set('entidade_id', empresaId)
+        audit.set(
+          'detalhes',
+          'Diagnóstico de credenciais NF-e: status ' +
+            statusConexao +
+            '; comunicação com a SEFAZ confirmada: ' +
+            (comunicacaoReal ? 'sim' : 'NÃO'),
+        )
+        $app.save(audit)
+      } catch (_) {}
 
       return c.json(200, resultado)
     } catch (err) {

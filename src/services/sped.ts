@@ -11,23 +11,100 @@ import type {
   ContaContabil,
 } from '@/types'
 
-// Simple MD5 in pure JS for browser compatibility without external libs
-export function calculateMd5(input: string): string {
-  // Simple deterministic hash simulation conforming to 32 hex chars format
-  let hash1 = 0x811c9dc5
-  let hash2 = 0x01000193
-  for (let i = 0; i < input.length; i++) {
-    const code = input.charCodeAt(i)
-    hash1 ^= code
-    hash1 = Math.imul(hash1, 0x01000193)
-    hash2 ^= code
-    hash2 = Math.imul(hash2, 0x811c9dc5)
+// MD5 real (RFC 1321) em JS puro, calculado sobre os bytes latin-1 do conteúdo.
+//
+// CORREÇÃO 24/11/2026: a função anterior era um hash FNV de 4 palavras
+// apresentado como "MD5". O hash de fechamento do SPED precisa ser MD5 de
+// verdade sobre o arquivo; um valor parecido com MD5 mas falso invalida a
+// entrega no PVA. Esta implementação foi conferida contra o md5sum/Python
+// para string vazia, "abc" e 1000 caracteres.
+function md5DosBytes(bytes: Uint8Array): string {
+  const rotacionar = (x: number, c: number) => (x << c) | (x >>> (32 - c))
+  const K = new Uint32Array(64)
+  for (let i = 0; i < 64; i++) {
+    K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) >>> 0
   }
-  const part1 = (hash1 >>> 0).toString(16).padStart(8, '0')
-  const part2 = (hash2 >>> 0).toString(16).padStart(8, '0')
-  const part3 = ((hash1 ^ hash2) >>> 0).toString(16).padStart(8, '0')
-  const part4 = ((hash1 + hash2) >>> 0).toString(16).padStart(8, '0')
-  return (part1 + part2 + part3 + part4).slice(0, 32).toLowerCase()
+  const S = [
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9,
+    14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21,
+    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+  ]
+
+  const tamanhoOriginal = bytes.length
+  const comMarcador = tamanhoOriginal + 1
+  const total = comMarcador + ((56 - (comMarcador % 64) + 64) % 64) + 8
+  const buf = new Uint8Array(total)
+  buf.set(bytes)
+  buf[tamanhoOriginal] = 0x80
+
+  const dv = new DataView(buf.buffer)
+  const bits = tamanhoOriginal * 8
+  dv.setUint32(total - 8, bits >>> 0, true)
+  dv.setUint32(total - 4, Math.floor(bits / 4294967296), true)
+
+  let a0 = 0x67452301
+  let b0 = 0xefcdab89
+  let c0 = 0x98badcfe
+  let d0 = 0x10325476
+  const M = new Uint32Array(16)
+
+  for (let off = 0; off < total; off += 64) {
+    for (let i = 0; i < 16; i++) M[i] = dv.getUint32(off + i * 4, true)
+    let A = a0
+    let B = b0
+    let C = c0
+    let D = d0
+
+    for (let i = 0; i < 64; i++) {
+      let F: number
+      let g: number
+      if (i < 16) {
+        F = (B & C) | (~B & D)
+        g = i
+      } else if (i < 32) {
+        F = (D & B) | (~D & C)
+        g = (5 * i + 1) % 16
+      } else if (i < 48) {
+        F = B ^ C ^ D
+        g = (3 * i + 5) % 16
+      } else {
+        F = C ^ (B | ~D)
+        g = (7 * i) % 16
+      }
+      F = (F + A + K[i] + M[g]) >>> 0
+      A = D
+      D = C
+      C = B
+      B = (B + rotacionar(F, S[i])) >>> 0
+    }
+
+    a0 = (a0 + A) >>> 0
+    b0 = (b0 + B) >>> 0
+    c0 = (c0 + C) >>> 0
+    d0 = (d0 + D) >>> 0
+  }
+
+  const saida = new Uint8Array(16)
+  const odv = new DataView(saida.buffer)
+  odv.setUint32(0, a0, true)
+  odv.setUint32(4, b0, true)
+  odv.setUint32(8, c0, true)
+  odv.setUint32(12, d0, true)
+  return Array.from(saida)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+/**
+ * MD5 do conteúdo de um arquivo SPED, calculado sobre ISO-8859-1 (latin-1),
+ * que é a codificação exigida no arquivo .txt.
+ */
+export function calculateMd5(input: string): string {
+  const bytes = new Uint8Array(input.length)
+  for (let i = 0; i < input.length; i++) {
+    bytes[i] = input.charCodeAt(i) & 0xff
+  }
+  return md5DosBytes(bytes)
 }
 
 export const VERSOES_SPED = {
@@ -639,7 +716,12 @@ export const spedService = {
       tamanho_bytes: tamanhoBytes,
       conteudo_txt: conteudoTxt,
       resumo_blocos_json: contadoresBlocos,
-      observacoes: `Arquivo ${tipo.toUpperCase()} gerado em conformidade estrutural com os registros fiscais importados. Assinatura e transmissão via PVA / RFB.`,
+      observacoes:
+        `MODO SUPERVISÃO — ARQUIVO NÃO APTO A ENTREGA. Rascunho de ${tipo.toUpperCase()} ` +
+        `montado no navegador a partir de um recorte do banco (até 15 contas e 20 lançamentos no ` +
+        `ECD), com código de município fixo e sem assinatura digital. O hash é MD5 real do ` +
+        `conteúdo gerado, mas isso não torna o arquivo válido: a geração completa no servidor ` +
+        `ainda não existe. Não transmitir ao PVA/RFB sem conferência e geração oficial.`,
       gerado_por: userId,
     })
 
@@ -663,7 +745,7 @@ export const spedService = {
     const a = document.createElement('a')
     a.href = url
     const compFormatada = arquivo.competencia.replace('/', '_')
-    a.download = `SPED_${arquivo.tipo.toUpperCase()}_${compFormatada}_${arquivo.hash_md5.slice(0, 8)}.txt`
+    a.download = `RASCUNHO_NAO_APTO_${arquivo.tipo.toUpperCase()}_${compFormatada}_${arquivo.hash_md5.slice(0, 8)}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
