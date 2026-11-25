@@ -23,6 +23,8 @@ import {
   importarLoteXml,
   carregarXmlsDoGed,
   excluirMovimento,
+  listarMovimentos,
+  competenciaAtual,
   type MovimentoFiscal,
   type ResultadoImportacaoXml,
   type EntradaLote,
@@ -35,6 +37,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency, formatDatePtBr } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
+import { Building2, Users } from '@/components/MakroZonaModuloPlaceholder'
 
 const TIPO_LABEL: Record<TipoMovimento, string> = {
   entrada: 'Entrada',
@@ -187,7 +190,10 @@ export function PrepararFase({
       </div>
 
       <Card className="rounded-2xl border-[#E2E8F0] p-4">
-        <h4 className="text-sm font-bold text-[#1A2333]">Importação em lote de XMLs</h4>
+        <h4 className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-[#0FA3A3]" />
+          Importação em lote de XMLs
+        </h4>
         <p className="text-xs text-[#64748B] mt-0.5">
           Envie os XMLs de NF-e/NFS-e da empresa (upload manual) ou busque os arquivos já coletados
           pelo GED da Elliza. Cada XML válido cria a movimentação, os itens e preenche
@@ -332,7 +338,10 @@ export function MovimentacoesFase({
   return (
     <Card className="rounded-2xl border-[#E2E8F0] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h4 className="text-sm font-bold text-[#1A2333]">Movimentações fiscais</h4>
+        <h4 className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
+          <Users className="h-4 w-4 text-[#0FA3A3]" />
+          Movimentações fiscais
+        </h4>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por tipo">
           {(['todos', 'entrada', 'saida', 'servico_prestado', 'servico_tomado'] as const).map(
             (f) => (

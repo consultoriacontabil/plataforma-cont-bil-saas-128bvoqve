@@ -61,6 +61,7 @@ import TarefasEquipePage from '@/pages/TarefasEquipe'
 import AgendaTributariaPage from '@/pages/AgendaTributaria'
 import ModuloPessoalPage from '@/pages/ModuloPessoal'
 import ModuloFinanceiroPage from '@/pages/ModuloFinanceiro'
+import ModuloFiscalPage from '@/pages/ModuloFiscal'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -96,6 +97,8 @@ export default function App() {
             <Route path="/agenda-tributaria" element={<AgendaTributariaPage />} />
             <Route path="/modulo-pessoal" element={<ModuloPessoalPage />} />
             <Route path="/modulo-financeiro" element={<ModuloFinanceiroPage />} />
+            {/* Modelo Makro — Fatia 2 (Fiscal) */}
+            <Route path="/modulo-fiscal" element={<ModuloFiscalPage />} />
 
             {/* Nova Arquitetura Operacional Elliza */}
             <Route path="/elisa-fila" element={<ElisaFilaPage />} />

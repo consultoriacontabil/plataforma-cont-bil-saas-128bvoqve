@@ -77,15 +77,23 @@ export default function Fiscal() {
   const location = useLocation()
 
   const [activeTab, setActiveTab] = useState(() => {
+    // Deep-link: /fiscal?tab=sped (usado pelo "Abrir SPED" do Módulo Fiscal Makro)
+    const params = new URLSearchParams(location.search)
+    const tabParam = params.get('tab')
+    if (tabParam === 'sped' || tabParam === 'defis' || tabParam === 'busca_nfe') return tabParam
     if (location.pathname.includes('/defis')) return 'defis'
     return 'obrigacoes'
   })
 
   useEffect(() => {
-    if (location.pathname.includes('/defis')) {
+    const params = new URLSearchParams(location.search)
+    const tabParam = params.get('tab')
+    if (tabParam === 'sped' || tabParam === 'defis' || tabParam === 'busca_nfe') {
+      setActiveTab(tabParam)
+    } else if (location.pathname.includes('/defis')) {
       setActiveTab('defis')
     }
-  }, [location.pathname])
+  }, [location.pathname, location.search])
 
   const [fiscalList, setFiscalList] = useState<FiscalRecord[]>([])
   const [empresas, setEmpresas] = useState<Empresa[]>([])

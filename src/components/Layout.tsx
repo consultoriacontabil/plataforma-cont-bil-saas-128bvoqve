@@ -351,7 +351,8 @@ export default function Layout() {
     {
       group: 'FISCAL',
       items: [
-        { label: 'Fiscal & SPED', to: '/fiscal', icon: Calculator },
+        { label: 'Módulo Fiscal (Makro)', to: '/modulo-fiscal', icon: LayoutDashboard },
+        { label: 'Fiscal (legado)', to: '/fiscal', icon: Calculator },
         ...(!isCliente
           ? [
               { label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' },

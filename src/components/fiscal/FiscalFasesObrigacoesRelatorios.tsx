@@ -22,7 +22,6 @@ import type { Empresa, EmpresaRegime } from '@/types'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/formatters'
@@ -84,7 +83,11 @@ export function ObrigacoesFase({
 
   const calcular = async (confirmar = false) => {
     if (!tenantId || !empresa) return
-    confirmar ? setConfirmando(true) : setCalculando(true)
+    if (confirmar) {
+      setConfirmando(true)
+    } else {
+      setCalculando(true)
+    }
     try {
       const res = await apurarCompetencia({
         tenantId,
