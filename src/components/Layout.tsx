@@ -41,6 +41,8 @@ import {
   HelpCircle,
   Bot,
   Database,
+  ListTodo,
+  CalendarClock,
 } from 'lucide-react'
 import {
   Dialog,
@@ -188,6 +190,11 @@ export default function Layout() {
       return 'Sistema de Backup Independente'
     if (path.startsWith('/elliza')) return 'Elliza (Hiperautomação 24/7)'
     if (path.startsWith('/rumo-agent')) return 'Rumo Agent (IA)'
+    if (path.startsWith('/tarefas-equipe')) return 'Painel de Tarefas da Equipe'
+    if (path.startsWith('/agenda-tributaria')) return 'Agenda Tributária por Perfil de Empresa'
+    if (path.startsWith('/modulo-pessoal')) return 'Módulo Pessoal (em implantação)'
+    if (path.startsWith('/modulo-financeiro'))
+      return 'Módulo Financeiro do Escritório (em implantação)'
     if (path.startsWith('/perfil')) return 'Minha Conta'
     return 'Rumo Contábil'
   }
@@ -282,27 +289,65 @@ export default function Layout() {
     }
   }
 
-  const navGroups = [
+  // Modelo Makro (Fatia 1): sidebar reorganizada em 5 módulos.
+  // Todas as rotas existentes continuam válidas — é um reagrupamento de navegação.
+  const isAdmin = member?.perfil === 'administrador'
+  const isCliente = member?.perfil === 'cliente'
+  const navGroups: NavGroup[] = [
     {
-      group: 'OPERAÇÕES & AUTOMAÇÃO',
+      group: 'ADMINISTRAR',
       items: [
         {
-          label: 'Central de Operações',
+          label: 'Painel de Controle',
           to: '/dashboard',
           icon: LayoutDashboard,
-          badge: 'OPERACIONAL',
+          badge: obrigacoesBadgeCount > 0 ? obrigacoesBadgeCount : undefined,
         },
+        { label: 'Empresas', to: '/empresas', icon: Building2 },
+        { label: 'Workflow', to: '/workflow', icon: GitPullRequest },
         { label: 'Fila da Elliza', to: '/elisa-fila', icon: Bot, badge: 'ROBÔ' },
-        { label: 'Aprovações do Agente', to: '/aprovacoes', icon: ShieldCheck, badge: 'NOVO' },
-        { label: 'Processos & SOPs', to: '/processos', icon: GitPullRequest, badge: 'SOPs' },
+        { label: 'Aprovações do Agente', to: '/aprovacoes', icon: ShieldCheck },
+        { label: 'Processos & SOPs', to: '/processos', icon: GitPullRequest },
+        { label: 'Tarefas da Equipe', to: '/tarefas-equipe', icon: ListTodo },
+        { label: 'Agenda Tributária', to: '/agenda-tributaria', icon: CalendarClock },
+        { label: 'Documentos (GED)', to: '/documentos', icon: FileText },
+        { label: 'Integrações', to: '/integracoes', icon: Compass },
+        { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
+        { label: 'Manual de Ativação', to: '/manual', icon: BookOpen },
+        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'Elliza' },
+        { label: 'Extensão WhatsApp', to: '/extensao', icon: MessageSquare },
+        { label: 'Contratos & Propostas', to: '/contratos', icon: FileCheck },
+        { label: 'Relatórios Gerenciais', to: '/relatorios', icon: Layers },
+        ...(!isCliente ? [{ label: 'Usuários & Perfis', to: '/usuarios', icon: Users }] : []),
+        ...(isAdmin
+          ? [{ label: 'Backup Independente', to: '/backup', icon: Database, badge: 'LGPD' }]
+          : []),
+        { label: 'Auditoria', to: '/auditoria', icon: ShieldCheck },
       ],
     },
     {
-      group: 'PRINCIPAL',
+      group: 'PESSOAL',
       items: [
-        { label: 'Empresas', to: '/empresas', icon: Building2 },
-        { label: 'Documentos', to: '/documentos', icon: FileText },
-        { label: 'Workflow', to: '/workflow', icon: GitPullRequest },
+        { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
+        { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
+      ],
+    },
+    {
+      group: 'FISCAL',
+      items: [
+        { label: 'Fiscal & SPED', to: '/fiscal', icon: Calculator },
+        ...(!isCliente
+          ? [
+              { label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' },
+              { label: 'Rotinas em Lote', to: '/lote', icon: Layers, badge: 'FASE 3' },
+              {
+                label: 'Parâmetros Normativos',
+                to: '/parametros-normativos',
+                icon: SlidersHorizontal,
+                badge: 'FASE 3',
+              },
+            ]
+          : []),
         {
           label: 'Obrigações',
           to: '/obrigacoes',
@@ -321,18 +366,10 @@ export default function Layout() {
             | 'cliente'
           )[],
         },
-        { label: 'Fiscal & SPED', to: '/fiscal', icon: Calculator },
-        ...(member?.perfil !== 'cliente'
-          ? [
-              { label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' },
-              { label: 'Rotinas em Lote', to: '/lote', icon: Layers, badge: 'FASE 3' },
-            ]
-          : []),
         {
           label: 'Analytics Tributário',
           to: '/analytics-tributario',
           icon: TrendingUp,
-          badge: 'NOVO',
         },
         {
           label: 'Pesquisa Tributária',
@@ -352,8 +389,21 @@ export default function Layout() {
           icon: MessageSquare,
           badge: 'IA',
         },
-        { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
-        { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
+      ],
+    },
+    {
+      group: 'CONTÁBIL',
+      items: [
+        { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
+        { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },
+        { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
+        { label: 'DRE & Balanço', to: '/relatorios-contabeis', icon: PieChart },
+        { label: 'Patrimônio (Ativos)', to: '/patrimonio', icon: Boxes },
+        { label: 'Mapeamento Fecho', to: '/contabil/mapeamento', icon: Compass },
+        { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
+        ...(!isCliente
+          ? [{ label: 'Painel Integração', to: '/integracao', icon: GitMerge, badge: 'FASE 1' }]
+          : []),
       ],
     },
     {
@@ -361,59 +411,8 @@ export default function Layout() {
       items: [
         { label: 'Contas & Conciliação', to: '/financeiro', icon: Wallet },
         { label: 'Fluxo de Caixa & DFC', to: '/fluxo-caixa', icon: TrendingUp },
-      ],
-    },
-    {
-      group: 'CONTÁBIL',
-      items: [
-        { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
-        ...(member?.perfil !== 'cliente'
-          ? [
-              { label: 'Painel Integração', to: '/integracao', icon: GitMerge, badge: 'FASE 1' },
-              {
-                label: 'Parâmetros Normativos',
-                to: '/parametros-normativos',
-                icon: SlidersHorizontal,
-                badge: 'FASE 3',
-              },
-            ]
-          : []),
-        { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
-        { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },
-        { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
-        { label: 'DRE & Balanço', to: '/relatorios-contabeis', icon: PieChart },
-        { label: 'Patrimônio (Ativos)', to: '/patrimonio', icon: Boxes },
-        { label: 'Mapeamento Fecho', to: '/contabil/mapeamento', icon: Compass },
-      ],
-    },
-    {
-      group: 'COMERCIAL & CONTRATOS',
-      items: [{ label: 'Contratos & Propostas', to: '/contratos', icon: FileCheck }],
-    },
-    {
-      group: 'GESTÃO & INTEGRAÇÕES',
-      items: [
-        { label: 'Elliza (24/7)', to: '/elliza', icon: Bot, badge: '24/7' },
-        { label: 'Manual de Ativação', to: '/manual', icon: BookOpen, badge: 'GUIA' },
-        { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'Elliza' },
-        { label: 'Extensão WhatsApp', to: '/extensao', icon: Sparkles, badge: 'NOVO' },
-        { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
-        { label: 'Relatórios', to: '/relatorios', icon: Layers },
-        ...(member?.perfil !== 'cliente'
-          ? [{ label: 'Usuários & Perfis', to: '/usuarios', icon: Users }]
-          : []),
-        ...(member?.perfil === 'administrador'
-          ? [
-              {
-                label: 'Backup Independente',
-                to: '/backup',
-                icon: Database,
-                badge: 'LGPD',
-              },
-            ]
-          : []),
-        { label: 'Auditoria', to: '/auditoria', icon: ShieldCheck },
-        { label: 'Integrações', to: '/integracoes', icon: Compass },
+        { label: 'Faturamento Recorrente', to: '/financeiro?tab=faturamento', icon: FileCheck },
+        { label: 'Faturamento Recorrente', to: '/faturamento-recorrente', icon: Wallet },
       ],
     },
   ]
@@ -1009,7 +1008,7 @@ export default function Layout() {
             <p>© 2025 Rumo Consultoria Contábil. Todos os direitos reservados.</p>
             <div className="flex items-center gap-3">
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-[#1A2333]">
-                v0.0.129
+                v0.0.249
               </span>
               <span className="text-[11px] text-[#94A3B8]">Plataforma Segura SSL</span>
             </div>

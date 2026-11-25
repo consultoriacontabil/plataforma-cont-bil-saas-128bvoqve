@@ -113,6 +113,41 @@ export interface Empresa extends RecordModel {
   situacao_cadastral_atualizada_em?: string
 }
 
+/** Tarefa interna do escritório (coleção tarefas_equipe, migration 0161 — Fatia 1 Makro). */
+export type TarefaEquipeStatus = 'pendente' | 'em_andamento' | 'concluida'
+
+export interface TarefaEquipe extends RecordModel {
+  tenant_id: string
+  titulo: string
+  descricao?: string
+  responsavel_id?: string
+  empresa_id?: string
+  vencimento?: string
+  status: TarefaEquipeStatus
+  prioridade?: 'baixa' | 'media' | 'alta'
+  created: string
+  updated: string
+  expand?: {
+    responsavel_id?: RecordModel & { name?: string; email?: string; avatar?: string }
+    empresa_id?: RecordModel & { razao_social?: string; nome_fantasia?: string; cnpj?: string }
+  }
+}
+
+/** Obrigação padrão por perfil de empresa (coleção agenda_tributaria, migration 0161 — Fatia 1 Makro). */
+export interface AgendaTributaria extends RecordModel {
+  tenant_id: string
+  codigo: string
+  perfil: EmpresaRegime | 'todas'
+  obrigacao: string
+  departamento: string
+  vencimento_dia?: number
+  periodicidade: 'mensal' | 'trimestral' | 'anual'
+  mes_referencia?: number
+  observacao?: string
+  created: string
+  updated: string
+}
+
 /** Certidão da Fase 1 ELLIZA (coleção elliza_certidoes, migration 0152). */
 export interface CertidaoElliza extends RecordModel {
   tenant_id: string
