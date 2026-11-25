@@ -181,7 +181,7 @@ export const pessoalMakro = {
 
   // ---------- Rubricas (verbas) ----------
   async listarVerbas(tenantId: string, empresaId?: string): Promise<VerbaCatalogoRecord[]> {
-    return verbasService.listar(
+    return verbasService.listCatalogo(
       tenantId,
       empresaId && empresaId !== 'todas' ? empresaId : undefined,
     )
@@ -194,19 +194,30 @@ export const pessoalMakro = {
       VerbaCatalogoRecord,
       'id' | 'created' | 'updated' | 'tenant_id' | 'empresa' | 'expand'
     >,
+    usuarioId?: string,
   ): Promise<VerbaCatalogoRecord> {
-    return verbasService.criar({
-      ...dados,
-      tenant_id: tenantId,
-      empresa: empresaId,
-    } as never)
+    return verbasService.createVerbaCatalogo(
+      {
+        ...dados,
+        tenant_id: tenantId,
+        empresa: empresaId,
+      },
+      usuarioId || tenantId,
+    )
   },
 
   async atualizarVerba(
     id: string,
     dados: Partial<VerbaCatalogoRecord>,
+    contexto?: { tenantId?: string; usuarioId?: string },
   ): Promise<VerbaCatalogoRecord> {
-    return verbasService.atualizar(id, dados as never)
+    const auditId = contexto?.usuarioId || contexto?.tenantId
+    if (!auditId) {
+      throw new Error(
+        'atualizarVerba requer contexto com tenantId ou usuarioId para trilha de auditoria.',
+      )
+    }
+    return verbasService.updateVerbaCatalogo(id, dados, auditId)
   },
 
   // ---------- Lançamentos de verbas por competência ----------
