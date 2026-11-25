@@ -41,7 +41,9 @@ export function FaseObrigacoes({ tenantId, empresaId, competencia }: Props) {
         pessoalMakro
           .listarEventosEsocial(tenantId, { empresaId, competencia })
           .catch(() => [] as EsocialEventoRecord[]),
-        pessoalMakro.listarGuias(empresaId, competencia).catch(() => [] as GuiaPagamentoRecord[]),
+        pessoalMakro
+          .listarGuias(tenantId, empresaId, competencia)
+          .catch(() => [] as GuiaPagamentoRecord[]),
       ])
       setEventos(evs)
       setGuias(gss)
@@ -165,9 +167,7 @@ export function FaseObrigacoes({ tenantId, empresaId, competencia }: Props) {
               <tbody>
                 {guias.map((g) => (
                   <tr key={g.id} className="border-b last:border-0 text-[#1A2333]">
-                    <td className="py-2 pr-3 font-mono font-semibold">
-                      {g.tipo_guia ?? g.codigo ?? '—'}
-                    </td>
+                    <td className="py-2 pr-3 font-mono font-semibold">{g.tipo_guia}</td>
                     <td className="py-2 pr-3">{g.descricao ?? '—'}</td>
                     <td className="py-2 pr-3">
                       {g.data_vencimento
@@ -175,14 +175,14 @@ export function FaseObrigacoes({ tenantId, empresaId, competencia }: Props) {
                         : '—'}
                     </td>
                     <td className="py-2 pr-3 text-right font-mono">
-                      {formatCurrency(toNum(g.valor ?? g.valor_total))}
+                      {formatCurrency(toNum(g.valor_total))}
                     </td>
                     <td className="py-2 text-right">
                       <Badge
                         variant="outline"
                         className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 capitalize"
                       >
-                        {g.status ?? 'pendente'}
+                        {g.situacao ?? 'pendente'}
                       </Badge>
                     </td>
                   </tr>

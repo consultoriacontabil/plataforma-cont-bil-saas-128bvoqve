@@ -129,6 +129,7 @@ export default function ModuloPessoal() {
             tenantId={tenantId}
             usuarioId={tenantId}
             empresaId={empresaId}
+            competencia={competencia}
             aoMudar={carregarFaseAtual}
           />
         )
