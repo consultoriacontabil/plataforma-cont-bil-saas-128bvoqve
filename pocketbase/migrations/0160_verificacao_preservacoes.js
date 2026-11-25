@@ -13,8 +13,11 @@
 // Perder registro (contagem menor que o esperado) ABORTA e a migracao falha.
 // Contagem MAIOR apenas registra no log (registro novo nao e perda).
 //
-// Baseline vem de backups/57806-pre-purga-producao (medido em 24/11 23:13-23:20Z)
-// e de tmp/57806/limpeza_antes.json (medido antes das duas limpezas).
+// ATENCAO aos nomes reais dos campos de `tenant_members` (conferidos na API):
+//   perfil = 'administrador'  (nao 'admin')
+//   status = 'ativo'          (nao existe campo booleano `ativo`)
+//
+// Baseline: backups/57806-pre-purga-producao e tmp/57806/limpeza_antes.json.
 
 const ESPERADO = {
   users: 1,
@@ -42,21 +45,31 @@ migrate(
     }
     console.log('[0160] preservacoes conferidas: ' + linhas.join(' | '))
 
-    // tenant_members do dono precisa seguir admin e ativo
-    const admins = app.findRecordsByFilter('tenant_members', "perfil = 'admin'", '', 0, 0)
+    // O vinculo do dono precisa seguir administrador e ativo.
+    const admins = app.findRecordsByFilter('tenant_members', "perfil = 'administrador'", '', 0, 0)
     if (admins.length < 1) {
-      throw new Error('[0160] PERDA: nenhum tenant_members com perfil admin')
+      throw new Error('[0160] PERDA: nenhum tenant_members com perfil administrador')
     }
     let ativo = false
     for (let j = 0; j < admins.length; j++) {
-      if (admins[j].getBool('ativo')) {
+      if (admins[j].getString('status') === 'ativo') {
         ativo = true
       }
+      console.log(
+        '[0160] admin ' +
+          admins[j].id +
+          ' tenant=' +
+          admins[j].getString('tenant_id') +
+          ' user=' +
+          admins[j].getString('user_id') +
+          ' status=' +
+          admins[j].getString('status'),
+      )
     }
     if (!ativo) {
-      throw new Error('[0160] PERDA: nenhum tenant_members admin com ativo = true')
+      throw new Error('[0160] PERDA: nenhum tenant_members administrador com status ativo')
     }
-    console.log('[0160] OK: vinculo admin ativo presente')
+    console.log('[0160] OK: vinculo administrador ativo presente')
   },
   (app) => {
     console.log('[0160] down: migracao de verificacao, sem alteracao de dado')
