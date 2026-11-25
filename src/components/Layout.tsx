@@ -207,7 +207,7 @@ export default function Layout() {
     if (path.startsWith('/rumo-agent')) return 'Rumo Agent (IA)'
     if (path.startsWith('/tarefas-equipe')) return 'Painel de Tarefas da Equipe'
     if (path.startsWith('/agenda-tributaria')) return 'Agenda Tributária por Perfil de Empresa'
-    if (path.startsWith('/modulo-pessoal')) return 'Módulo Pessoal (em implantação)'
+    if (path.startsWith('/modulo-pessoal')) return 'Módulo Pessoal (Makro)'
     if (path.startsWith('/modulo-financeiro'))
       return 'Módulo Financeiro do Escritório (em implantação)'
     if (path.startsWith('/modulo-contabil')) return 'Módulo Contábil (Makro)'
@@ -344,8 +344,8 @@ export default function Layout() {
     {
       group: 'PESSOAL',
       items: [
-        { label: 'Módulo Pessoal (Makro)', to: '/modulo-pessoal', icon: LayoutDashboard },
-        { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
+        { label: 'Pessoal (Makro)', to: '/modulo-pessoal', icon: LayoutDashboard },
+        { label: 'Depto. Pessoal (legado)', to: '/departamento-pessoal', icon: Users },
         { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
       ],
     },
