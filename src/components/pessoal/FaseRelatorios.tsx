@@ -1,17 +1,15 @@
 /**
  * Fase Relatórios do Módulo Pessoal (Fatia 5 Makro).
- * Recibo de pagamento por colaborador/competência e relatório gerencial da
- * folha, com opção de exibição de CBO (spec Makro: "relatórios gerenciais com
- * opção de exibição de CBO e vencimentos") — via pessoalMakro.
+ * Recibo de pagamento (montarReciboPagamento) e relatório gerencial da folha
+ * (montarRelatorioGerencial, com opção de exibição de CBO) — via pessoalMakro.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FileText, Loader2, Printer, ReceiptText, Users } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { FileText, Loader2, ReceiptText, Users } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -31,20 +29,22 @@ interface Props {
   competencia: string
 }
 
-type Recibo = ReturnType<typeof pessoalMakro.montarReciboPagamento>
-type Gerencial = ReturnType<typeof pessoalMakro.montarRelatorioGerencial>
+function toNum(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
 
 export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }: Props) {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
-  const [folhas, setFolhas] = useState<FolhaPagamento[]>([])
+  const [folha, setFolha] = useState<FolhaPagamento[]>([])
   const [carregando, setCarregando] = useState(true)
-  const [funcionarioId, setFuncionarioId] = useState('')
-  const [incluirCbo, setIncluirCbo] = useState(true)
+  const [exibirCbo, setExibirCbo] = useState(false)
+  const [funcionarioRecibo, setFuncionarioRecibo] = useState('')
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId || empresaId === 'todas') {
       setFuncionarios([])
-      setFolhas([])
+      setFolha([])
       setCarregando(false)
       return
     }
@@ -55,10 +55,13 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
         pessoalMakro.listarFolha(tenantId, competencia, empresaId).catch(() => []),
       ])
       setFuncionarios(funcs)
-      setFolhas(fls)
+      setFolha(fls)
+      setFuncionarioRecibo((atual) =>
+        funcs.some((f) => f.id === atual) ? atual : (funcs[0]?.id ?? ''),
+      )
     } catch {
       setFuncionarios([])
-      setFolhas([])
+      setFolha([])
     } finally {
       setCarregando(false)
     }
@@ -68,34 +71,23 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
     carregar()
   }, [carregar])
 
-  const ativos = useMemo(() => funcionarios.filter((f) => f.status !== 'demitido'), [funcionarios])
-
-  useEffect(() => {
-    if (!funcionarioId && ativos.length > 0) setFuncionarioId(ativos[0].id)
-    if (funcionarioId && !ativos.some((f) => f.id === funcionarioId)) setFuncionarioId('')
-  }, [ativos, funcionarioId])
-
-  const recibo = useMemo<Recibo | null>(() => {
-    const func = ativos.find((f) => f.id === funcionarioId)
+  const recibo = (() => {
+    const func = funcionarios.find((f) => f.id === funcionarioRecibo)
     if (!func) return null
-    const folha = folhas.find((f) => f.funcionario === func.id)
+    const folhaFunc = folha.find((f) => f.funcionario === func.id)
     return pessoalMakro.montarReciboPagamento({
-      empresaNome,
+      empresaNome: empresaNome || 'Empresa',
       competencia,
       funcionario: func,
-      folha,
+      folha: folhaFunc,
     })
-  }, [ativos, folhas, funcionarioId, empresaNome, competencia])
+  })()
 
-  const gerencial = useMemo<Gerencial>(
-    () =>
-      pessoalMakro.montarRelatorioGerencial({
-        funcionarios,
-        folha: folhas,
-        incluirCbo,
-      }),
-    [funcionarios, folhas, incluirCbo],
-  )
+  const gerencial = pessoalMakro.montarRelatorioGerencial({
+    funcionarios,
+    folha,
+    incluirCbo: exibirCbo,
+  })
 
   if (!tenantId || !empresaId || empresaId === 'todas') {
     return (
@@ -115,165 +107,50 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
 
   if (funcionarios.length === 0) {
     return (
-      <Card className="rounded-2xl border-[#E2E8F0] p-6 shadow-2xs">
-        <div className="py-6 text-center">
+      <Card className="rounded-2xl border-[#E2E8F0] p-4 shadow-2xs">
+        <div className="py-8 text-center">
           <Users className="h-8 w-8 mx-auto text-slate-300 mb-2" aria-hidden />
           <p className="text-sm font-semibold text-[#1A2333]">
-            Nenhum colaborador para gerar relatórios
+            Cadastre um colaborador para começar
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            Cadastre colaboradores na fase Preparar e calcule a folha na fase Movimentações para
-            emitir o recibo de pagamento e o relatório gerencial.
+            Recibo de pagamento e relatório gerencial aparecem aqui após o cadastro na fase
+            Preparar.
           </p>
         </div>
       </Card>
     )
   }
 
+  const totalFuncionarios = gerencial.linhas.length
+
   return (
     <div className="space-y-4">
-      {/* Recibo de pagamento */}
-      <Card className="rounded-2xl border-[#E2E8F0] p-4 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-          <h4 className="text-sm font-bold text-[#1A2333] flex items-center gap-2 flex-1">
-            <ReceiptText className="h-4 w-4 text-[#0FA3A3]" /> Recibo de pagamento · {competencia}
-          </h4>
-          {recibo ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs"
-              onClick={() => window.print()}
-            >
-              <Printer className="h-3.5 w-3.5" /> Imprimir
-            </Button>
-          ) : null}
-        </div>
-
-        <div className="space-y-1 mb-3">
-          <Label htmlFor="rel-func" className="text-[11px]">
-            Colaborador
-          </Label>
-          <Select value={funcionarioId} onValueChange={setFuncionarioId}>
-            <SelectTrigger id="rel-func" className="h-9 text-xs sm:max-w-xs">
-              <SelectValue placeholder="Selecione o colaborador" />
-            </SelectTrigger>
-            <SelectContent>
-              {ativos.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.nome_completo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {ativos.length === 0 ? (
-          <p className="text-xs text-slate-500 py-2">
-            Nenhum colaborador ativo — o recibo depende de colaboradores cadastrados na fase
-            Preparar.
-          </p>
-        ) : !recibo ? (
-          <p className="text-xs text-slate-500 py-2">Selecione um colaborador para o recibo.</p>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-[#1A2333]">{recibo.titulo}</p>
-            {recibo.linhas.length === 0 ? (
-              <p className="text-xs text-slate-500 py-2">
-                Sem lançamentos de folha para este colaborador em {competencia} — calcule a folha na
-                fase Movimentações.
-              </p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-[#E2E8F0]">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-[10px] uppercase text-slate-400 border-b bg-slate-50">
-                      <th className="py-2 px-3 font-semibold">Rubrica</th>
-                      <th className="py-2 px-3 font-semibold">Referência</th>
-                      <th className="py-2 px-3 font-semibold text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recibo.linhas.map((l, i) => (
-                      <tr key={`${l.descricao}-${i}`} className="border-b last:border-0">
-                        <td className="py-2 px-3 text-[#1A2333]">{l.descricao}</td>
-                        <td className="py-2 px-3 text-slate-500">{l.referencia || '—'}</td>
-                        <td
-                          className={cn(
-                            'py-2 px-3 text-right font-mono',
-                            l.valor < 0 ? 'text-red-600' : 'text-[#1A2333]',
-                          )}
-                        >
-                          {formatCurrency(l.valor)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t bg-slate-50 font-semibold text-[#1A2333]">
-                      <td className="py-2 px-3" colSpan={2}>
-                        Total de proventos
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono">
-                        {formatCurrency(recibo.totalProventos)}
-                      </td>
-                    </tr>
-                    <tr className="bg-slate-50 font-semibold text-[#1A2333]">
-                      <td className="py-2 px-3" colSpan={2}>
-                        Total de descontos
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-red-600">
-                        {formatCurrency(recibo.totalDescontos)}
-                      </td>
-                    </tr>
-                    <tr className="bg-slate-50 font-bold text-[#0FA3A3]">
-                      <td className="py-2 px-3" colSpan={2}>
-                        Líquido a receber
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono">
-                        {formatCurrency(recibo.totalLiquido)}
-                      </td>
-                    </tr>
-                    <tr className="bg-slate-50 text-[10px] uppercase text-slate-400">
-                      <td className="py-2 px-3" colSpan={2}>
-                        FGTS do mês (informativo)
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono">
-                        {formatCurrency(recibo.fgtsInformativo)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
-
       {/* Relatório gerencial */}
       <Card className="rounded-2xl border-[#E2E8F0] p-4 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-          <h4 className="text-sm font-bold text-[#1A2333] flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <h4 className="text-sm font-bold text-[#1A2333] flex items-center gap-2 flex-1 min-w-0">
             <FileText className="h-4 w-4 text-[#0FA3A3]" /> Relatório gerencial · {competencia}
             <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500">
-              {gerencial.linhas.length} colaborador(es)
+              {totalFuncionarios} colaborador(es)
             </Badge>
           </h4>
           <span className="flex items-center gap-2 text-xs text-slate-600">
             <Checkbox
-              id="rel-cbo"
-              checked={incluirCbo}
-              onCheckedChange={(v) => setIncluirCbo(v === true)}
+              id="exibir-cbo"
+              checked={exibirCbo}
+              onCheckedChange={(v) => setExibirCbo(v === true)}
             />
-            <Label htmlFor="rel-cbo" className="text-[11px] cursor-pointer">
+            <Label htmlFor="exibir-cbo" className="text-xs cursor-pointer">
               Exibir CBO
             </Label>
           </span>
         </div>
 
         {gerencial.linhas.length === 0 ? (
-          <p className="text-xs text-slate-500 py-2">
-            Nenhum colaborador ativo nesta empresa — cadastre na fase Preparar.
+          <p className="text-xs text-slate-500 py-3">
+            Nenhum colaborador ativo para esta empresa — o relatório gerencial considera apenas
+            colaboradores não demitidos.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -281,15 +158,15 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
               <thead>
                 <tr className="text-left text-[10px] uppercase text-slate-400 border-b">
                   <th className="py-2 pr-3 font-semibold">Colaborador</th>
-                  {incluirCbo ? <th className="py-2 pr-3 font-semibold">CBO</th> : null}
                   <th className="py-2 pr-3 font-semibold">Cargo</th>
+                  {exibirCbo ? <th className="py-2 pr-3 font-semibold">CBO</th> : null}
                   <th className="py-2 pr-3 font-semibold text-right">Salário</th>
                   <th className="py-2 pr-3 font-semibold text-right">Proventos</th>
                   <th className="py-2 pr-3 font-semibold text-right">Descontos</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Líquido</th>
                   <th className="py-2 pr-3 font-semibold text-right">INSS</th>
                   <th className="py-2 pr-3 font-semibold text-right">IRRF</th>
                   <th className="py-2 pr-3 font-semibold text-right">FGTS</th>
-                  <th className="py-2 pr-3 font-semibold text-right">Líquido</th>
                   <th className="py-2 font-semibold">Status</th>
                 </tr>
               </thead>
@@ -297,42 +174,39 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
                 {gerencial.linhas.map((l) => (
                   <tr key={l.nome} className="border-b last:border-0 text-[#1A2333]">
                     <td className="py-2 pr-3 font-medium">{l.nome}</td>
-                    {incluirCbo ? (
-                      <td className="py-2 pr-3 font-mono text-slate-500">{l.cbo || '—'}</td>
-                    ) : null}
                     <td className="py-2 pr-3">{l.cargo || '—'}</td>
+                    {exibirCbo ? <td className="py-2 pr-3 font-mono">{l.cbo || '—'}</td> : null}
                     <td className="py-2 pr-3 text-right font-mono">{formatCurrency(l.salario)}</td>
                     <td className="py-2 pr-3 text-right font-mono">
                       {formatCurrency(l.proventos)}
                     </td>
-                    <td className="py-2 pr-3 text-right font-mono text-red-600">
+                    <td className="py-2 pr-3 text-right font-mono">
                       {formatCurrency(l.descontos)}
                     </td>
-                    <td className="py-2 pr-3 text-right font-mono">{formatCurrency(l.inss)}</td>
-                    <td className="py-2 pr-3 text-right font-mono">{formatCurrency(l.irrf)}</td>
-                    <td className="py-2 pr-3 text-right font-mono">{formatCurrency(l.fgts)}</td>
-                    <td className="py-2 pr-3 text-right font-mono font-bold">
+                    <td className="py-2 pr-3 text-right font-mono font-semibold">
                       {formatCurrency(l.liquido)}
+                    </td>
+                    <td className="py-2 pr-3 text-right font-mono text-slate-500">
+                      {formatCurrency(l.inss)}
+                    </td>
+                    <td className="py-2 pr-3 text-right font-mono text-slate-500">
+                      {formatCurrency(l.irrf)}
+                    </td>
+                    <td className="py-2 pr-3 text-right font-mono text-slate-500">
+                      {formatCurrency(l.fgts)}
                     </td>
                     <td className="py-2">
                       <Badge
                         variant="outline"
-                        className={cn(
-                          'text-[9px] capitalize',
-                          l.status === 'ativo'
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                            : 'bg-amber-50 text-amber-600 border-amber-200',
-                        )}
+                        className="text-[10px] bg-slate-50 text-slate-600 border-slate-200 capitalize"
                       >
                         {l.status}
                       </Badge>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t bg-slate-50 font-semibold text-[#1A2333]">
-                  <td className="py-2 pr-3" colSpan={incluirCbo ? 3 : 2}>
+                <tr className="font-semibold text-[#1A2333]">
+                  <td className="py-2 pr-3" colSpan={exibirCbo ? 3 : 2}>
                     Totais
                   </td>
                   <td className="py-2 pr-3 text-right font-mono">
@@ -340,6 +214,9 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
                   </td>
                   <td className="py-2 pr-3" />
                   <td className="py-2 pr-3" />
+                  <td className="py-2 pr-3 text-right font-mono">
+                    {formatCurrency(gerencial.totais.liquido)}
+                  </td>
                   <td className="py-2 pr-3 text-right font-mono">
                     {formatCurrency(gerencial.totais.inss)}
                   </td>
@@ -349,10 +226,103 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
                   <td className="py-2 pr-3 text-right font-mono">
                     {formatCurrency(gerencial.totais.fgts)}
                   </td>
-                  <td className="py-2 pr-3 text-right font-mono text-[#0FA3A3]">
-                    {formatCurrency(gerencial.totais.liquido)}
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Recibo de pagamento */}
+      <Card className="rounded-2xl border-[#E2E8F0] p-4 shadow-2xs">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <h4 className="text-sm font-bold text-[#1A2333] flex items-center gap-2 flex-1 min-w-0">
+            <ReceiptText className="h-4 w-4 text-[#0FA3A3]" /> Recibo de pagamento · {competencia}
+          </h4>
+          <span className="flex items-center gap-2">
+            <Label htmlFor="recibo-colaborador" className="text-[11px] text-slate-600">
+              Colaborador
+            </Label>
+            <Select value={funcionarioRecibo} onValueChange={setFuncionarioRecibo}>
+              <SelectTrigger className="h-8 w-56 text-xs" aria-label="Selecionar colaborador">
+                <SelectValue placeholder="Selecione o colaborador" />
+              </SelectTrigger>
+              <SelectContent>
+                {funcionarios.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.nome_completo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </span>
+        </div>
+
+        {!recibo ? (
+          <p className="text-xs text-slate-500 py-3">
+            Selecione um colaborador para visualizar o recibo de pagamento.
+          </p>
+        ) : recibo.linhas.length === 0 ? (
+          <div className="py-8 text-center">
+            <ReceiptText className="h-8 w-8 mx-auto text-slate-300 mb-2" aria-hidden />
+            <p className="text-sm font-semibold text-[#1A2333]">
+              Sem folha calculada para este colaborador
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Calcule a folha na fase Movimentações para emitir o recibo de {competencia}.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-[#E2E8F0] overflow-hidden">
+            <div className="px-3 py-2 bg-slate-50 border-b border-[#E2E8F0]">
+              <p className="text-xs font-bold text-[#1A2333]">{recibo.titulo}</p>
+              <p className="text-[10px] text-slate-500">
+                {recibo.fgtsInformativo > 0
+                  ? `FGTS do mês (informativo): ${formatCurrency(recibo.fgtsInformativo)}`
+                  : 'FGTS do mês (informativo): —'}
+              </p>
+            </div>
+            <table className="w-full text-xs">
+              <tbody>
+                {recibo.linhas.map((l, i) => (
+                  <tr
+                    key={`${l.descricao}-${i}`}
+                    className={cn(
+                      'border-b last:border-0',
+                      l.valor < 0 ? 'text-red-600' : 'text-[#1A2333]',
+                    )}
+                  >
+                    <td className="py-1.5 px-3">{l.descricao}</td>
+                    <td className="py-1.5 px-3 text-slate-400">{l.referencia || ''}</td>
+                    <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(l.valor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 text-[#1A2333]">
+                  <td className="py-2 px-3 font-semibold" colSpan={2}>
+                    Total de proventos
                   </td>
-                  <td className="py-2" />
+                  <td className="py-2 px-3 text-right font-mono font-semibold">
+                    {formatCurrency(recibo.totalProventos)}
+                  </td>
+                </tr>
+                <tr className="bg-slate-50 text-[#1A2333]">
+                  <td className="py-2 px-3 font-semibold" colSpan={2}>
+                    Total de descontos
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono font-semibold">
+                    {formatCurrency(recibo.totalDescontos)}
+                  </td>
+                </tr>
+                <tr className="bg-[#0FA3A3]/10 text-[#1A2333]">
+                  <td className="py-2 px-3 font-bold" colSpan={2}>
+                    Líquido a receber
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono font-bold">
+                    {formatCurrency(toNum(recibo.totalLiquido))}
+                  </td>
                 </tr>
               </tfoot>
             </table>
