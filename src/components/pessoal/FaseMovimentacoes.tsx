@@ -40,7 +40,15 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { pessoalMakro } from '@/services/pessoalMakro'
-import type { FolhaPagamento, Funcionario, RescisaoMotivo, VerbaLancamentoRecord } from '@/types'
+import type {
+  DecimoTerceiroParcela,
+  DecimoTerceiroRecord,
+  FeriasPeriodoRecord,
+  FolhaPagamento,
+  Funcionario,
+  RescisaoMotivo,
+  VerbaLancamentoRecord,
+} from '@/types'
 import { formatCurrency } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -86,6 +94,35 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+const AFASTAMENTO_MOTIVOS: Record<string, string> = {
+  medico: 'Licença médica',
+  maternidade: 'Licença maternidade',
+  paternidade: 'Licença paternidade',
+  acidente: 'Acidente de trabalho',
+  outro: 'Afastamento',
+}
+
+/** Período aquisitivo vigente na data de início do gozo (admissão + 12 meses). */
+function periodoAquisitivoDe(
+  dataAdmissao: string,
+  dataInicioGozo: string,
+): { inicio: string; fim: string } {
+  const adm = new Date(`${dataAdmissao.slice(0, 10)}T12:00:00`)
+  const gozo = new Date(`${dataInicioGozo.slice(0, 10)}T12:00:00`)
+  let inicio = new Date(adm.getTime())
+  let candidato = new Date(adm.getTime())
+  candidato.setFullYear(candidato.getFullYear() + 1)
+  while (candidato.getTime() <= gozo.getTime()) {
+    inicio = candidato
+    candidato = new Date(inicio.getTime())
+    candidato.setFullYear(candidato.getFullYear() + 1)
+  }
+  const fim = new Date(inicio.getTime())
+  fim.setFullYear(fim.getFullYear() + 1)
+  fim.setDate(fim.getDate() - 1)
+  return { inicio: inicio.toISOString().slice(0, 10), fim: fim.toISOString().slice(0, 10) }
+}
+
 function somaItens(folha: FolhaPagamento): { proventos: number; descontos: number } {
   let proventos = 0
   let descontos = 0
@@ -103,13 +140,13 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   const [carregando, setCarregando] = useState(true)
   const [calculando, setCalculando] = useState(false)
   const [adiantamentoPara, setAdiantamentoPara] = useState<string | null>(null)
-  const [valorAdiantamento, setValorAdiantamento] = useState('')
+  const [percentualAdiantamento, setPercentualAdiantamento] = useState('50')
 
   // 13º
   const [decimoAberto, setDecimoAberto] = useState(false)
-  const [decimoParcela, setDecimoParcela] = useState<'primeira' | 'segunda'>('primeira')
+  const [decimoParcela, setDecimoParcela] = useState<DecimoTerceiroParcela>('primeira_parcela')
   const [decimoFuncId, setDecimoFuncId] = useState('todos')
-  const [decimoResultado, setDecimoResultado] = useState<FolhaPagamento[] | null>(null)
+  const [decimoResultado, setDecimoResultado] = useState<DecimoTerceiroRecord[] | null>(null)
   const [decimoCalculando, setDecimoCalculando] = useState(false)
 
   // Férias
@@ -117,13 +154,10 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   const [feriasFuncId, setFeriasFuncId] = useState('')
   const [inicioGozo, setInicioGozo] = useState('')
   const [diasVendidos, setDiasVendidos] = useState('0')
-  const [feriasValidacao, setFeriasValidacao] = useState<Awaited<
-    ReturnType<typeof pessoalMakro.validarGozoFerias>
+  const [feriasValidacao, setFeriasValidacao] = useState<ReturnType<
+    typeof pessoalMakro.validarGozoFerias
   > | null>(null)
-  const [feriasResultado, setFeriasResultado] = useState<{
-    valores: { bruto: number; adiantamento_13: number; liquido: number; fgts: number } | null
-    lancando: boolean
-  }>({ valores: null, lancando: false })
+  const [feriasRegistro, setFeriasRegistro] = useState<FeriasPeriodoRecord | null>(null)
   const [feriasCalculando, setFeriasCalculando] = useState(false)
 
   // Rescisão
@@ -132,8 +166,8 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   const [rescisaoMotivo, setRescisaoMotivo] = useState<RescisaoMotivo>('sem_justa_causa_empregador')
   const [rescisaoAviso, setRescisaoAviso] = useState('30')
   const [rescisaoSaldoDias, setRescisaoSaldoDias] = useState('0')
-  const [rescisaoResultado, setRescisaoResultado] = useState<Awaited<
-    ReturnType<typeof pessoalMakro.simularRescisao>
+  const [rescisaoResultado, setRescisaoResultado] = useState<ReturnType<
+    typeof pessoalMakro.simularRescisao
   > | null>(null)
   const [rescisaoCalculando, setRescisaoCalculando] = useState(false)
   const [rescisaoConcluindo, setRescisaoConcluindo] = useState(false)
@@ -157,7 +191,7 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     try {
       const [funcs, fls] = await Promise.all([
         pessoalMakro.listarFuncionarios(tenantId, empresaId),
-        pessoalMakro.listarFolhas(empresaId, competencia).catch(() => [] as FolhaPagamento[]),
+        pessoalMakro.listarFolha(tenantId, competencia, empresaId),
       ])
       setFuncionarios(funcs)
       setFolhas(fls)
@@ -195,7 +229,16 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     }
     setCalculando(true)
     try {
-      const geradas = await pessoalMakro.calcularFolha(tenantId, empresaId, competencia)
+      const lancamentos = await pessoalMakro
+        .listarLancamentos(tenantId, competencia, empresaId)
+        .catch(() => [] as VerbaLancamentoRecord[])
+      const geradas = await pessoalMakro.calcularFolha(
+        tenantId,
+        empresaId,
+        competencia,
+        funcionarios,
+        lancamentos,
+      )
       setFolhas(geradas)
       toast({
         title: `Folha calculada — ${geradas.length} colaborador(es)`,
@@ -211,20 +254,34 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
 
   const abrirAdiantamento = (f: FolhaPagamento) => {
     setAdiantamentoPara(f.id)
-    setValorAdiantamento(String(Math.max(0, toNum(f.total_liquido) / 2).toFixed(2)))
+    setPercentualAdiantamento('50')
   }
 
   const confirmarAdiantamento = async () => {
-    const folha = folhas.find((f) => f.id === adiantamentoPara)
-    if (!folha || !tenantId) return
-    const valor = Number(valorAdiantamento.replace(',', '.'))
-    if (!Number.isFinite(valor) || valor <= 0) {
-      toast({ title: 'Informe um valor de adiantamento válido', variant: 'destructive' })
+    if (!tenantId || !empresaId || empresaId === 'todas') return
+    const percentual = Number(percentualAdiantamento.replace(',', '.'))
+    if (!Number.isFinite(percentual) || percentual <= 0 || percentual > 100) {
+      toast({
+        title: 'Informe um percentual de adiantamento válido (1 a 100)',
+        variant: 'destructive',
+      })
       return
     }
     try {
-      await pessoalMakro.lancarAdiantamento(folha.funcionario, competencia, valor, tenantId)
-      toast({ title: 'Adiantamento lançado' })
+      const { criados, alertas } = await pessoalMakro.adiantamentoSalarial(
+        tenantId,
+        empresaId,
+        competencia,
+        ativos,
+        percentual,
+      )
+      toast({
+        title: `Adiantamento lançado para ${criados} colaborador(es)`,
+        description:
+          alertas.length > 0
+            ? `${alertas.length} falha(s) — verifique o catálogo de rubricas.`
+            : 'Valor descontado integralmente na folha da competência.',
+      })
       setAdiantamentoPara(null)
       await carregar()
       aoMudar()
@@ -239,23 +296,28 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     setDecimoCalculando(true)
     setDecimoResultado(null)
     try {
+      const ano = Number(competencia.split('/')[1]) || new Date().getFullYear()
       const funcsAlvo =
         decimoFuncId === 'todos'
-          ? ativos.map((f) => f.id)
-          : ativos.filter((f) => f.id === decimoFuncId).map((f) => f.id)
-      const resultados: FolhaPagamento[] = []
-      for (const fid of funcsAlvo) {
-        const r = await pessoalMakro.calcularDecimo(
-          tenantId,
-          empresaId,
-          fid,
-          decimoParcela,
-          competencia,
+          ? ativos.filter((f) => f.tipo === 'clt')
+          : ativos.filter((f) => f.id === decimoFuncId)
+      const resultados: DecimoTerceiroRecord[] = []
+      for (const func of funcsAlvo) {
+        const admissao = new Date(`${func.data_admissao.slice(0, 10)}T12:00:00`)
+        const inicioAno = new Date(ano, 0, 1)
+        const base = admissao > inicioAno ? admissao : inicioAno
+        const meses = Math.max(
+          1,
+          Math.min(12, 12 - base.getMonth() - (base.getDate() > 15 ? 1 : 0)),
         )
-        resultados.push(r)
+        resultados.push(
+          await pessoalMakro.calcularDecimo(tenantId, empresaId, func, ano, decimoParcela, meses),
+        )
       }
       setDecimoResultado(resultados)
-      toast({ title: `13º (${decimoParcela === 'primeira' ? '1ª' : '2ª'} parcela) calculado` })
+      toast({
+        title: `13º (${decimoParcela === 'primeira_parcela' ? '1ª' : '2ª'} parcela) calculado`,
+      })
       aoMudar()
     } catch {
       toast({ title: 'Erro ao calcular o 13º', variant: 'destructive' })
@@ -270,30 +332,49 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     setInicioGozo(new Date().toISOString().slice(0, 10))
     setDiasVendidos('0')
     setFeriasValidacao(null)
-    setFeriasResultado({ valores: null, lancando: false })
+    setFeriasRegistro(null)
     setFeriasAberto(true)
   }
 
   const calcularFerias = async () => {
     const func = funcionarios.find((f) => f.id === feriasFuncId)
     if (!func || !tenantId || !empresaId || empresaId === 'todas') return
+    const diasGozo = 30 - (Number(diasVendidos) || 0)
     setFeriasCalculando(true)
     try {
-      const [valores, validacao] = await Promise.all([
-        pessoalMakro.calcularFerias(
-          tenantId,
-          empresaId,
-          func.id,
-          toNum(inicioGozo),
-          Number(diasVendidos) || 0,
-          competencia,
-        ),
-        pessoalMakro.validarGozoFerias(tenantId, empresaId, func.id, inicioGozo).catch(() => null),
-      ])
-      setFeriasResultado({ valores, lancando: false })
+      const validacao = pessoalMakro.validarGozoFerias({
+        dataInicioGozo: inicioGozo,
+        diasGozo,
+      })
       setFeriasValidacao(validacao)
-    } catch {
-      toast({ title: 'Erro ao calcular as férias', variant: 'destructive' })
+      if (!validacao.valido) {
+        toast({
+          title: 'Gozo inválido — ajuste as datas antes de calcular',
+          variant: 'destructive',
+        })
+        return
+      }
+      const { inicio, fim } = periodoAquisitivoDe(func.data_admissao, inicioGozo)
+      const { registro, alertas } = await pessoalMakro.calcularFerias(tenantId, empresaId, func, {
+        competencia,
+        periodo_aquisitivo_inicio: inicio,
+        periodo_aquisitivo_fim: fim,
+        data_inicio_gozo: inicioGozo,
+        dias_gozo: diasGozo,
+        vender_abono: (Number(diasVendidos) || 0) > 0,
+        dias_abono: Number(diasVendidos) || undefined,
+        adiantar_13: false,
+      })
+      setFeriasRegistro(registro)
+      setFeriasValidacaoAlertas(alertas)
+      toast({ title: 'Férias calculadas' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : ''
+      toast({
+        title: 'Erro ao calcular as férias',
+        description: msg || undefined,
+        variant: 'destructive',
+      })
     } finally {
       setFeriasCalculando(false)
     }
@@ -306,20 +387,23 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
       toast({ title: 'Corrija a validação do gozo antes de lançar', variant: 'destructive' })
       return
     }
-    setFeriasResultado((r) => ({ ...r, lancando: true }))
+    setFeriasLancando(true)
     try {
-      await pessoalMakro.lancarFerias(tenantId, empresaId, func.id, {
-        inicio_gozo: inicioGozo,
-        dias_vendidos: Number(diasVendidos) || 0,
-        competencia: competencia,
-      })
+      // calcularFerias já grava o registro e marca o colaborador como em férias
+      if (!feriasRegistro) {
+        await calcularFerias()
+        if (feriasValidacao && feriasValidacao.valido === false) {
+          setFeriasLancando(false)
+          return
+        }
+      }
       toast({ title: 'Férias lançadas e colaborador marcado como em férias' })
       setFeriasAberto(false)
       await carregar()
       aoMudar()
     } catch {
       toast({ title: 'Erro ao lançar as férias', variant: 'destructive' })
-      setFeriasResultado((r) => ({ ...r, lancando: false }))
+      setFeriasLancando(false)
     }
   }
 
@@ -338,11 +422,14 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     if (!func || !tenantId || !empresaId || empresaId === 'todas') return
     setRescisaoCalculando(true)
     try {
-      const r = await pessoalMakro.simularRescisao(tenantId, empresaId, func.id, {
-        motivo: rescisaoMotivo,
-        aviso_previo_dias: Number(rescisaoAviso) || 0,
-        saldo_salario_dias: Number(rescisaoSaldoDias) || 0,
-        competencia: competencia,
+      // síncrono no service — simulate async UI state
+      const r = pessoalMakro.simularRescisao({
+        funcionario: func,
+        motivoDesligamento: rescisaoMotivo,
+        dataDesligamento: new Date().toISOString().slice(0, 10),
+        tipoAvisoPrevio: rescisaoAviso === 'trabalhado' ? 'trabalhado' : 'indenizado',
+        feriasVencidas: false,
+        saldoFgts: 0,
       })
       setRescisaoResultado(r)
     } catch {
@@ -357,12 +444,12 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     if (!func || !rescisaoResultado || !tenantId || !empresaId || empresaId === 'todas') return
     setRescisaoConcluindo(true)
     try {
-      await pessoalMakro.concluirRescisao(tenantId, empresaId, func.id, {
-        motivo: rescisaoMotivo,
-        aviso_previo_dias: Number(rescisaoAviso) || 0,
-        saldo_salario_dias: Number(rescisaoSaldoDias) || 0,
-        data_demissao: new Date().toISOString().slice(0, 10),
-        competencia: competencia,
+      const dataDesligamento = new Date().toISOString().slice(0, 10)
+      const tipoAvisoPrevio = rescisaoAviso === 'trabalhado' ? 'trabalhado' : 'indenizado'
+      await pessoalMakro.concluirRescisao(tenantId, empresaId, func, rescisaoResultado, {
+        motivo_desligamento: rescisaoMotivo,
+        data_desligamento: dataDesligamento,
+        tipo_aviso_previo: tipoAvisoPrevio,
       })
       toast({ title: 'Rescisão concluída — colaborador marcado como demitido' })
       setRescisaoAberto(false)
@@ -393,10 +480,10 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     }
     setSalvandoAfastamento(true)
     try {
-      await pessoalMakro.registrarAfastamento(tenantId, empresaId, func.id, {
+      await pessoalMakro.registrarAfastamento(tenantId, empresaId, func, {
         data_inicio: afastamentoInicio,
         data_fim: afastamentoFim || undefined,
-        motivo: afastamentoMotivo,
+        descricao: AFASTAMENTO_MOTIVOS[afastamentoMotivo] || 'Afastamento',
       })
       toast({ title: 'Afastamento registrado — folha suspensa automaticamente' })
       setAfastamentoAberto(false)

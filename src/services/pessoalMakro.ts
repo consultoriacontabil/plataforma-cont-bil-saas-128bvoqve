@@ -38,6 +38,7 @@ import type {
   ItemRubrica,
 } from '@/types'
 import { verbasService } from '@/services/verbas'
+import type { CreateVerbaCatalogoInput } from '@/services/verbas'
 import { esocialService } from '@/services/esocial'
 import type { ParametrosCalculoRescisao } from '@/lib/calculoClt'
 
@@ -190,10 +191,7 @@ export const pessoalMakro = {
   async criarVerba(
     tenantId: string,
     empresaId: string,
-    dados: Omit<
-      VerbaCatalogoRecord,
-      'id' | 'created' | 'updated' | 'tenant_id' | 'empresa' | 'expand'
-    >,
+    dados: Omit<CreateVerbaCatalogoInput, 'tenant_id' | 'empresa'>,
     usuarioId?: string,
   ): Promise<VerbaCatalogoRecord> {
     return verbasService.createVerbaCatalogo(
