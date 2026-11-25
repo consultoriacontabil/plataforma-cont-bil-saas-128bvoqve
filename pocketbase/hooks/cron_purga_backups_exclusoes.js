@@ -1,4 +1,5 @@
 // Hook: cron_purga_backups_exclusoes.js
+// (Mantido: e o cron de retencao de 24h de exclusoes_empresa_backup, nao e rota.)
 // Executa periodicamente (a cada 15 minutos) para localizar backups de empresas
 // com status 'retido' e purga_em vencida (>= 24 horas após a solicitação),
 // executando a purga definitiva física dos registros filhos e da empresa, com registro no audit_log.
