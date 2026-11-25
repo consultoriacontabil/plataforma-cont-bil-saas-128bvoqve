@@ -562,8 +562,8 @@ export function calcularDre(
   titulos: TituloFinanceiro[],
   movimentos: MovimentoCaixa[],
 ): DreEscritorio {
-  const receitaPorCategoria = new Map<string, { nome: string; valor: number }>()
-  const despesaPorCategoria = new Map<string, { nome: string; valor: number }>()
+  const receitaPorCategoria = new Map<string, { id: string; nome: string; valor: number }>()
+  const despesaPorCategoria = new Map<string, { id: string; nome: string; valor: number }>()
 
   let receitaHonorarios = 0
   let receitaOutras = 0
@@ -573,37 +573,41 @@ export function calcularDre(
   for (const t of titulos) {
     if (t.status !== 'pago') continue
     const valor = Number(t.valor_baixado ?? t.valor) || 0
+    const idCat = t.expand?.categoria_id?.id || ''
     const nomeCat =
       t.expand?.categoria_id?.nome ||
       (t.tipo === 'receber' ? 'Honorários contábeis' : 'Outras despesas')
+    const chave = idCat || nomeCat
     if (t.tipo === 'receber') {
       if (t.origem === 'honorario_fixo') receitaHonorarios += valor
       else receitaOutras += valor
-      const atual = receitaPorCategoria.get(nomeCat) || { nome: nomeCat, valor: 0 }
+      const atual = receitaPorCategoria.get(chave) || { id: idCat, nome: nomeCat, valor: 0 }
       atual.valor += valor
-      receitaPorCategoria.set(nomeCat, atual)
+      receitaPorCategoria.set(chave, atual)
     } else {
       despesaTotal += valor
-      const atual = despesaPorCategoria.get(nomeCat) || { nome: nomeCat, valor: 0 }
+      const atual = despesaPorCategoria.get(chave) || { id: idCat, nome: nomeCat, valor: 0 }
       atual.valor += valor
-      despesaPorCategoria.set(nomeCat, atual)
+      despesaPorCategoria.set(chave, atual)
     }
   }
 
   // Movimentos avulsos (sem título) entram também no realizado.
   for (const m of movimentos) {
     if (m.titulo_id) continue
+    const idCat = m.expand?.categoria_id?.id || ''
     const nomeCat = m.expand?.categoria_id?.nome || 'Sem categoria'
+    const chave = idCat || nomeCat
     if (m.natureza === 'entrada') {
       receitaOutras += m.valor
-      const atual = receitaPorCategoria.get(nomeCat) || { nome: nomeCat, valor: 0 }
+      const atual = receitaPorCategoria.get(chave) || { id: idCat, nome: nomeCat, valor: 0 }
       atual.valor += m.valor
-      receitaPorCategoria.set(nomeCat, atual)
+      receitaPorCategoria.set(chave, atual)
     } else {
       despesaTotal += m.valor
-      const atual = despesaPorCategoria.get(nomeCat) || { nome: nomeCat, valor: 0 }
+      const atual = despesaPorCategoria.get(chave) || { id: idCat, nome: nomeCat, valor: 0 }
       atual.valor += m.valor
-      despesaPorCategoria.set(nomeCat, atual)
+      despesaPorCategoria.set(chave, atual)
     }
   }
 
@@ -616,7 +620,9 @@ export function calcularDre(
     receitaHonorarios,
     receitaOutras,
     receitaTotal,
-    despesasPorCategoria: [...despesaPorCategoria.values()].sort((a, b) => b.valor - a.valor),
+    despesasPorCategoria: [...despesaPorCategoria.values()]
+      .map((l) => ({ categoriaId: l.id, categoria: l.nome, valor: l.valor }))
+      .sort((a, b) => b.valor - a.valor),
     despesaTotal,
     resultado,
     margem,

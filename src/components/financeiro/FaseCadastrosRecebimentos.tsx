@@ -3,7 +3,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Building2, FileSpreadsheet, Loader2, Plus, RefreshCw, Trash2, Wallet } from 'lucide-react'
+import {
+  Building2,
+  CheckCircle2,
+  FileSpreadsheet,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Wallet,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +46,8 @@ import {
   excluirHonorario,
   excluirTitulo,
   gerarTitulosDoMes,
+  baixarTitulo,
+  criarCategoria,
   listarCategorias,
   listarContas,
   listarHonorarios,
@@ -46,10 +57,10 @@ import {
   type HonorarioFixo,
   type TituloFinanceiro,
 } from '@/services/financeiroEscritorio'
-import { formatMoeda } from '@/lib/formatters'
+import { formatCurrency } from '@/lib/formatters'
 import { cn } from '@/lib/utils'
 
-const fmt = (v: number) => formatMoeda(v)
+const fmt = (v: number) => formatCurrency(v)
 
 export function vencidoDe(t: TituloFinanceiro, hoje: string): boolean {
   if (t.status !== 'aberto' || !t.vencimento) return false
@@ -697,6 +708,35 @@ export function RecebimentosFase({
     await excluirTitulo(id)
     aoMudar()
     carregar()
+  }
+
+  async function confirmarBaixa() {
+    if (!usuarioId || !contaBaixa || selecionados.size === 0) return
+    setBaixando(true)
+    try {
+      const alvo = titulos.filter((t) => selecionados.has(t.id) && t.status === 'aberto')
+      for (const t of alvo) {
+        await baixarTitulo({
+          titulo: t,
+          usuarioId,
+          contaId: contaBaixa,
+          dataBaixa: dataBaixa || undefined,
+        })
+      }
+      toast({
+        title: 'Baixa concluída',
+        description: `${alvo.length} título(s) recebido(s) — valor lançado como entrada no caixa.`,
+      })
+      setSelecionados(new Set())
+      setContaBaixa('')
+      setDialogBaixa(false)
+      aoMudar()
+      carregar()
+    } catch {
+      toast({ title: 'Erro ao dar baixa', variant: 'destructive' })
+    } finally {
+      setBaixando(false)
+    }
   }
 
   function toggleSelecao(id: string) {
