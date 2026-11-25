@@ -37,6 +37,8 @@ import { certidoesService } from '@/services/regularidade'
 import { fechoMensalService } from '@/services/fechoMensal'
 import { companyOnboardingService } from '@/services/companyOnboarding'
 import { tenantService } from '@/services/tenant'
+import { agendaTributariaService } from '@/services/agendaTributaria'
+import { DashboardMakroTela1 } from '@/components/dashboard/DashboardMakroTela1'
 import {
   elisaOpsService,
   type ProcessoOperacionalRecord,
@@ -55,6 +57,7 @@ import type {
   CertidaoRecord,
   FechamentoCompetenciaRecord,
   CompanyOnboardingWorkflowRecord,
+  AgendaTributaria,
 } from '@/types'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -95,6 +98,11 @@ export default function Dashboard() {
   )
   const [elisaJobs, setElisaJobs] = useState<ElisaJobRecord[]>([])
   const [pendenciasElisa, setPendenciasElisa] = useState<ProcessoPendenciaRecord[]>([])
+  const [agendaTributaria, setAgendaTributaria] = useState<AgendaTributaria[]>([])
+  const [competenciaMakro, setCompetenciaMakro] = useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
   const [kpisElisa, setKpisElisa] = useState({
     totalProcessos: 0,
     emExecucao: 0,
@@ -174,6 +182,10 @@ export default function Dashboard() {
       .listPendencias(tenant.id, { status: 'aberta' })
       .catch(() => [])
     const pKpis = elisaOpsService.getCentralOperacoesKPIs(tenant.id).catch(() => null)
+    const pAgenda = agendaTributariaService.list(tenant.id).catch((err) => {
+      console.error('Erro agenda tributaria:', err)
+      return [] as AgendaTributaria[]
+    })
 
     try {
       const [
@@ -190,6 +202,7 @@ export default function Dashboard() {
         jobsRes,
         pendRes,
         kpiRes,
+        agendaRes,
       ] = await Promise.all([
         pEmpresas,
         pDocs,
@@ -204,6 +217,7 @@ export default function Dashboard() {
         pJobs,
         pPendencias,
         pKpis,
+        pAgenda,
       ])
 
       setEmpresas(empRes)
@@ -216,6 +230,7 @@ export default function Dashboard() {
       setFechamentos(fechRes)
       setOnboardingWorkflows(onbRes)
 
+      setAgendaTributaria(agendaRes)
       setProcessosOperacionais(procRes)
       setElisaJobs(jobsRes)
       setPendenciasElisa(pendRes)
@@ -515,6 +530,17 @@ export default function Dashboard() {
           <div className="text-[10px] text-slate-500 font-medium mt-0.5">Por etapa robotizada</div>
         </Card>
       </div>
+
+      {/* PAINEL DE CONTROLE MAKRO — TELA 1: cards de percentual por departamento + grade de obrigações */}
+      <section aria-label="Painel de Controle por Departamento e Grade de Obrigações">
+        <DashboardMakroTela1
+          agenda={agendaTributaria}
+          obrigacoes={obrigacoes}
+          empresas={empresas}
+          loading={loadingInitial}
+          competencia={competenciaMakro}
+        />
+      </section>
 
       {/* SEÇÃO PRINCIPAL DA ELLIZA: ORQUESTRADOR DE PROCESSOS & FILA EM TEMPO REAL */}
       <section aria-label="Processos Operacionais da Elliza" className="space-y-4">

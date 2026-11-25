@@ -57,6 +57,10 @@ import ManualPage from '@/pages/Manual'
 import LotePage from '@/pages/LotePage'
 import ParametrosNormativosPage from '@/pages/ParametrosNormativosPage'
 import BackupPage from '@/pages/BackupPage'
+import TarefasEquipePage from '@/pages/TarefasEquipe'
+import AgendaTributariaPage from '@/pages/AgendaTributaria'
+import ModuloPessoalPage from '@/pages/ModuloPessoal'
+import ModuloFinanceiroPage from '@/pages/ModuloFinanceiro'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -86,6 +90,12 @@ export default function App() {
           >
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Modelo Makro — Fatia 1 */}
+            <Route path="/tarefas-equipe" element={<TarefasEquipePage />} />
+            <Route path="/agenda-tributaria" element={<AgendaTributariaPage />} />
+            <Route path="/modulo-pessoal" element={<ModuloPessoalPage />} />
+            <Route path="/modulo-financeiro" element={<ModuloFinanceiroPage />} />
 
             {/* Nova Arquitetura Operacional Elliza */}
             <Route path="/elisa-fila" element={<ElisaFilaPage />} />

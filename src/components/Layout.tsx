@@ -76,6 +76,21 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 
+/** Item de navegação da sidebar (modelo Makro — Fatia 1). */
+interface NavItem {
+  label: string
+  to: string
+  icon: React.ComponentType<{ className?: string }>
+  badge?: string | number
+  allowedRoles?: ('admin' | 'contador' | 'consultor' | 'cliente')[]
+}
+
+/** Grupo de módulo da sidebar: Administrar / Pessoal / Fiscal / Contábil / Financeiro. */
+interface NavGroup {
+  group: string
+  items: NavItem[]
+}
+
 export default function Layout() {
   const { user, tenant, tenants, member, signOut, switchTenant, createEscritorio } = useAuth()
   const navigate = useNavigate()
@@ -328,6 +343,7 @@ export default function Layout() {
     {
       group: 'PESSOAL',
       items: [
+        { label: 'Módulo Pessoal (Makro)', to: '/modulo-pessoal', icon: LayoutDashboard },
         { label: 'Depto. Pessoal (DP)', to: '/departamento-pessoal', icon: Users },
         { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
       ],
@@ -409,10 +425,10 @@ export default function Layout() {
     {
       group: 'FINANCEIRO',
       items: [
+        { label: 'Módulo Financeiro (Makro)', to: '/modulo-financeiro', icon: LayoutDashboard },
         { label: 'Contas & Conciliação', to: '/financeiro', icon: Wallet },
         { label: 'Fluxo de Caixa & DFC', to: '/fluxo-caixa', icon: TrendingUp },
-        { label: 'Faturamento Recorrente', to: '/financeiro?tab=faturamento', icon: FileCheck },
-        { label: 'Faturamento Recorrente', to: '/faturamento-recorrente', icon: Wallet },
+        { label: 'Faturamento Recorrente', to: '/contratos?tab=faturamento', icon: FileCheck },
       ],
     },
   ]
