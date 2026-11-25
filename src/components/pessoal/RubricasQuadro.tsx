@@ -93,12 +93,12 @@ export function RubricasQuadro({ tenantId, empresaId, aoMudar }: Props) {
       const input: CreateVerbaCatalogoInput = {
         tenant_id: tenantId,
         empresa: empresaId,
+        valor_padrao: valorPadrao ? Number(valorPadrao.replace(',', '.')) : 0,
         codigo: codigo.trim(),
         descricao: descricao.trim(),
         tipo,
         unidade,
         rubrica_esocial: rubricaEsocial.trim(),
-        valor_padrao: valorPadrao ? Number(valorPadrao.replace(',', '.')) : 0,
         incide_inss: incideInss,
         incide_irrf: incideIrrf,
         incide_fgts: incideFgts,

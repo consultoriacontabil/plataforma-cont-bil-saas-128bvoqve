@@ -57,10 +57,13 @@ type ItemRubrica = { descricao: string; valor: number }
 type Totais = { inss: number; irrf: number; fgts: number; liquido: number }
 
 const MOTIVOS_RESCISAO: Array<{ value: RescisaoMotivo; label: string }> = [
-  { value: 'sem_justa_causa', label: 'Sem justa causa' },
-  { value: 'justa_causa', label: 'Justa causa' },
+  { value: 'sem_justa_causa_empregador', label: 'Sem justa causa (dispensa pelo empregador)' },
+  { value: 'justa_causa_empregador', label: 'Justa causa' },
   { value: 'pedido_demissao', label: 'Pedido de demissão' },
-  { value: 'acordo', label: 'Acordo mútuo' },
+  { value: 'acordo_consensual_art_484_a', label: 'Acordo consensual (art. 484-A)' },
+  { value: 'termino_contrato_experiencia', label: 'Término de contrato de experiência' },
+  { value: 'rescisao_indireta', label: 'Rescisão indireta (art. 483)' },
+  { value: 'aposentadoria', label: 'Aposentadoria' },
 ]
 
 function itensDe(folha: FolhaPagamento): ItemRubrica[] {
@@ -126,7 +129,7 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   // Rescisão
   const [rescisaoAberto, setRescisaoAberto] = useState(false)
   const [rescisaoFuncId, setRescisaoFuncId] = useState('')
-  const [rescisaoMotivo, setRescisaoMotivo] = useState<RescisaoMotivo>('sem_justa_causa')
+  const [rescisaoMotivo, setRescisaoMotivo] = useState<RescisaoMotivo>('sem_justa_causa_empregador')
   const [rescisaoAviso, setRescisaoAviso] = useState('30')
   const [rescisaoSaldoDias, setRescisaoSaldoDias] = useState('0')
   const [rescisaoResultado, setRescisaoResultado] = useState<Awaited<
@@ -323,7 +326,7 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   // ---------- Rescisão ----------
   const abrirRescisao = (f: Funcionario) => {
     setRescisaoFuncId(f.id)
-    setRescisaoMotivo('sem_justa_causa')
+    setRescisaoMotivo('sem_justa_causa_empregador')
     setRescisaoAviso('30')
     setRescisaoSaldoDias('0')
     setRescisaoResultado(null)
