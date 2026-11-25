@@ -38,7 +38,7 @@ interface Props {
   empresaId: string
   competencia: string
   contas: ContaContabil[]
-  onConciliado: (r: ResultadoConciliacao) => void
+  onConciliado: (r: ResultadoConciliacao, contaBancariaId: string, contrapartidaId: string) => void
 }
 
 export function ImportacaoExtrato({
@@ -54,12 +54,13 @@ export function ImportacaoExtrato({
   const fileRef = useRef<HTMLInputElement>(null)
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [contaBancaria, setContaBancaria] = useState('')
+  const [contrapartida, setContrapartida] = useState('')
   const [processando, setProcessando] = useState(false)
   const [preview, setPreview] = useState<ResultadoConciliacao | null>(null)
 
-  const contasBancarias = contas.filter(
-    (c) => !contas.some((f) => f.pai === c.id) && /banco|caixa/i.test(c.nome),
-  )
+  const analiticas = contas.filter((c) => !contas.some((f) => f.pai === c.id))
+  const contasBancarias = analiticas.filter((c) => /banco|caixa/i.test(c.nome))
+  const contrapartidas = analiticas.filter((c) => c.id !== contaBancaria)
 
   const escolherArquivo = (f: File | null) => {
     setArquivo(f)
@@ -77,7 +78,7 @@ export function ImportacaoExtrato({
     setProcessando(true)
     try {
       const texto = await arquivo.text()
-      const r = conciliarExtrato({
+      const r = await conciliarExtrato({
         texto,
         tenantId,
         empresaId,
@@ -85,11 +86,10 @@ export function ImportacaoExtrato({
         contaBancariaId: contaBancaria,
       })
       setPreview(r)
-      if (r.transacoes.length === 0) {
+      if (r.novas.length === 0) {
         toast({
-          title: 'Nenhuma transação reconhecida',
-          description: 'Verifique se o arquivo é um OFX válido ou um TXT bancário suportado.',
-          variant: 'destructive',
+          title: 'Extrato totalmente conciliado',
+          description: 'Todas as transações já possuem lançamento na competência.',
         })
       }
     } catch {
@@ -100,7 +100,15 @@ export function ImportacaoExtrato({
   }
 
   const confirmar = () => {
-    if (preview) onConciliado(preview)
+    if (preview && contaBancaria && contrapartida) {
+      onConciliado(preview, contaBancaria, contrapartida)
+    } else {
+      toast({
+        title: 'Selecione a conta de contrapartida',
+        description: 'É a conta que recebe o lançamento das transações não conciliadas.',
+        variant: 'destructive',
+      })
+    }
   }
 
   return (
@@ -109,8 +117,8 @@ export function ImportacaoExtrato({
         <DialogHeader>
           <DialogTitle className="text-sm">Importar extrato (OFX/TXT) e conciliar</DialogTitle>
           <DialogDescription className="text-xs">
-            As transações do extrato são comparadas com os lançamentos da competência por data e
-            valor. As não conciliadas podem gerar lançamentos automáticos.
+            As transações do extrato são comparadas com os lançamentos confirmados da competência
+            por data e valor. As não conciliadas podem gerar lançamentos automáticos.
           </DialogDescription>
         </DialogHeader>
 
@@ -131,11 +139,11 @@ export function ImportacaoExtrato({
 
           <div className="space-y-1">
             <Label htmlFor="ext-conta" className="text-[11px]">
-              Conta bancária (contrapartida dos lançamentos)
+              Conta bancária (banco/caixa)
             </Label>
             <Select value={contaBancaria} onValueChange={setContaBancaria}>
               <SelectTrigger id="ext-conta" className="h-9 text-xs">
-                <SelectValue placeholder="Selecione a conta" />
+                <SelectValue placeholder="Selecione a conta bancária" />
               </SelectTrigger>
               <SelectContent>
                 {contasBancarias.map((c) => (
@@ -150,6 +158,24 @@ export function ImportacaoExtrato({
                 Nenhuma conta analítica com "banco" ou "caixa" no nome. Crie uma na fase Cadastros.
               </p>
             )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="ext-contrapartida" className="text-[11px]">
+              Conta de contrapartida dos lançamentos gerados
+            </Label>
+            <Select value={contrapartida} onValueChange={setContrapartida}>
+              <SelectTrigger id="ext-contrapartida" className="h-9 text-xs">
+                <SelectValue placeholder="Selecione a contrapartida" />
+              </SelectTrigger>
+              <SelectContent>
+                {contrapartidas.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.codigo} — {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {processando && (
@@ -205,7 +231,7 @@ export function ImportacaoExtrato({
             variant="outline"
             size="sm"
             onClick={processar}
-            disabled={processando || !arquivo}
+            disabled={processando || !arquivo || !contaBancaria}
           >
             {processando ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

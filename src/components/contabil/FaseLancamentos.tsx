@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { contabilService } from '@/services/contabil'
 import { competenciaParaBase } from '@/services/contabilMakro'
 import {
-  conciliarExtrato,
   gerarLancamentosDaConciliacao,
   type ResultadoConciliacao,
 } from '@/services/contabilMakroExtratos'
@@ -186,20 +185,26 @@ export function LancamentosFase({ tenantId, usuarioId, empresaId, competencia, a
     URL.revokeObjectURL(url)
   }
 
-  const aoConciliar = async (r: ResultadoConciliacao) => {
+  const aoConciliar = async (
+    r: ResultadoConciliacao,
+    contaBancariaId: string,
+    contrapartidaId: string,
+  ) => {
     setImportAberto(false)
-    if (r.criados > 0) {
+    if (r.novas.length > 0) {
       try {
-        await gerarLancamentosDaConciliacao({
+        const { quantidade } = await gerarLancamentosDaConciliacao({
           tenantId: tenantId!,
           empresaId,
           competencia,
+          contaBancariaId,
+          contaContrapartidaId: contrapartidaId,
           usuarioId,
           resultado: r,
         })
         toast({
           title: 'Conciliado',
-          description: `${r.criados} lançamento(s) gerado(s) do extrato.`,
+          description: `${quantidade} lançamento(s) gerado(s) do extrato.`,
         })
       } catch {
         toast({ title: 'Erro ao gerar lançamentos do extrato', variant: 'destructive' })

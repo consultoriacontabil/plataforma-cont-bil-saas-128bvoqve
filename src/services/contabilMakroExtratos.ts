@@ -152,6 +152,129 @@ export async function marcarExtratoConciliado(id: string, status: 'conciliado' |
   return pb.collection('contabil_extratos').update(id, { status })
 }
 
+// ---------------------------------------------------------------------------
+// Conciliação (API usada pelas fases Lançamentos da Fatia 4)
+// ---------------------------------------------------------------------------
+
+export interface TransacaoConciliada {
+  data: string // AAAA-MM-DD
+  descricao: string
+  valor: number // + entrada / − saída
+}
+
+export interface ResultadoConciliacao {
+  /** Transações do extrato que casaram com lançamentos já escriturados. */
+  conciliadas: number
+  /** Transações sem lançamento correspondente — podem gerar lançamentos. */
+  novas: TransacaoConciliada[]
+  saldoFinal: number
+}
+
+/**
+ * Concilia o extrato com os lançamentos da competência: para cada linha do
+ * extrato procura um lançamento confirmado na mesma data com o mesmo valor
+ * (entrada = crédito no extrato; saída = débito). O extrato é apenas lido —
+ * a persistência/geração acontece em `gerarLancamentosDaConciliacao`.
+ */
+export async function conciliarExtrato(params: {
+  texto: string
+  tenantId: string
+  empresaId: string
+  competencia: string // AAAA-MM
+  contaBancariaId: string
+}): Promise<ResultadoConciliacao> {
+  const transacoes = parseExtrato(params.texto)
+  const comp = competenciaParaBase(params.competencia)
+  const escriturados = await contabilService.listLancamentos(
+    params.tenantId,
+    { empresaId: params.empresaId, competencia: comp },
+    1,
+    500,
+  )
+
+  const usados = new Set<string>()
+  let conciliadas = 0
+  const novas: TransacaoConciliada[] = []
+  let saldoFinal = 0
+
+  for (const t of transacoes) {
+    saldoFinal += t.valor
+    const match = escriturados.items.find(
+      (l) =>
+        l.status === 'confirmado' &&
+        !usados.has(l.id) &&
+        l.data.slice(0, 10) === t.data &&
+        Math.abs(l.valor - Math.abs(t.valor)) < 0.005,
+    )
+    if (match) {
+      usados.add(match.id)
+      conciliadas++
+    } else {
+      novas.push({ data: t.data, descricao: t.descricao, valor: t.valor })
+    }
+  }
+
+  return { conciliadas, novas, saldoFinal }
+}
+
+/**
+ * Gera lançamentos em partida dobrada a partir do resultado da conciliação:
+ * entrada debita a conta bancária e credita a contrapartida; saída é o inverso.
+ */
+export async function gerarLancamentosDaConciliacao(params: {
+  tenantId: string
+  empresaId: string
+  competencia: string // AAAA-MM
+  contaBancariaId: string
+  contaContrapartidaId: string
+  usuarioId?: string
+  resultado: ResultadoConciliacao
+}): Promise<{ loteId: string; quantidade: number }> {
+  const {
+    tenantId,
+    empresaId,
+    competencia,
+    contaBancariaId,
+    contaContrapartidaId,
+    usuarioId,
+    resultado,
+  } = params
+  const novas = resultado.novas.filter((t) => Math.abs(t.valor) > 0)
+  if (novas.length === 0) {
+    throw new Error('Nenhuma transação nova para gerar lançamentos.')
+  }
+
+  const loteId = `CONC-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const base: Omit<
+    CreatePartidaDobradaInput,
+    'debitoContaId' | 'creditoContaId' | 'valor' | 'historico' | 'data'
+  > = {
+    tenant_id: tenantId,
+    empresa: empresaId,
+    competencia: competenciaParaBase(competencia),
+    status: 'confirmado',
+    loteId,
+    origem: 'importacao',
+    criado_por: usuarioId,
+  }
+
+  let quantidade = 0
+  for (const t of novas) {
+    const isEntrada = t.valor >= 0
+    await contabilService.createPartidaDobrada({
+      ...base,
+      data: t.data,
+      valor: Math.abs(t.valor),
+      historico: `Extrato bancário — ${t.descricao}`,
+      debitoContaId: isEntrada ? contaBancariaId : contaContrapartidaId,
+      creditoContaId: isEntrada ? contaContrapartidaId : contaBancariaId,
+    })
+    quantidade++
+  }
+
+  return { loteId, quantidade }
+}
+
 /**
  * Gera lançamentos em partida dobrada a partir de linhas de extrato
  * pendentes selecionadas. Entrada de dinheiro (crédito no extrato) =

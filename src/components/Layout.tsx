@@ -210,6 +210,7 @@ export default function Layout() {
     if (path.startsWith('/modulo-pessoal')) return 'Módulo Pessoal (em implantação)'
     if (path.startsWith('/modulo-financeiro'))
       return 'Módulo Financeiro do Escritório (em implantação)'
+    if (path.startsWith('/modulo-contabil')) return 'Módulo Contábil (Makro)'
     if (path.startsWith('/perfil')) return 'Minha Conta'
     return 'Rumo Contábil'
   }
@@ -411,7 +412,8 @@ export default function Layout() {
     {
       group: 'CONTÁBIL',
       items: [
-        { label: 'Lançamentos', to: '/contabil/lancamentos', icon: BookOpen },
+        { label: 'Contábil (Makro)', to: '/modulo-contabil', icon: LayoutDashboard },
+        { label: 'Contábil (legado)', to: '/contabil/lancamentos', icon: BookOpen },
         { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },
         { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
         { label: 'DRE & Balanço', to: '/relatorios-contabeis', icon: PieChart },
