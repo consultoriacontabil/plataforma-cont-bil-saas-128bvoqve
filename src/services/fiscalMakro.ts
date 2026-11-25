@@ -72,6 +72,7 @@ export interface ItemFiscal {
   aliquota_icms?: number
   valor_icms?: number
   valor_icms_st?: number
+  valor_fcp_st?: number
   valor_isentas?: number
 }
 
@@ -769,14 +770,37 @@ const ANEXOS_SIMPLES: Record<
   },
 }
 
-/** Parâmetros do tenant (parametros_normativos) — fallback para constantes. */
+const CHAVE_ANEXO: Record<string, string> = {
+  I: 'anexo_I_comercio',
+  II: 'anexo_II_industria',
+  III: 'anexo_III_servicos',
+  IV: 'anexo_IV_servicos_obras',
+  V: 'anexo_V_servicos',
+}
+
+/**
+ * Parâmetros do tenant (parametros_normativos, seed categoria="simples_nacional"
+ * com valores_json.anexo_X_*) — fallback para as constantes locais.
+ */
 async function carregarAnexoSimples(tenantId: string, anexo: string) {
+  const chave = CHAVE_ANEXO[anexo] || CHAVE_ANEXO.III
   try {
     const registro = await pb
       .collection('parametros_normativos')
-      .getFirstListItem(`tenant_id="${tenantId}" && tipo="simples_nacional_anexos" && ativo=true`)
-    const tabela = registro?.tabela_json?.[anexo]
-    if (tabela?.faixas) return tabela
+      .getFirstListItem(
+        `tenant_id="${tenantId}" && categoria="simples_nacional" && chave~"simples_nacional_anexos" && ativo=true`,
+      )
+    const linhas = registro?.valores_json?.[chave]
+    if (Array.isArray(linhas) && linhas.length > 0) {
+      return {
+        teto: 4800000,
+        faixas: linhas.map((l: any) => ({
+          ate: Number(l.limite_rbt12) || 0,
+          aliq: (Number(l.aliquota_nominal) || 0) * 100,
+          deduzir: Number(l.parcela_deduzir) || 0,
+        })),
+      }
+    }
   } catch {
     /* usa constantes */
   }
