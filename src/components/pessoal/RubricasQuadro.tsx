@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { verbasService } from '@/services/verbas'
+import { verbasService, type CreateVerbaCatalogoInput } from '@/services/verbas'
 import type { VerbaCatalogoRecord, VerbaTipo, VerbaUnidade } from '@/types'
 import { formatCurrency } from '@/lib/formatters'
 import { useToast } from '@/hooks/use-toast'
@@ -70,7 +70,7 @@ export function RubricasQuadro({ tenantId, empresaId, aoMudar }: Props) {
     }
     setCarregando(true)
     try {
-      const itens = await verbasService.listCatalogo(empresaId)
+      const itens = await verbasService.listCatalogo(tenantId, empresaId)
       setRubricas(itens.filter((r) => r.ativo !== false))
     } catch {
       setRubricas([])
@@ -90,14 +90,15 @@ export function RubricasQuadro({ tenantId, empresaId, aoMudar }: Props) {
     }
     setSalvando(true)
     try {
-      await verbasService.createVerbaCatalogo(empresaId, {
+      const input: CreateVerbaCatalogoInput = {
         tenant_id: tenantId,
+        empresa: empresaId,
         codigo: codigo.trim(),
         descricao: descricao.trim(),
         tipo,
         unidade,
-        valor_padrao: valorPadrao ? Number(valorPadrao.replace(',', '.')) : 0,
         rubrica_esocial: rubricaEsocial.trim(),
+        valor_padrao: valorPadrao ? Number(valorPadrao.replace(',', '.')) : 0,
         incide_inss: incideInss,
         incide_irrf: incideIrrf,
         incide_fgts: incideFgts,
@@ -105,7 +106,8 @@ export function RubricasQuadro({ tenantId, empresaId, aoMudar }: Props) {
         reflexo_dsr: false,
         reflexo_ferias_13: false,
         ativo: true,
-      } as never)
+      }
+      await verbasService.createVerbaCatalogo(input, tenantId)
       toast({ title: 'Rubrica criada' })
       setDialogAberto(false)
       setCodigo('')
@@ -123,7 +125,7 @@ export function RubricasQuadro({ tenantId, empresaId, aoMudar }: Props) {
 
   const excluir = async (r: VerbaCatalogoRecord) => {
     try {
-      await verbasService.excluirVerba(r.id)
+      await verbasService.deleteVerbaCatalogo(r.id, tenantId)
       toast({ title: 'Rubrica excluída' })
       await carregar()
       aoMudar()

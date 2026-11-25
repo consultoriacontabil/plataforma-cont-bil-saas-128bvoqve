@@ -61,12 +61,13 @@ const STATUS_CLASSE: Record<FuncionarioStatus, string> = {
 
 interface Props {
   tenantId?: string
+  usuarioId?: string
   empresaId: string
   competencia: string
   aoMudar: () => void
 }
 
-export function PessoalFasePreparar({ tenantId, empresaId, competencia, aoMudar }: Props) {
+export function FasePreparar({ tenantId, empresaId, competencia, aoMudar }: Props) {
   const { toast } = useToast()
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([])
   const [carregando, setCarregando] = useState(true)
