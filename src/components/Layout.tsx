@@ -8,7 +8,6 @@ import {
   Building2,
   FileText,
   GitPullRequest,
-  Calculator,
   Layers,
   Users,
   ShieldCheck,
@@ -26,12 +25,9 @@ import {
   AlertTriangle,
   X,
   BookOpen,
-  FileSpreadsheet,
   CheckSquare,
-  PieChart,
   Boxes,
   SlidersHorizontal,
-  Wallet,
   TrendingUp,
   Scale,
   Plus,
@@ -345,7 +341,7 @@ export default function Layout() {
       group: 'PESSOAL',
       items: [
         { label: 'Pessoal (Makro)', to: '/modulo-pessoal', icon: LayoutDashboard },
-        { label: 'Depto. Pessoal (legado)', to: '/departamento-pessoal', icon: Users },
+        // Depto. Pessoal (legado) oculto da sidebar na limpeza Makro — rota /departamento-pessoal segue viva por deep-link.
         { label: 'Impostos Retidos (Folha)', to: '/impostos-retidos', icon: Receipt },
       ],
     },
@@ -353,7 +349,7 @@ export default function Layout() {
       group: 'FISCAL',
       items: [
         { label: 'Módulo Fiscal (Makro)', to: '/modulo-fiscal', icon: LayoutDashboard },
-        { label: 'Fiscal (legado)', to: '/fiscal', icon: Calculator },
+        // Fiscal (legado) oculto da sidebar na limpeza Makro — rota /fiscal segue viva (hospeda ?tab=sped, destino dos cards ECD/ECF e do "Abrir SPED").
         ...(!isCliente
           ? [
               { label: 'DEFIS (Simples)', to: '/fiscal/defis', icon: BookOpen, badge: 'FASE 2' },
@@ -413,10 +409,8 @@ export default function Layout() {
       group: 'CONTÁBIL',
       items: [
         { label: 'Contábil (Makro)', to: '/modulo-contabil', icon: LayoutDashboard },
-        { label: 'Contábil (legado)', to: '/contabil/lancamentos', icon: BookOpen },
+        // Contábil (legado), Balancete e DRE & Balanço ocultos da sidebar na limpeza Makro — rotas /contabil/lancamentos, /contabil/balancete e /relatorios-contabeis seguem vivas por deep-link.
         { label: 'Pré-Lançamento', to: '/contabil/pre-lancamento', icon: Sparkles },
-        { label: 'Balancete', to: '/contabil/balancete', icon: FileSpreadsheet },
-        { label: 'DRE & Balanço', to: '/relatorios-contabeis', icon: PieChart },
         { label: 'Patrimônio (Ativos)', to: '/patrimonio', icon: Boxes },
         { label: 'Mapeamento Fecho', to: '/contabil/mapeamento', icon: Compass },
         { label: 'Fecho Mensal', to: '/fecho-mensal', icon: CheckSquare },
@@ -429,7 +423,7 @@ export default function Layout() {
       group: 'FINANCEIRO',
       items: [
         { label: 'Módulo Financeiro (Makro)', to: '/modulo-financeiro', icon: LayoutDashboard },
-        { label: 'Contas & Conciliação', to: '/financeiro', icon: Wallet },
+        // Contas & Conciliação oculto da sidebar na limpeza Makro — rota /financeiro segue viva por deep-link.
         { label: 'Fluxo de Caixa & DFC', to: '/fluxo-caixa', icon: TrendingUp },
         { label: 'Faturamento Recorrente', to: '/contratos?tab=faturamento', icon: FileCheck },
       ],
