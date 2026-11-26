@@ -141,6 +141,7 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   const [calculando, setCalculando] = useState(false)
   const [adiantamentoPara, setAdiantamentoPara] = useState<string | null>(null)
   const [percentualAdiantamento, setPercentualAdiantamento] = useState('50')
+  const [valorAdiantamento, setValorAdiantamento] = useState('')
 
   // 13º
   const [decimoAberto, setDecimoAberto] = useState(false)
@@ -157,7 +158,9 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
   const [feriasValidacao, setFeriasValidacao] = useState<ReturnType<
     typeof pessoalMakro.validarGozoFerias
   > | null>(null)
+  const [feriasLancando, setFeriasLancando] = useState(false)
   const [feriasRegistro, setFeriasRegistro] = useState<FeriasPeriodoRecord | null>(null)
+  const [feriasResultado, setFeriasResultado] = useState<FeriasPeriodoRecord | null>(null)
   const [feriasCalculando, setFeriasCalculando] = useState(false)
 
   // Rescisão
@@ -333,6 +336,7 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
     setDiasVendidos('0')
     setFeriasValidacao(null)
     setFeriasRegistro(null)
+    setFeriasResultado(null)
     setFeriasAberto(true)
   }
 
@@ -366,8 +370,9 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
         adiantar_13: false,
       })
       setFeriasRegistro(registro)
-      setFeriasValidacaoAlertas(alertas)
+      setFeriasValidacao({ ...validacao, alertas })
       toast({ title: 'Férias calculadas' })
+      setFeriasResultado(registro)
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
       toast({
@@ -743,7 +748,7 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
                 </Label>
                 <Select
                   value={decimoParcela}
-                  onValueChange={(v) => setDecimoParcela(v as 'primeira' | 'segunda')}
+                  onValueChange={(v) => setDecimoParcela(v as DecimoTerceiroParcela)}
                 >
                   <SelectTrigger id="dec-parcela" className="h-9 text-xs">
                     <SelectValue />
@@ -930,13 +935,16 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
                 ) : null}
               </div>
             ) : null}
-            {feriasResultado.valores ? (
+            {feriasResultado ? (
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 border border-[#E2E8F0] p-3">
                 {[
-                  { label: 'Bruto', valor: feriasResultado.valores.bruto },
-                  { label: 'Adiantamento 13º', valor: feriasResultado.valores.adiantamento_13 },
-                  { label: 'Líquido', valor: feriasResultado.valores.liquido },
-                  { label: 'FGTS (informativo)', valor: feriasResultado.valores.fgts },
+                  { label: 'Bruto', valor: feriasResultado.total_bruto },
+                  {
+                    label: 'Adiantamento 13º',
+                    valor: feriasResultado.adiantar_13 ? feriasResultado.inss : 0,
+                  },
+                  { label: 'Líquido', valor: feriasResultado.total_liquido },
+                  { label: 'FGTS (informativo)', valor: feriasResultado.irrf },
                 ].map((k) => (
                   <div key={k.label}>
                     <p className="text-[10px] uppercase text-slate-400 font-semibold">{k.label}</p>
@@ -955,13 +963,9 @@ export function FaseMovimentacoes({ tenantId, empresaId, competencia, aoMudar }:
             <Button
               size="sm"
               onClick={lancarFerias}
-              disabled={
-                !feriasResultado.valores ||
-                feriasResultado.lancando ||
-                feriasValidacao?.valido === false
-              }
+              disabled={!feriasResultado || feriasLancando || feriasValidacao?.valido === false}
             >
-              {feriasResultado.lancando ? (
+              {feriasLancando ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Save className="h-3.5 w-3.5" />

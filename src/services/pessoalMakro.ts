@@ -289,7 +289,9 @@ export const pessoalMakro = {
     }
 
     const existentes = await this.listarFolha(tenantId, competencia, empresaId)
-    const existentesPorFunc = new Map(existentes.map((f) => [f.funcionario, f]))
+    const existentesPorFunc = new Map<string, FolhaPagamento>(
+      existentes.map((f) => [f.funcionario, f]),
+    )
     const processados: FolhaPagamento[] = []
     const suspensos = funcionarios.filter(
       (f) => f.status === 'afastado' || f.status === 'ferias' || f.status === 'demitido',
