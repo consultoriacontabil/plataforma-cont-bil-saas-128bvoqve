@@ -47,6 +47,12 @@ const WA_WEBHOOK_TOKEN = process.env.WA_WEBHOOK_TOKEN || ''
 const RUMO_CANAL_ID = process.env.RUMO_CANAL_ID || ''
 const WA_AUTH_DIR = process.env.WA_AUTH_DIR || './auth_info'
 const LAZO_ENVIO_MS = Number(process.env.WA_ENVIO_INTERVALO_MS || 8000)
+// Origens da página que podem chamar o conector (CORS), separadas por vírgula.
+// Vazio = '*' (qualquer origem). Recomendado: https://SEU-APP.goskip.app
+const CORS_ORIGENS = (process.env.WA_CORS_ORIGENS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 
 if (!RUMO_WEBHOOK_URL || !WA_WEBHOOK_TOKEN) {
   console.error(
@@ -259,6 +265,25 @@ function pararLacoEnvio() {
 // HTTP: /qr.png, /estado, /recarregar
 // ---------------------------------------------------------------------------
 const app = express()
+
+// CORS + Private Network Access: a página publicada (HTTPS) chama o conector
+// direto pelo túnel. Responde ao preflight OPTIONS com 204.
+app.use((req, res, next) => {
+  const origem = req.headers.origin
+  if (CORS_ORIGENS.length === 0) {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  } else if (origem && CORS_ORIGENS.includes(origem)) {
+    res.setHeader('Access-Control-Allow-Origin', origem)
+  }
+  res.setHeader('Vary', 'Origin')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-rumo-token')
+  res.setHeader('Access-Control-Allow-Private-Network', 'true')
+  res.setHeader('Access-Control-Max-Age', '600')
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
+
 app.use(express.json())
 
 app.get('/estado', (req, res) => {

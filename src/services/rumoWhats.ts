@@ -555,18 +555,32 @@ export const rumoWhatsService = {
   // ------------------------------------------------------------------
   // Conector (processo Node na máquina do escritório)
   // ------------------------------------------------------------------
-  conectorUrl(): string {
-    return (import.meta.env.VITE_WA_CONECTOR_URL as string | undefined) || ''
+  /** Canal principal do tenant (modo qr, senão o primeiro): nele fica o conector_url. */
+  async carregarCanalPrincipal(tenantId: string): Promise<WaCanalRecord | null> {
+    const canais = await this.listarCanais(tenantId)
+    return canais.find((c) => c.modo === 'qr') || canais[0] || null
   },
 
-  async estadoConector(): Promise<
-    { ok: true; estado: ConectorEstado } | { ok: false; erro: string }
-  > {
-    const base = this.conectorUrl().replace(/\/$/, '')
+  /** URL do conector: só http(s), sem barra final. Retorna '' quando vazia ou inválida. */
+  normalizarConectorUrl(valor: string): string {
+    const limpo = (valor || '').trim().replace(/\/+$/, '')
+    if (!limpo) return ''
+    try {
+      const u = new URL(limpo)
+      return u.protocol === 'http:' || u.protocol === 'https:' ? limpo : ''
+    } catch {
+      return ''
+    }
+  },
+
+  async estadoConector(
+    url: string,
+  ): Promise<{ ok: true; estado: ConectorEstado } | { ok: false; erro: string }> {
+    const base = this.normalizarConectorUrl(url)
     if (!base) {
       return {
         ok: false,
-        erro: 'Conector não configurado: defina VITE_WA_CONECTOR_URL apontando para o processo Node (ex. http://127.0.0.1:8095).',
+        erro: 'Conector não configurado: informe a URL do conector na aba Configurações de /extensao.',
       }
     }
     try {
@@ -582,14 +596,10 @@ export const rumoWhatsService = {
     }
   },
 
-  qrUrl(): string {
-    const base = this.conectorUrl().replace(/\/$/, '')
-    return base ? `${base}/qr.png?t=${Date.now()}` : ''
-  },
-
-  async recarregarSessao(): Promise<{ ok: boolean; erro?: string }> {
-    const base = this.conectorUrl().replace(/\/$/, '')
-    if (!base) return { ok: false, erro: 'Conector não configurado (VITE_WA_CONECTOR_URL).' }
+  async recarregarSessao(url: string): Promise<{ ok: boolean; erro?: string }> {
+    const base = this.normalizarConectorUrl(url)
+    if (!base)
+      return { ok: false, erro: 'Conector não configurado: informe a URL na aba Configurações.' }
     try {
       const resp = await fetch(base + '/recarregar', {
         method: 'POST',

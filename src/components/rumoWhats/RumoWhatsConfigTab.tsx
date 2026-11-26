@@ -15,6 +15,7 @@ import {
   type WaChatbotConfigRecord,
 } from '@/services/rumoWhats'
 import { useToast } from '@/hooks/use-toast'
+import { RumoWhatsConectorCard } from '@/components/rumoWhats/RumoWhatsConectorCard'
 
 /**
  * Tela 05 — Configurações: grade de dias/horários de atendimento e mensagens
@@ -87,6 +88,9 @@ export function RumoWhatsConfigTab() {
 
   return (
     <div className="space-y-6">
+      {/* Conector: URL pública (túnel HTTPS) guardada no canal */}
+      <RumoWhatsConectorCard />
+
       {/* Horários de atendimento */}
       <Card>
         <CardHeader>

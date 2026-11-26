@@ -71,12 +71,24 @@ function ConexaoQrCard() {
   const [qrTick, setQrTick] = useState(Date.now())
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const conectorUrl = rumoWhatsService.conectorUrl()
+  const { tenant } = useAuth()
+  // URL do conector vem do canal (wa_canais.conector_url), editada em Configurações
+  const [conectorUrl, setConectorUrl] = useState('')
 
   const carregar = useCallback(async () => {
     setCarregando(true)
+    let url = ''
+    if (tenant?.id) {
+      try {
+        const canal = await rumoWhatsService.carregarCanalPrincipal(tenant.id)
+        url = rumoWhatsService.normalizarConectorUrl(canal?.conector_url || '')
+      } catch (err) {
+        console.error('Erro ao carregar o canal do conector:', err)
+      }
+    }
+    setConectorUrl(url)
     const resultado: { ok: boolean; estado?: ConectorEstado; erro?: string } =
-      await rumoWhatsService.estadoConector()
+      await rumoWhatsService.estadoConector(url)
     if (resultado.ok && resultado.estado) {
       setEstado(resultado.estado)
       setErro(null)
@@ -85,7 +97,7 @@ function ConexaoQrCard() {
       setErro(resultado.erro || 'Conector indisponível.')
     }
     setCarregando(false)
-  }, [])
+  }, [tenant?.id])
 
   useEffect(() => {
     carregar()
@@ -97,7 +109,7 @@ function ConexaoQrCard() {
 
   const handleRecarregar = async () => {
     setRecarregando(true)
-    const r = await rumoWhatsService.recarregarSessao()
+    const r = await rumoWhatsService.recarregarSessao(conectorUrl)
     if (!r.ok) {
       toast({ title: 'Recarregar sessão', description: r.erro, variant: 'destructive' })
       setRecarregando(false)
@@ -146,8 +158,8 @@ function ConexaoQrCard() {
               <p className="text-[#7C5A0B] mt-2">
                 O conector é o processo Node{' '}
                 <code>tools/conector-whatsapp/conector-whatsapp.js</code> que roda na máquina do
-                escritório (não no Skip Cloud). Suba-o e aponte <code>VITE_WA_CONECTOR_URL</code>{' '}
-                para ele.
+                escritório (não no Skip Cloud). Suba-o, abra um túnel HTTPS para ele e cole a URL na
+                aba <strong>Configurações</strong> (campo URL do conector).
               </p>
             </div>
           </div>
