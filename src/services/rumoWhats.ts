@@ -142,6 +142,20 @@ export const MSG_FORA_HORARIO_PADRAO =
 export const MSG_POSICAO_FILA_PADRAO =
   'Você está na fila de atendimento. Sua posição: {posicao}. Aguarde um instante, por favor.'
 
+export interface RelatorioWhats {
+  conversas_no_periodo: number
+  conversas_abertas: number
+  conversas_em_atendimento: number
+  conversas_encerradas: number
+  mensagens_recebidas: number
+  mensagens_enviadas: number
+  respostas_ia: number
+  respostas_humano: number
+  serie_diaria: { dia: string; total: number }[]
+  por_atendente: { nome: string; conversas: number; mensagens: number }[]
+  por_setor: { id: string; nome: string; conversas: number }[]
+}
+
 export function configPadrao() {
   return {
     saudacao: SAUDACAO_PADRAO,
@@ -365,6 +379,7 @@ export const rumoWhatsService = {
    */
   async despacharTransmissao(tenantId: string, t: WaWhatsTransmissaoRecord): Promise<number> {
     const destinatarios = t.destinatarios || []
+    let criados = 0
     for (const d of destinatarios) {
       await pb.collection(DISPAROS).create({
         tenant_id: tenantId,
@@ -376,12 +391,13 @@ export const rumoWhatsService = {
         mensagem: t.mensagem,
         status: 'pendente',
       })
+      criados++
     }
     await pb.collection(TRANSMISSOES).update(t.id, {
       status: 'despachada',
-      ...(t.status === 'concluida' ? {} : {}),
+      despachada_em: new Date().toISOString(),
     })
-    return destinatarios.length
+    return criados
   },
 
   async listarDisparos(
@@ -442,6 +458,85 @@ export const rumoWhatsService = {
       filter: `tenant_id = "${tenantId}" && created >= "${desdeISO}"`,
       sort: 'created',
     })
+  },
+
+  // ------------------------------------------------------------------
+  // Tela 06 — agregações de relatório (client-side sobre conversas/mensagens)
+  // ------------------------------------------------------------------
+  async relatorioWhats(tenantId: string, desdeISO: string): Promise<RelatorioWhats> {
+    const [conversas, mensagens, setores] = await Promise.all([
+      this.listarConversas(tenantId),
+      this.listarMensagensPeriodo(tenantId, desdeISO),
+      this.listarSetores(tenantId),
+    ])
+
+    const noPeriodo = conversas.filter((c) => (c.created || '') >= desdeISO)
+    const conversasNoPeriodo = noPeriodo.length
+    const abertas = noPeriodo.filter((c) => c.status === 'aberta').length
+    const emAtendimento = noPeriodo.filter((c) => c.status === 'em_atendimento').length
+    const encerradas = noPeriodo.filter(
+      (c) => c.status === 'encerrada' || c.status === 'resolvida_ia',
+    ).length
+
+    const recebidas = mensagens.filter((m) => m.remetente_tipo === 'cliente').length
+    const enviadas = mensagens.filter(
+      (m) => m.remetente_tipo === 'humano' || m.remetente_tipo === 'sistema',
+    ).length
+    const ia = mensagens.filter(
+      (m) => m.remetente_tipo === 'ia' || m.remetente_tipo === 'sistema',
+    ).length
+    const humanas = mensagens.filter((m) => m.remetente_tipo === 'humano').length
+
+    // Série diária (volume de conversas por dia)
+    const mapaDias: Record<string, number> = {}
+    for (const c of noPeriodo) {
+      const dia = (c.created || '').slice(0, 10)
+      if (!dia) continue
+      mapaDias[dia] = (mapaDias[dia] || 0) + 1
+    }
+    const serieDiaria = Object.entries(mapaDias)
+      .map(([dia, total]) => ({ dia, total }))
+      .sort((a, b) => a.dia.localeCompare(b.dia))
+
+    // Desempenho por atendente
+    const mapaAtend: Record<string, { nome: string; conversas: number; mensagens: number }> = {}
+    for (const c of noPeriodo) {
+      const at = (c as Record<string, unknown>).atendente_humano as string | undefined
+      if (!at) continue
+      if (!mapaAtend[at]) mapaAtend[at] = { nome: at, conversas: 0, mensagens: 0 }
+      mapaAtend[at].conversas++
+    }
+    for (const m of mensagens) {
+      const at = (m as Record<string, unknown>).atendente_id as string | undefined
+      if (!at || !mapaAtend[at]) continue
+      mapaAtend[at].mensagens++
+    }
+    const porAtendente = Object.values(mapaAtend).sort((a, b) => b.conversas - a.conversas)
+
+    // Desempenho por setor (triagem do chatbot)
+    const mapaSetor: Record<string, number> = {}
+    for (const c of noPeriodo) {
+      const sid = (c as Record<string, unknown>).setor as string | undefined
+      if (!sid) continue
+      mapaSetor[sid] = (mapaSetor[sid] || 0) + 1
+    }
+    const porSetor = setores
+      .map((s) => ({ id: s.id, nome: s.nome, conversas: mapaSetor[s.id] || 0 }))
+      .sort((a, b) => b.conversas - a.conversas)
+
+    return {
+      conversas_no_periodo: conversasNoPeriodo,
+      conversas_abertas: abertas,
+      conversas_em_atendimento: emAtendimento,
+      conversas_encerradas: encerradas,
+      mensagens_recebidas: recebidas,
+      mensagens_enviadas: enviadas,
+      respostas_ia: ia,
+      respostas_humano: humanas,
+      serie_diaria: serieDiaria,
+      por_atendente: porAtendente,
+      por_setor: porSetor,
+    }
   },
 
   // ------------------------------------------------------------------

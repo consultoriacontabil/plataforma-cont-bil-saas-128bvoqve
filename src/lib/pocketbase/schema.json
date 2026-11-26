@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-26T02:49:39.882Z",
+  "generatedAt": "2026-11-26T02:52:26.982Z",
   "collections": [
     {
       "name": "users",
@@ -8890,6 +8890,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "setor",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "wa_chatbot_setores"
         }
       ],
       "indexes": [

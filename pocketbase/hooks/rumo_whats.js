@@ -19,6 +19,14 @@
  *
  * POST /backend/v1/rumo-whats/fila/{id}/confirmar
  *   - Conector grava o wamid de volta (ou marca falha)
+ *
+ * GET /backend/v1/rumo-whats/fila-disparos
+ *   - Agente externo Elliza (ZAP da ELLIZA desktop) lê disparos pendentes
+ *     (wa_whats_disparos: transmissão ou documento) — a plataforma NUNCA envia
+ *     WhatsApp direto; todo disparo vira tarefa nesta fila.
+ *
+ * POST /backend/v1/rumo-whats/fila-disparos/{id}/confirmar
+ *   - Agente confirma a execução (wamid) ou marca falha da tarefa.
  */
 
 routerAdd('POST', '/backend/v1/rumo-whats/webhook', (e) => {
@@ -151,7 +159,9 @@ routerAdd('POST', '/backend/v1/rumo-whats/webhook', (e) => {
       )
     } catch (_) {}
 
+    let conversaNova = false
     if (!conversa) {
+      conversaNova = true
       conversa = new Record(convCol)
       conversa.set('tenant_id', tenantId)
       conversa.set('contato_nome', contatoNome || 'Cliente')
@@ -166,6 +176,123 @@ routerAdd('POST', '/backend/v1/rumo-whats/webhook', (e) => {
       } catch (errConv) {
         console.log('[RUMO-WHATS] Falha ao criar conversa: ' + errConv)
         return e.json(500, { error: 'Falha ao criar conversa.' })
+      }
+    }
+
+    // 5b. Tela 03 — triagem do chatbot: só em conversa nova e mensagem de cliente
+    //     (saudação + menu; palavras-chave/entrada → setor; fora do horário → msg)
+    if (conversaNova && remetenteTipo === 'cliente') {
+      try {
+        let cfg = null
+        try {
+          cfg = $app.findFirstRecordByFilter(
+            'wa_chatbot_config',
+            'tenant_id = {:t} && ativo = true',
+            { t: tenantId },
+          )
+        } catch (_) {}
+
+        if (cfg) {
+          const horarioInicio = cfg.getString('horario_inicio') || '08:00'
+          const horarioFim = cfg.getString('horario_fim') || '18:00'
+          const hoje = new Date()
+          const diaSemana = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'][hoje.getUTCDay()]
+          const dias = cfg.getStringSlice('dias_atendimento') || []
+          const hhmm = String(hoje.toISOString().slice(11, 16))
+          const dentroHorario =
+            (dias.length === 0 || dias.includes(diaSemana)) &&
+            hhmm >= horarioInicio &&
+            hhmm <= horarioFim
+
+          function enviarAuto(texto) {
+            if (!texto) return
+            const auto = new Record(msgCol)
+            auto.set('tenant_id', tenantId)
+            auto.set('conversa', conversa.id)
+            auto.set('remetente_tipo', 'sistema')
+            auto.set('conteudo', texto)
+            auto.set('status_envio', 'recebida')
+            $app.save(auto)
+            conversa.set('total_respostas_ia', (conversa.getInt('total_respostas_ia') || 0) + 1)
+          }
+
+          if (!dentroHorario) {
+            // Fora do horário/dias — mensagem automática configurada (Tela 05)
+            enviarAuto(cfg.getString('msg_fora_horario'))
+          } else {
+            // Roteamento: menu digitado (entrada = número/keyword) ou setor padrão
+            const modo = cfg.getString('roteamento_modo') || 'menu_digitado'
+            let setorEscolhido = null
+
+            if (modo === 'setor_padrao') {
+              try {
+                setorEscolhido = $app.findRecordById(
+                  'wa_chatbot_setores',
+                  cfg.getString('setor_padrao'),
+                )
+              } catch (_) {}
+            } else {
+              const entrada = conteudo.toLowerCase().trim()
+              const setores = $app.findRecordsByFilter(
+                'wa_chatbot_setores',
+                'tenant_id = {:t} && ativo = true',
+                'ordem',
+                50,
+                0,
+                { t: tenantId },
+              )
+              // 1) palavra-chave exata/contida
+              for (const s of setores) {
+                const kws = String(s.getString('palavras_chave') || '')
+                  .toLowerCase()
+                  .split(',')
+                if (kws.some((k) => k.trim() && entrada.includes(k.trim()))) {
+                  setorEscolhido = s
+                  break
+                }
+              }
+              // 2) número do menu ("1", "2"… pela ordem)
+              if (!setorEscolhido && /^[0-9]+$/.test(entrada)) {
+                const idx = parseInt(entrada, 10) - 1
+                if (idx >= 0 && idx < setores.length) setorEscolhido = setores[idx]
+              }
+              // 3) nome do setor contido na mensagem
+              if (!setorEscolhido) {
+                for (const s of setores) {
+                  if (entrada.includes(String(s.getString('nome') || '').toLowerCase())) {
+                    setorEscolhido = s
+                    break
+                  }
+                }
+              }
+            }
+
+            if (setorEscolhido) {
+              conversa.set('setor', setorEscolhido.id)
+              let resposta =
+                (cfg.getString('saudacao') || '') +
+                (cfg.getString('saudacao') ? '\n\n' : '') +
+                (cfg.getString('menu_texto') || '')
+              enviarAuto(resposta.trim())
+            } else {
+              // Resposta inválida — mensagem_invalida configurada (ou setor padrão)
+              const invalida = cfg.getString('mensagem_invalida')
+              if (invalida) {
+                enviarAuto(invalida)
+              } else if (cfg.getString('setor_padrao')) {
+                try {
+                  const padrao = $app.findRecordById(
+                    'wa_chatbot_setores',
+                    cfg.getString('setor_padrao'),
+                  )
+                  conversa.set('setor', padrao.id)
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (errTriagem) {
+        console.log('[RUMO-WHATS] Falha na triagem do chatbot: ' + errTriagem)
       }
     }
 
@@ -208,6 +335,61 @@ routerAdd('POST', '/backend/v1/rumo-whats/webhook', (e) => {
       $app.save(conversa)
     } catch (errConvUpd) {
       console.log('[RUMO-WHATS] Falha ao atualizar conversa: ' + errConvUpd)
+    }
+
+    // 7b. Mensagens automáticas de entrada: boas-vindas / posição na fila (Tela 05)
+    try {
+      let cfgAuto = null
+      try {
+        cfgAuto = $app.findFirstRecordByFilter(
+          'wa_chatbot_config',
+          'tenant_id = {:t} && ativo = true',
+          { t: tenantId },
+        )
+      } catch (_) {}
+      if (cfgAuto && remetenteTipo === 'cliente') {
+        if (conversaNova && cfgAuto.getString('msg_boas_vindas')) {
+          const bv = new Record(msgCol)
+          bv.set('tenant_id', tenantId)
+          bv.set('conversa', conversa.id)
+          bv.set('remetente_tipo', 'sistema')
+          bv.set('conteudo', cfgAuto.getString('msg_boas_vindas'))
+          bv.set('status_envio', 'recebida')
+          $app.save(bv)
+          conversa.set('total_respostas_ia', (conversa.getInt('total_respostas_ia') || 0) + 1)
+        } else if (
+          !conversaNova &&
+          cfgAuto.getBool('fila_ativa') &&
+          cfgAuto.getString('msg_posicao_fila')
+        ) {
+          const qtd = $app.countRecords(
+            'wa_atendimento_conversas',
+            "status = 'aberta' && tenant_id = {:t} && created < {:d}",
+            { t: tenantId, d: conversa.getDateTime('created').string() },
+          )
+          const posicao = (qtd || 0) + 1
+          const texto = String(cfgAuto.getString('msg_posicao_fila')).replace(
+            /\{posicao\}/g,
+            String(posicao),
+          )
+          const pf = new Record(msgCol)
+          pf.set('tenant_id', tenantId)
+          pf.set('conversa', conversa.id)
+          pf.set('remetente_tipo', 'sistema')
+          pf.set('conteudo', texto)
+          pf.set('status_envio', 'recebida')
+          $app.save(pf)
+          conversa.set('total_respostas_ia', (conversa.getInt('total_respostas_ia') || 0) + 1)
+        }
+      }
+    } catch (errAuto) {
+      console.log('[RUMO-WHATS] Falha nas mensagens automáticas: ' + errAuto)
+    }
+
+    try {
+      $app.save(conversa)
+    } catch (errConvAuto) {
+      console.log('[RUMO-WHATS] Falha ao persistir contadores da conversa: ' + errConvAuto)
     }
 
     return e.json(200, {
@@ -296,5 +478,118 @@ routerAdd('POST', '/backend/v1/rumo-whats/fila/{id}/confirmar', (e) => {
   } catch (err) {
     console.log('[RUMO-WHATS] Erro ao confirmar envio: ' + err)
     return e.json(500, { error: (err && err.message) || 'Erro ao confirmar envio' })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Fila de disparos (wa_whats_disparos) — tarefas para o agente externo Elliza
+// (ZAP da ELLIZA desktop). A plataforma NUNCA envia WhatsApp direto: o que ela
+// faz é enfileirar a tarefa; quem executa é o agente externo.
+// ---------------------------------------------------------------------------
+routerAdd('GET', '/backend/v1/rumo-whats/fila-disparos', (e) => {
+  function tokenValido(e) {
+    const token = $os.getenv('WA_WEBHOOK_TOKEN') || ''
+    if (!token) return false
+    const header = e.request.header.get('x-rumo-token') || ''
+    const query = e.request.url().query().get('token') || ''
+    return header === token || query === token
+  }
+
+  try {
+    if (!tokenValido(e)) {
+      return e.unauthorizedError('Token inválido.')
+    }
+    const registros = $app.findRecordsByFilter(
+      'wa_whats_disparos',
+      "status = 'pendente'",
+      'created',
+      50,
+      0,
+    )
+    const itens = []
+    for (const r of registros) {
+      itens.push({
+        id: r.id,
+        tenant_id: r.getString('tenant_id'),
+        transmissao: r.getString('transmissao'),
+        origem: r.getString('origem'),
+        origem_id: r.getString('origem_id'),
+        modulo_origem: r.getString('modulo_origem'),
+        documento_doc: r.getString('documento_doc'),
+        documento_nome: r.getString('documento_nome'),
+        destinatario_nome: r.getString('destinatario_nome'),
+        telefone: r.getString('telefone'),
+        mensagem: r.getString('mensagem'),
+        created: r.getDateTime('created').string(),
+      })
+    }
+    return e.json(200, { itens: itens })
+  } catch (err) {
+    console.log('[RUMO-WHATS] Erro na fila de disparos: ' + err)
+    return e.json(500, { error: (err && err.message) || 'Erro ao listar fila de disparos' })
+  }
+})
+
+routerAdd('POST', '/backend/v1/rumo-whats/fila-disparos/{id}/confirmar', (e) => {
+  function tokenValido(e) {
+    const token = $os.getenv('WA_WEBHOOK_TOKEN') || ''
+    if (!token) return false
+    const header = e.request.header.get('x-rumo-token') || ''
+    const query = e.request.url().query().get('token') || ''
+    return header === token || query === token
+  }
+
+  try {
+    if (!tokenValido(e)) {
+      return e.unauthorizedError('Token inválido.')
+    }
+    const id = e.request.pathValue('id')
+    const body = e.requestInfo().body || {}
+    const disp = $app.findRecordById('wa_whats_disparos', id)
+    if (body.sucesso === false) {
+      disp.set('status', 'falha')
+      if (body.erro) disp.set('erro', String(body.erro))
+    } else {
+      disp.set('status', 'enviada')
+      disp.set('enviada_em', new Date().toISOString())
+      if (body.wamid) disp.set('wamid', body.wamid)
+    }
+    $app.save(disp)
+
+    // Transmissão de origem: contadores e status agregados
+    const transmissaoId = disp.getString('transmissao')
+    if (transmissaoId) {
+      let t = null
+      try {
+        t = $app.findRecordById('wa_whats_transmissoes', transmissaoId)
+      } catch (_) {}
+      if (t) {
+        const enviados = $app.countRecords(
+          'wa_whats_disparos',
+          'transmissao = {:id} && status = "enviada"',
+          { id: transmissaoId },
+        )
+        const falhas = $app.countRecords(
+          'wa_whats_disparos',
+          'transmissao = {:id} && status = "falha"',
+          { id: transmissaoId },
+        )
+        t.set('total_enviados', enviados)
+        t.set('total_falhas', falhas)
+        const total = t.getInt('total_destinatarios') || 0
+        if (enviados + falhas >= total) {
+          t.set('status', falhas > 0 ? 'falha' : 'concluida')
+          t.set('concluida_em', new Date().toISOString())
+        } else {
+          t.set('status', 'em_execucao')
+        }
+        $app.save(t)
+      }
+    }
+
+    return e.json(200, { ok: true, id: id, status: disp.getString('status') })
+  } catch (err) {
+    console.log('[RUMO-WHATS] Erro ao confirmar disparo: ' + err)
+    return e.json(500, { error: (err && err.message) || 'Erro ao confirmar disparo' })
   }
 })
