@@ -94,6 +94,19 @@ export interface WaWhatsTransmissaoRecord {
   expand?: { canal?: WaCanalRecord }
 }
 
+/** Documento a enviar por WhatsApp (Tela 07) — preview para o dialog. */
+export interface DocumentoWhats {
+  tipo: string
+  titulo: string
+  resumo: string
+  /** Id do documento/arquivo na coleção de origem, se houver. */
+  docId?: string
+  /** Id do registro de origem (recibo, guia, fechamento), se houver. */
+  origemId?: string
+  destinatarioNome?: string
+  moduloOrigem: 'pessoal' | 'fiscal' | 'contabil' | 'financeiro'
+}
+
 export interface WaWhatsDisparoRecord {
   id: string
   tenant_id: string

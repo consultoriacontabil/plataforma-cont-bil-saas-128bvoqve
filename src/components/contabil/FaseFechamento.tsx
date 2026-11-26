@@ -14,8 +14,11 @@ import {
   Landmark,
   Loader2,
   Lock,
+  Send,
   TrendingUp,
 } from 'lucide-react'
+import { EnviarWhatsappDialog } from '@/components/rumoWhats/EnviarWhatsappDialog'
+import type { DocumentoWhats } from '@/services/rumoWhats'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -76,6 +79,7 @@ export function FechamentoFase({ tenantId, empresaId, empresaNome, competencia }
   const [balancete, setBalancete] = useState<BalanceteResult | null>(null)
   const [balanco, setBalanco] = useState<BalancoPatrimonial | null>(null)
   const [dreData, setDreData] = useState<Dre | null>(null)
+  const [whatsAberto, setWhatsAberto] = useState(false)
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId) {
@@ -190,6 +194,26 @@ export function FechamentoFase({ tenantId, empresaId, empresaNome, competencia }
     baixarArquivo(`balanco-dre-${competencia}.txt`, linhas.join('\n'))
   }
 
+  const documentoWhats: DocumentoWhats | null =
+    balancete && balancete.itens.length > 0
+      ? {
+          tipo: 'Balancete de verificação',
+          titulo: `Balancete · ${empresaNome} · ${competencia}`,
+          resumo: [
+            `Σ débitos: ${fmt(balancete.totalDebitos)}`,
+            `Σ créditos: ${fmt(balancete.totalCreditos)}`,
+            `Diferença: ${fmt(balancete.diferenca)}`,
+            ...(dreData && dreData.linhas.length > 0
+              ? dreData.linhas
+                  .filter((l) => l.nivel !== 'item')
+                  .map((l) => `${l.descricao}: ${fmt(l.valor)}`)
+              : []),
+          ].join('\n'),
+          destinatarioNome: empresaNome,
+          moduloOrigem: 'contabil',
+        }
+      : null
+
   if (!empresaId) {
     return (
       <Card className="rounded-2xl p-4 text-xs text-slate-500">
@@ -213,6 +237,16 @@ export function FechamentoFase({ tenantId, empresaId, empresaNome, competencia }
           )}
         </h4>
         <div className="flex flex-wrap gap-2">
+          {documentoWhats && tenantId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs rounded-xl gap-1.5 border-[#0FA3A3]/40 text-[#0FA3A3] hover:bg-teal-50"
+              onClick={() => setWhatsAberto(true)}
+            >
+              <Send className="h-3.5 w-3.5" /> Enviar por WhatsApp
+            </Button>
+          )}
           {statusComp !== 'fechado' && (
             <Button
               variant="outline"
@@ -544,6 +578,14 @@ export function FechamentoFase({ tenantId, empresaId, empresaNome, competencia }
           </TabsContent>
         </Tabs>
       )}
+
+      <EnviarWhatsappDialog
+        open={whatsAberto}
+        onOpenChange={setWhatsAberto}
+        tenantId={tenantId}
+        documento={documentoWhats}
+        contexto={`Fechamento contábil · ${competencia}`}
+      />
     </Card>
   )
 }

@@ -59,7 +59,6 @@ export function RumoWhatsTransmissaoTab() {
         nome: novoNome.trim(),
         mensagem: novaMensagem,
         destinatarios,
-        total_destinatarios: destinatarios.length,
       })
       setListas((prev) => [criada, ...prev])
       setNovoNome('')
@@ -234,8 +233,13 @@ export function RumoWhatsTransmissaoTab() {
                   <div>
                     <p className="text-sm font-semibold">{t.nome}</p>
                     <p className="text-xs text-[#64748B]">
-                      {t.total_destinatarios} destinatário(s) · {t.total_enviados || 0} enviados ·{' '}
-                      {t.total_falhas || 0} falhas
+                      {t.destinatarios?.length ?? t.total_destinatarios ?? 0} destinatário(s)
+                      {t.despachada_em
+                        ? ` · despachada em ${new Date(t.despachada_em).toLocaleDateString('pt-BR')}`
+                        : ''}
+                      {t.concluida_em
+                        ? ` · concluída em ${new Date(t.concluida_em).toLocaleDateString('pt-BR')}`
+                        : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

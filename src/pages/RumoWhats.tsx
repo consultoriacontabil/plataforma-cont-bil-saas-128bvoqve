@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   QrCode,
   RefreshCw,
@@ -30,6 +31,10 @@ import type {
 } from '@/types'
 import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { RumoWhatsChatbotTab } from '@/components/rumoWhats/RumoWhatsChatbotTab'
+import { RumoWhatsTransmissaoTab } from '@/components/rumoWhats/RumoWhatsTransmissaoTab'
+import { RumoWhatsConfigTab } from '@/components/rumoWhats/RumoWhatsConfigTab'
+import { RumoWhatsRelatoriosTab } from '@/components/rumoWhats/RumoWhatsRelatoriosTab'
 
 const PRODUTO = 'Rumo Whats'
 const VERSAO_PAINEL = '1.0.0'
@@ -563,8 +568,26 @@ function PainelAtendente() {
 // ---------------------------------------------------------------------------
 // Página /extensao — Rumo Whats
 // ---------------------------------------------------------------------------
+type AbaId = 'atendimento' | 'chatbot' | 'transmissao' | 'configuracoes' | 'relatorios'
+
+const ABAS: { id: AbaId; rotulo: string }[] = [
+  { id: 'atendimento', rotulo: 'Atendimento' },
+  { id: 'chatbot', rotulo: 'Chatbot' },
+  { id: 'transmissao', rotulo: 'Transmissão' },
+  { id: 'configuracoes', rotulo: 'Configurações' },
+  { id: 'relatorios', rotulo: 'Relatórios' },
+]
+
 export default function ExtensaoWhatsAppPage() {
   const { tenant } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const abaParam = searchParams.get('tab') as AbaId | null
+  const aba: AbaId = abaParam && ABAS.some((a) => a.id === abaParam) ? abaParam : 'atendimento'
+
+  const trocarAba = (id: AbaId) => {
+    setSearchParams(id === 'atendimento' ? {} : { tab: id }, { replace: false })
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
@@ -576,8 +599,8 @@ export default function ExtensaoWhatsAppPage() {
           </p>
           <h1 className="text-2xl font-bold tracking-tight text-[#1A2333]">Rumo Whats</h1>
           <p className="text-sm text-[#64748B] mt-1">
-            Atendimento WhatsApp com conexão por QR Code (pareamento de aparelho) e painel do
-            atendente.
+            Atendimento WhatsApp com conexão por QR Code (pareamento de aparelho), painel do
+            atendente, chatbot, transmissão e relatórios.
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-[#64748B]">
@@ -589,9 +612,41 @@ export default function ExtensaoWhatsAppPage() {
         </div>
       </div>
 
-      <ConexaoQrCard />
+      {/* Abas (deep-link ?tab=) */}
+      <div
+        role="tablist"
+        aria-label="Seções do Rumo Whats"
+        className="flex items-center gap-1 border-b border-[#E2E8F0] overflow-x-auto"
+      >
+        {ABAS.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            role="tab"
+            aria-selected={aba === a.id}
+            onClick={() => trocarAba(a.id)}
+            className={cn(
+              'px-3.5 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors focus-visible:outline-2 focus-visible:outline-[#0FA3A3]',
+              aba === a.id
+                ? 'border-[#0FA3A3] text-[#0FA3A3]'
+                : 'border-transparent text-[#64748B] hover:text-[#1A2333]',
+            )}
+          >
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
 
-      <PainelAtendente />
+      {aba === 'atendimento' && (
+        <>
+          <ConexaoQrCard />
+          <PainelAtendente />
+        </>
+      )}
+      {aba === 'chatbot' && <RumoWhatsChatbotTab />}
+      {aba === 'transmissao' && <RumoWhatsTransmissaoTab />}
+      {aba === 'configuracoes' && <RumoWhatsConfigTab />}
+      {aba === 'relatorios' && <RumoWhatsRelatoriosTab />}
 
       <p className="text-[11px] text-[#64748B] border-t pt-3">
         {PRODUTO} v{VERSAO_PAINEL} · Conector: <code>tools/conector-whatsapp</code> (Baileys, QR

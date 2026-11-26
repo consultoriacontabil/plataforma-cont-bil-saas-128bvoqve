@@ -5,7 +5,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, Loader2, ReceiptText, Users } from 'lucide-react'
+import { FileText, Loader2, ReceiptText, Send, Users } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { EnviarWhatsappDialog } from '@/components/rumoWhats/EnviarWhatsappDialog'
+import type { DocumentoWhats } from '@/services/rumoWhats'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -83,11 +86,26 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
     })
   })()
 
+  const [whatsAberto, setWhatsAberto] = useState(false)
+
   const gerencial = pessoalMakro.montarRelatorioGerencial({
     funcionarios,
     folha,
     incluirCbo: exibirCbo,
   })
+
+  const funcRecibo = funcionarios.find((f) => f.id === funcionarioRecibo) || null
+
+  const documentoWhats: DocumentoWhats | null = recibo
+    ? {
+        tipo: 'Recibo de pagamento',
+        titulo: `${recibo.titulo} — ${competencia}`,
+        resumo: recibo.linhas.map((l) => `${l.descricao}: ${formatCurrency(l.valor)}`).join('\n'),
+        origemId: funcRecibo?.id,
+        destinatarioNome: funcRecibo?.nome_completo,
+        moduloOrigem: 'pessoal',
+      }
+    : null
 
   if (!tenantId || !empresaId || empresaId === 'todas') {
     return (
@@ -256,6 +274,17 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
                 ))}
               </SelectContent>
             </Select>
+            {recibo && documentoWhats && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs rounded-xl gap-1.5 border-[#0FA3A3]/40 text-[#0FA3A3] hover:bg-[#0FA3A3]/10"
+                onClick={() => setWhatsAberto(true)}
+              >
+                <Send className="h-3.5 w-3.5" /> Enviar por WhatsApp
+              </Button>
+            )}
           </span>
         </div>
 
@@ -329,6 +358,14 @@ export function FaseRelatorios({ tenantId, empresaId, empresaNome, competencia }
           </div>
         )}
       </Card>
+
+      <EnviarWhatsappDialog
+        open={whatsAberto}
+        onOpenChange={setWhatsAberto}
+        tenantId={tenantId}
+        documento={documentoWhats}
+        contexto={`Recibo de pagamento · ${competencia}`}
+      />
     </div>
   )
 }

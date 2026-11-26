@@ -7,7 +7,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Loader2, Calculator, FileCode2, BarChart3, ExternalLink, Building2 } from 'lucide-react'
+import {
+  Loader2,
+  Calculator,
+  FileCode2,
+  BarChart3,
+  ExternalLink,
+  Building2,
+  Send,
+} from 'lucide-react'
+import { EnviarWhatsappDialog } from '@/components/rumoWhats/EnviarWhatsappDialog'
+import type { DocumentoWhats } from '@/services/rumoWhats'
 import {
   apurarCompetencia,
   carregarApuracao,
@@ -54,9 +64,27 @@ export function ObrigacoesFase({
   const [confirmando, setConfirmando] = useState(false)
   const [apuracao, setApuracao] = useState<ApuracaoResultado | null>(null)
   const [salva, setSalva] = useState<any | null>(null)
+  const [whatsAberto, setWhatsAberto] = useState(false)
 
   const regime = (empresa?.regime_tributario || 'simples_nacional') as EmpresaRegime
   const regimeApuravel = ['simples_nacional', 'lucro_presumido', 'lucro_real'].includes(regime)
+
+  const documentoWhats: DocumentoWhats | null = apuracao
+    ? {
+        tipo: 'Guias da apuração fiscal',
+        titulo: `Apuração ${REGIME_LABEL[regime] || regime} · ${competencia} — ${
+          empresa?.nome_fantasia || empresa?.razao_social || 'Empresa'
+        }`,
+        resumo: apuracao.guias
+          .map(
+            (g) =>
+              `${g.tributo}: ${formatCurrency(g.valor)} (venc. ${g.vencimento}, alíq. ${g.aliquota.toFixed(2)}%)`,
+          )
+          .join('\n'),
+        destinatarioNome: empresa?.nome_fantasia || empresa?.razao_social,
+        moduloOrigem: 'fiscal',
+      }
+    : null
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresa) {
@@ -191,12 +219,25 @@ export function ObrigacoesFase({
         <Card className="rounded-2xl border-[#E2E8F0] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h4 className="text-sm font-bold text-[#1A2333]">Guias da competência</h4>
-            <Badge
-              variant="outline"
-              className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200"
-            >
-              {salva?.status === 'confirmada' ? 'Confirmada' : salva ? 'Rascunho' : 'Prévia'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold bg-slate-50 text-slate-600 border-slate-200"
+              >
+                {salva?.status === 'confirmada' ? 'Confirmada' : salva ? 'Rascunho' : 'Prévia'}
+              </Badge>
+              {tenantId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px] rounded-xl gap-1.5 border-[#0FA3A3]/40 text-[#0FA3A3] hover:bg-teal-50"
+                  onClick={() => setWhatsAberto(true)}
+                >
+                  <Send className="h-3.5 w-3.5" /> Enviar por WhatsApp
+                </Button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
             <MiniStat
@@ -244,6 +285,13 @@ export function ObrigacoesFase({
           <p className="text-[11px] text-slate-400 mt-2">
             As guias são lançamentos da apuração (registro), não emissão real de DAR/boleto.
           </p>
+          <EnviarWhatsappDialog
+            open={whatsAberto}
+            onOpenChange={setWhatsAberto}
+            tenantId={tenantId}
+            documento={documentoWhats}
+            contexto={`Apuração fiscal · ${competencia}`}
+          />
         </Card>
       )}
 

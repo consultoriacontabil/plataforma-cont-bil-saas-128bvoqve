@@ -56,7 +56,14 @@ export function RumoWhatsChatbotTab() {
     if (!tenant?.id || !config) return
     setSalvando(true)
     try {
-      const salvo = await rumoWhatsService.salvarChatbotConfig(tenant.id, config)
+      const salvo = await rumoWhatsService.salvarChatbotConfig(tenant.id, config, {
+        saudacao: config.saudacao,
+        menu_texto: config.menu_texto,
+        mensagem_invalida: config.mensagem_invalida,
+        ativo: !!config.ativo,
+        roteamento_modo: config.roteamento_modo,
+        setor_padrao: config.setor_padrao,
+      })
       setConfig(salvo)
       toast({ title: 'Chatbot salvo', description: 'Triagem ativa para novas conversas.' })
     } catch (err) {
