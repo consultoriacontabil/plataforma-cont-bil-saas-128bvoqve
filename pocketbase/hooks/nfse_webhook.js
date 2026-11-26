@@ -153,6 +153,53 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
           $app.save(audit)
         } catch (_) {}
 
+        // Retorno da emissão vira TAREFA na fila do Rumo Whats (wa_whats_disparos):
+        // confirmação + número da nota + link do PDF. Nunca envio direto —
+        // o conector Baileys/QR do escritório despacha lendo a fila.
+        try {
+          let telefoneDestino = ''
+          let contatoNome = ''
+          if (solicitacaoRec) {
+            const jid = solicitacaoRec.getString('origem_chat_jid') || ''
+            telefoneDestino = (solicitacaoRec.getString('contato_telefone') || '').replace(
+              /\D/g,
+              '',
+            )
+            contatoNome = solicitacaoRec.getString('contato_nome') || ''
+            if (!telefoneDestino && jid.includes('@')) {
+              telefoneDestino = jid.split('@')[0].replace(/\D/g, '')
+            }
+          }
+          if (telefoneDestino) {
+            const urlPdf =
+              (invoice.pdf && (invoice.pdf.url || invoice.pdf)) ||
+              invoice.uri ||
+              (notaRec && notaRec.getString('url_consulta_nfse')) ||
+              ''
+            const msgEmitida =
+              'Sua NFS-e foi emitida com sucesso! ✅\n' +
+              'Nota nº ' +
+              (numeroNota || (notaRec && notaRec.getInt('numero_nota')) || '-') +
+              '\n' +
+              'Código de verificação: ' +
+              (checkCode || (notaRec && notaRec.getString('codigo_verificacao')) || '-') +
+              (urlPdf ? '\nPDF/XML da nota: ' + urlPdf : '')
+            const disp = new Record($app.findCollectionByNameOrId('wa_whats_disparos'))
+            disp.set('tenant_id', tenantId)
+            disp.set('origem', 'documento')
+            disp.set('modulo_origem', 'atendimento')
+            disp.set('documento_nome', 'Atendimento NFS-e — confirmação de emissão')
+            if (solicitacaoRec) disp.set('origem_id', solicitacaoRec.id)
+            disp.set('destinatario_nome', contatoNome)
+            disp.set('telefone', telefoneDestino)
+            disp.set('mensagem', msgEmitida)
+            disp.set('status', 'pendente')
+            $app.save(disp)
+          }
+        } catch (errDisp) {
+          console.log('[NFEIO-WEBHOOK] Falha ao enfileirar confirmação Rumo Whats:', errDisp)
+        }
+
         return e.json(200, {
           status: 'processado',
           action: 'issued_successfully',
