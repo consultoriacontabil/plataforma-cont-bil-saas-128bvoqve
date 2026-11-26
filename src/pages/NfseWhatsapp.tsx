@@ -67,7 +67,7 @@ import type {
   ElisaEvidenciaRecord,
 } from '@/services/elisaOpsService'
 import { maskCnpj, maskCpf, formatDatePtBr, formatDateTimePtBr } from '@/lib/formatters'
-import { PlayCircle, ShieldAlert, FileText as FileTextIcon } from 'lucide-react'
+import { Bot, PlayCircle, ShieldAlert, FileText as FileTextIcon } from 'lucide-react'
 
 // Subcomponentes modais
 import { NfseAprovacaoModal } from '@/components/NfseAprovacaoModal'
@@ -76,15 +76,13 @@ import { NfseChatLogModal } from '@/components/NfseChatLogModal'
 import { NfseVisualizadorModal } from '@/components/NfseVisualizadorModal'
 import { Link } from 'react-router-dom'
 import { NfseCancelamentoModal } from '@/components/NfseCancelamentoModal'
-import { WhatsAppAgentTab } from '@/components/WhatsAppAgentTab'
-import { Bot } from 'lucide-react'
 
 export default function NfseWhatsappPage() {
   const { tenant, user } = useAuth()
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<
-    'esteira_elliza' | 'modo_humano' | 'supervisao' | 'historico' | 'agente'
+    'esteira_elliza' | 'modo_humano' | 'supervisao' | 'historico'
   >('esteira_elliza')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -686,12 +684,6 @@ export default function NfseWhatsappPage() {
             <Badge variant="outline" className="text-[10px] ml-1 px-1.5 py-0 h-4">
               {totalEmitidas}
             </Badge>
-          </TabsTrigger>
-
-          <TabsTrigger value="agente" className="text-xs font-semibold rounded-lg gap-2">
-            <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
-            Agente IA (WhatsApp)
-            <Badge className="bg-teal-500 text-white text-[9px] px-1.5 py-0 h-4">NATIVO</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -1731,19 +1723,6 @@ export default function NfseWhatsappPage() {
               </Table>
             </div>
           </Card>
-        </TabsContent>
-
-        {/* ABA 3: AGENTE IA NO WHATSAPP (NATIVE SKIP CLOUD AGENT) */}
-        <TabsContent value="agente" className="pt-2">
-          {tenant && (
-            <WhatsAppAgentTab
-              config={config}
-              empresas={empresas}
-              tenantId={tenant.id}
-              user={user}
-              onConfigUpdated={() => loadData(true)}
-            />
-          )}
         </TabsContent>
       </Tabs>
 
