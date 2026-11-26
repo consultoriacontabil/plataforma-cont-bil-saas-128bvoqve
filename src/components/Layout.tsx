@@ -190,7 +190,7 @@ export default function Layout() {
     if (path.startsWith('/pop-treinamento')) return 'POP & Treinamento Elliza'
     if (path.startsWith('/portal-acessos')) return 'Gestão de Acessos ao Portal'
     if (path.startsWith('/relatorios')) return 'Relatórios Gerenciais'
-    if (path.startsWith('/extensao')) return 'Extensão WhatsApp Web'
+    if (path.startsWith('/extensao')) return 'Rumo Whats — atendimento com conexão por QR'
     if (path.startsWith('/lote')) return 'Processamento em Lote Multi-Empresas'
     if (path.startsWith('/parametros-normativos')) return 'Motor de Cálculo & Parâmetros Normativos'
     if (path.startsWith('/integracao')) return 'Painel de Integração do Tripé'
@@ -327,7 +327,7 @@ export default function Layout() {
         { label: 'Portal do Cliente', to: '/portal-acessos', icon: Users },
         { label: 'Manual de Ativação', to: '/manual', icon: BookOpen },
         { label: 'POP / Treinamento', to: '/pop-treinamento', icon: HelpCircle, badge: 'Elliza' },
-        { label: 'Extensão WhatsApp', to: '/extensao', icon: MessageSquare },
+        { label: 'Rumo Whats', to: '/extensao', icon: MessageSquare },
         { label: 'Contratos & Propostas', to: '/contratos', icon: FileCheck },
         { label: 'Relatórios Gerenciais', to: '/relatorios', icon: Layers },
         ...(!isCliente ? [{ label: 'Usuários & Perfis', to: '/usuarios', icon: Users }] : []),

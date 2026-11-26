@@ -1,0 +1,17 @@
+{
+  "name": "conector-rumo-whats",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Conector Rumo Whats — sessão WhatsApp pareada por QR Code (Baileys). Roda na máquina do escritório, fora do Skip Cloud.",
+  "main": "conector-whatsapp.js",
+  "scripts": {
+    "start": "node conector-whatsapp.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "express": "^4.21.2",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
+  }
+}

@@ -2066,7 +2066,33 @@ export type MotivoEscalonamentoWa =
   | 'outro'
 
 export type RemetenteTipoWa = 'cliente' | 'ia' | 'humano' | 'sistema'
-export type StatusEnvioWa = 'sugerida_ia' | 'enviada' | 'pendente_aprovacao' | 'rejeitada_contador'
+export type StatusEnvioWa =
+  | 'sugerida_ia'
+  | 'pendente'
+  | 'enviada'
+  | 'pendente_aprovacao'
+  | 'rejeitada_contador'
+  | 'falha'
+  | 'recebida'
+
+export type StatusWaCanal = 'aguardando_qr' | 'conectado' | 'desconectado' | 'desativado'
+export type ModoWaCanal = 'qr' | 'api_oficial' | 'evolution'
+
+export interface WaCanalRecord extends RecordModel {
+  tenant_id: string
+  nome: string
+  telefone: string
+  modo: ModoWaCanal
+  status: StatusWaCanal
+  finalidade?: string
+  conector_url?: string
+  numero_pareado?: string
+  conectado_em?: string
+  ultimo_erro?: string
+  expand?: {
+    tenant_id?: Tenant
+  }
+}
 
 export interface WaAtendimentoConversaRecord extends RecordModel {
   tenant_id: string
@@ -2099,10 +2125,14 @@ export interface WaAtendimentoMensagemRecord extends RecordModel {
   status_envio?: StatusEnvioWa
   aprovado_por?: string
   mensagem_id_externo?: string
+  wamid?: string
+  mensagem_apagada?: boolean
+  canal?: string
   citacoes_json?: any[]
   tools_executadas_json?: any[]
   expand?: {
     aprovado_por?: User
+    canal?: WaCanalRecord
   }
 }
 
