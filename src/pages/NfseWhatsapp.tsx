@@ -74,7 +74,7 @@ import { NfseAprovacaoModal } from '@/components/NfseAprovacaoModal'
 import { NfseRejeicaoModal } from '@/components/NfseRejeicaoModal'
 import { NfseChatLogModal } from '@/components/NfseChatLogModal'
 import { NfseVisualizadorModal } from '@/components/NfseVisualizadorModal'
-import { NfseConfigTab } from '@/components/NfseConfigTab'
+import { Link } from 'react-router-dom'
 import { NfseCancelamentoModal } from '@/components/NfseCancelamentoModal'
 import { WhatsAppAgentTab } from '@/components/WhatsAppAgentTab'
 import { Bot } from 'lucide-react'
@@ -84,7 +84,7 @@ export default function NfseWhatsappPage() {
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<
-    'esteira_elliza' | 'modo_humano' | 'supervisao' | 'historico' | 'agente' | 'config'
+    'esteira_elliza' | 'modo_humano' | 'supervisao' | 'historico' | 'agente'
   >('esteira_elliza')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -588,7 +588,7 @@ export default function NfseWhatsappPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#1A2333]">{totalRecebidas}</div>
-            <p className="text-[11px] text-[#94A3B8] mt-1">Via Webhook Evolution / Baileys</p>
+            <p className="text-[11px] text-[#94A3B8] mt-1">Via conector Rumo Whats (Baileys)</p>
           </CardContent>
         </Card>
 
@@ -692,11 +692,6 @@ export default function NfseWhatsappPage() {
             <Bot className="h-3.5 w-3.5 text-[#0FA3A3]" />
             Agente IA (WhatsApp)
             <Badge className="bg-teal-500 text-white text-[9px] px-1.5 py-0 h-4">NATIVO</Badge>
-          </TabsTrigger>
-
-          <TabsTrigger value="config" className="text-xs font-semibold rounded-lg gap-2">
-            <Settings className="h-3.5 w-3.5" />
-            Configuração do Canal
           </TabsTrigger>
         </TabsList>
 
@@ -1750,21 +1745,29 @@ export default function NfseWhatsappPage() {
             />
           )}
         </TabsContent>
-
-        {/* ABA 4: CONFIGURAÇÃO DO CANAL WHATSAPP */}
-        <TabsContent value="config" className="pt-2">
-          {tenant && (
-            <NfseConfigTab
-              config={config}
-              empresas={empresas}
-              tenantId={tenant.id}
-              onRefresh={() => loadData(true)}
-              currentUserId={user?.id}
-              canEdit={canEmit}
-            />
-          )}
-        </TabsContent>
       </Tabs>
+
+      {/* Canal unificado: a configuração do canal WhatsApp migrou para o Rumo Whats */}
+      <Card className="rounded-2xl border-[#E2E8F0] shadow-xs bg-teal-50/40">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-bold text-[#1A2333] flex items-center gap-2">
+            <Settings className="h-4 w-4 text-[#0FA3A3]" />
+            Configuração do Canal unificada no Rumo Whats
+          </CardTitle>
+          <CardDescription>
+            O canal WhatsApp agora é único: conector próprio Rumo Whats (Baileys/QR). A Evolution
+            API foi descartada — as credenciais de canal não são mais configuradas aqui.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild size="sm" className="gap-1.5">
+            <Link to="/extensao?tab=configuracoes">
+              Abrir Rumo Whats
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Modais Operacionais */}
       <NfseAprovacaoModal

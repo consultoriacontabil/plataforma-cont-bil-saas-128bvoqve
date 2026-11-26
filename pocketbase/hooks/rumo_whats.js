@@ -296,6 +296,87 @@ routerAdd('POST', '/backend/v1/rumo-whats/webhook', (e) => {
       }
     }
 
+    // 5c. Setor "Emitir NFS-e" — unificação com a NFS-e WhatsApp: garante o setor
+    //     no chatbot e roteia mensagens de nota fiscal para o pipeline fiscal
+    //     (nfse_solicitacoes, POP-10) em vez de virar conversa genérica.
+    if (remetenteTipo === 'cliente') {
+      try {
+        const ehNfse =
+          /nota\s*fiscal|nfs-?\s?e|\bnfse\b|\bnota\b|faturar|danfse|emitir\s+n(ot|f)/i.test(
+            conteudo,
+          )
+        let setorNfse = null
+        try {
+          setorNfse = $app.findFirstRecordByFilter(
+            'wa_chatbot_setores',
+            'tenant_id = {:t} && nome = {:n}',
+            { t: tenantId, n: 'Emitir NFS-e' },
+          )
+        } catch (_) {}
+
+        if (!setorNfse) {
+          setorNfse = new Record($app.findCollectionByNameOrId('wa_chatbot_setores'))
+          setorNfse.set('tenant_id', tenantId)
+          setorNfse.set('nome', 'Emitir NFS-e')
+          setorNfse.set(
+            'descricao',
+            'Pipeline fiscal POP-10: emissão de NFS-e com supervisão contábil.',
+          )
+          setorNfse.set(
+            'palavras_chave',
+            'nota, nfs-e, nfse, nota fiscal, emitir nota, faturar, danfse',
+          )
+          setorNfse.set('ordem', 90)
+          setorNfse.set('ativo', true)
+          setorNfse.set('escalonar_ia', true)
+          $app.save(setorNfse)
+        }
+
+        if (ehNfse) {
+          conversa.set('setor', setorNfse.id)
+
+          const perguntaTomador =
+            'Perfeito! Para emitirmos sua NFS-e, preciso dos dados do tomador:\n' +
+            '1) Nome do tomador\n' +
+            '2) CPF ou CNPJ\n' +
+            '3) E-mail para envio da nota (opcional)\n' +
+            '4) Valor e descrição do serviço\n\n' +
+            'Assim que você enviar, nossa equipe fiscal confere e emite a nota.'
+
+          // Entra no pipeline fiscal (mesma fila vista em /nfse-whatsapp)
+          let solicitacaoNfseId = ''
+          try {
+            const solNfse = new Record($app.findCollectionByNameOrId('nfse_solicitacoes'))
+            solNfse.set('tenant_id', tenantId)
+            solNfse.set('contato_nome', contatoNome || 'Cliente WhatsApp')
+            solNfse.set('contato_telefone', telefone)
+            solNfse.set('origem_chat_jid', chatJid)
+            solNfse.set('mensagem_original', conteudo)
+            solNfse.set('status', 'em_analise')
+            $app.save(solNfse)
+            solicitacaoNfseId = solNfse.id
+          } catch (errSol) {
+            console.log('[RUMO-WHATS] Falha ao criar solicitacao NFS-e: ' + errSol)
+          }
+
+          // A pergunta ao tomador vai como disparo pendente (nunca envio direto)
+          const dispNfse = new Record($app.findCollectionByNameOrId('wa_whats_disparos'))
+          dispNfse.set('tenant_id', tenantId)
+          dispNfse.set('origem', 'documento')
+          dispNfse.set('modulo_origem', 'atendimento')
+          dispNfse.set('documento_nome', 'Triagem NFS-e — pergunta ao tomador')
+          if (solicitacaoNfseId) dispNfse.set('origem_id', solicitacaoNfseId)
+          dispNfse.set('destinatario_nome', contatoNome || '')
+          dispNfse.set('telefone', telefone)
+          dispNfse.set('mensagem', perguntaTomador)
+          dispNfse.set('status', 'pendente')
+          $app.save(dispNfse)
+        }
+      } catch (errNfse) {
+        console.log('[RUMO-WHATS] Falha no setor Emitir NFS-e: ' + errNfse)
+      }
+    }
+
     // 6. Mensagem definitiva vinculada à conversa
     const mensagem = new Record(msgCol)
     mensagem.set('tenant_id', tenantId)

@@ -367,64 +367,35 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
     $app.save(msgCliente)
 
     // Helper: Enviar resposta via Evolution API se configurada
-    const despacharWhatsapp = (textoParaEnviar) => {
-      let evoUrl = configRec.getString('evolution_api_url')
-      const evoInstance = configRec.getString('evolution_instance')
-
-      // A chave da Evolution vive cifrada no cofre desde a 0140; o campo
-      // guarda apenas __COFRE__. Decifra em memoria — nunca logar o valor.
-      const evoKey = (() => {
-        const bruto = configRec.getString('evolution_api_key')
-        if (bruto && bruto !== '__COFRE__') return bruto
-        const chaveCofre = $secrets.get('CREDENTIALS_VAULT_KEY')
-        if (!chaveCofre) return ''
-        try {
-          const linhas = $app.findRecordsByFilter(
-            'credenciais_cofre',
-            'escopo = {:e} && registro_id = {:r} && campo = {:c}',
-            '',
-            1,
-            0,
-            { e: 'nfse_config', r: configRec.id, c: 'evolution_api_key' },
-          )
-          if (linhas.length === 0) return ''
-          return $security.decrypt(
-            linhas[0].getString('ciphertext').replace(/^v1:/, ''),
-            chaveCofre,
-          )
-        } catch (_) {
-          return ''
-        }
-      })()
+    // A plataforma NUNCA envia WhatsApp direto (Evolution API descartada por
+    // decisão do usuário). Toda resposta vira uma TAREFA em wa_whats_disparos
+    // (origem 'documento', módulo 'atendimento'), executada pelo conector
+    // Rumo Whats (Baileys/QR) via GET /backend/v1/rumo-whats/fila-disparos.
+    const enfileirarDisparoRumoWhats = (textoParaEnviar) => {
       let destinatario = remoteJid
       if (!destinatario || !destinatario.includes('@')) {
         if (telefoneLimpo) destinatario = telefoneLimpo + '@s.whatsapp.net'
       }
-
-      if (evoUrl && evoKey && evoInstance && destinatario) {
-        if (evoUrl.endsWith('/')) evoUrl = evoUrl.slice(0, -1)
-        try {
-          const sendEndpoint = evoUrl + '/message/sendText/' + encodeURIComponent(evoInstance)
-          $http.send({
-            url: sendEndpoint,
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: evoKey,
-            },
-            body: JSON.stringify({
-              number: destinatario,
-              text: textoParaEnviar,
-              options: { delay: 1000, presence: 'composing' },
-            }),
-            timeout: 12,
-          })
-          return 'enviado_real'
-        } catch (errEvo) {
-          console.log('[NFSE-WEBHOOK] Fallback gracioso: Evolution API offline:', errEvo)
-        }
+      const telefoneDestino = (destinatario || '').replace('@s.whatsapp.net', '').replace(/\D/g, '')
+      if (!telefoneDestino) return 'sem_destinatario'
+      try {
+        const dispCol = $app.findCollectionByNameOrId('wa_whats_disparos')
+        const disp = new Record(dispCol)
+        disp.set('tenant_id', tenantId)
+        disp.set('origem', 'documento')
+        disp.set('modulo_origem', 'atendimento')
+        disp.set('documento_nome', 'Atendimento NFS-e — resposta ao cliente')
+        disp.set('origem_id', configRec.id)
+        disp.set('destinatario_nome', pushName || '')
+        disp.set('telefone', telefoneDestino)
+        disp.set('mensagem', textoParaEnviar)
+        disp.set('status', 'pendente')
+        $app.save(disp)
+        return 'enfileirado_rumo_whats'
+      } catch (errDisp) {
+        console.log('[NFSE-WEBHOOK] Falha ao enfileirar disparo Rumo Whats:', errDisp)
+        return 'falha_enfileiramento'
       }
-      return 'simulado_sem_servidor'
     }
 
     // 3. DETECTAR SE É ATO FISCAL (PEDIDO DE EMISSÃO DE NFS-E OU AÇÃO FISCAL)
@@ -687,8 +658,8 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
         $app.save(notif)
       } catch (_) {}
 
-      // Despacho no WhatsApp
-      const evoStatus = despacharWhatsapp(msgRecebimentoTexto)
+      // Despacho no WhatsApp — tarefa na fila do Rumo Whats (nunca envio direto)
+      const evoStatus = enfileirarDisparoRumoWhats(msgRecebimentoTexto)
 
       return e.json(200, {
         status: 'sucesso',
@@ -786,7 +757,7 @@ routerAdd('POST', '/backend/v1/nfse/webhook/{token}', (e) => {
 
     let evoDispatch = 'supervisionado_pendente'
     if (deveEnviarAutomatico) {
-      evoDispatch = despacharWhatsapp(respostaAgenteTexto)
+      evoDispatch = enfileirarDisparoRumoWhats(respostaAgenteTexto)
       conversaRec.set('status', 'resolvida_ia')
       conversaRec.set('total_respostas_ia', (conversaRec.getInt('total_respostas_ia') || 0) + 1)
     } else {

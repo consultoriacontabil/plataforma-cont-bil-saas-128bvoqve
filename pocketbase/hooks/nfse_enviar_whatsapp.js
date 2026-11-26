@@ -51,79 +51,52 @@ routerAdd(
       solRec.set('historico_mensagens_json', historico)
       $app.save(solRec)
 
-      // Se houver Evolution API configurada, tentar envio real
-      let enviadoReal = false
-      let respostaEvo = null
-      let detalheEnvio = ''
-
-      if (configRec) {
-        let evoUrl = configRec.getString('evolution_api_url')
-        const evoKey = configRec.getString('evolution_api_key')
-        const evoInstance = configRec.getString('evolution_instance')
-
+      // A plataforma NUNCA envia WhatsApp direto (Evolution API descartada por
+      // decisão do usuário). A mensagem vira TAREFA em wa_whats_disparos
+      // (origem 'documento'), executada pelo conector Rumo Whats (Baileys/QR)
+      // via GET /backend/v1/rumo-whats/fila-disparos.
+      let statusEnfileiramento = ''
+      try {
         // Destinatário pode ser o JID salvo ou o telefone sanitizado
         let destinatario = solRec.getString('origem_chat_jid')
         if (!destinatario || !destinatario.includes('@')) {
           const tel = (solRec.getString('contato_telefone') || '').replace(/\D/g, '')
-          if (tel) {
-            destinatario = tel.includes('@') ? tel : tel + '@s.whatsapp.net'
-          }
+          if (tel) destinatario = tel + '@s.whatsapp.net'
         }
+        const telefoneDestino = (destinatario || '')
+          .replace('@s.whatsapp.net', '')
+          .replace(/\D/g, '')
 
-        if (evoUrl && evoKey && evoInstance && destinatario) {
-          if (evoUrl.endsWith('/')) evoUrl = evoUrl.slice(0, -1)
-          try {
-            const sendEndpoint = evoUrl + '/message/sendText/' + encodeURIComponent(evoInstance)
-            const resp = $http.send({
-              url: sendEndpoint,
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                apikey: evoKey,
-              },
-              body: JSON.stringify({
-                number: destinatario,
-                text: mensagemTexto,
-                options: {
-                  delay: 800,
-                  presence: 'composing',
-                  linkPreview: true,
-                },
-              }),
-              timeout: 12,
-            })
-
-            if (resp.statusCode >= 200 && resp.statusCode < 300) {
-              enviadoReal = true
-              respostaEvo = resp.json
-              detalheEnvio =
-                'Mensagem despachada com sucesso para o WhatsApp real via Evolution API'
-            } else {
-              detalheEnvio =
-                'Evolution API retornou status ' + resp.statusCode + ': ' + (resp.rawText || '')
-            }
-          } catch (errHttp) {
-            detalheEnvio =
-              'Falha ao conectar com servidor Evolution API: ' +
-              (errHttp.message || String(errHttp))
-            console.log(
-              '[NFSE-ENVIO-WA] Servidor Evolution indisponível, fallback para simulação controlada:',
-              errHttp,
-            )
-          }
+        if (!telefoneDestino) {
+          statusEnfileiramento = 'sem_destinatario'
         } else {
-          detalheEnvio =
-            'Evolution API não configurada neste tenant — mensagem registrada internamente'
+          const disp = new Record($app.findCollectionByNameOrId('wa_whats_disparos'))
+          disp.set('tenant_id', tenantId)
+          disp.set('origem', 'documento')
+          disp.set('modulo_origem', 'atendimento')
+          disp.set('documento_nome', 'Atendimento NFS-e — mensagem do escritório')
+          disp.set('origem_id', solRec.id)
+          disp.set('destinatario_nome', solRec.getString('contato_nome') || '')
+          disp.set('telefone', telefoneDestino)
+          disp.set('mensagem', mensagemTexto)
+          disp.set('status', 'pendente')
+          $app.save(disp)
+          statusEnfileiramento = 'enfileirado_rumo_whats'
         }
+      } catch (errDisp) {
+        console.log('[NFSE-ENVIO-WA] Falha ao enfileirar disparo Rumo Whats:', errDisp)
+        statusEnfileiramento = 'falha_enfileiramento'
       }
 
       return e.json(200, {
         status: 'sucesso',
-        enviado_real: enviadoReal,
-        modo: enviadoReal ? 'evolution_api_real' : 'simulado_registrado',
+        enfileirado: statusEnfileiramento === 'enfileirado_rumo_whats',
+        modo: 'fila_rumo_whats',
         mensagem: mensagemTexto,
-        detalhe: detalheEnvio,
-        resposta_evolution: respostaEvo,
+        detalhe:
+          statusEnfileiramento === 'enfileirado_rumo_whats'
+            ? 'Mensagem enfileirada em wa_whats_disparos — será despachada pelo conector Rumo Whats'
+            : 'Não foi possível enfileirar (' + statusEnfileiramento + ')',
         data: agora,
       })
     } catch (err) {
